@@ -1,0 +1,1200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  HR
+  ACCOUNTS
+  COORDINATOR
+  MANAGER
+  CLIENT
+  EMPLOYEE
+}
+
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum WorkerStatus {
+  ACTIVE
+  AVAILABLE
+  ON_LEAVE
+  SUSPENDED
+  DEMOBILIZED
+  RESIGNED
+  TERMINATED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  ENDED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+}
+
+enum UploadSource {
+  MANUAL
+  EXCEL
+  CSV
+}
+
+enum TimesheetStatus {
+  UPLOADED
+  PENDING_REVIEW
+  APPROVED
+  LOCKED
+  REJECTED
+}
+
+enum TimesheetItemStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PayrollStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  PAID
+  PARTIALLY_PAID
+}
+
+enum PayrollItemType {
+  REGULAR_HOURS
+  OVERTIME
+  ALLOWANCE
+  BONUS
+  ADVANCE_DEDUCTION
+  LOAN_DEDUCTION
+  LEAVE_DEDUCTION
+  OTHER_DEDUCTION
+}
+
+enum SalaryAdjustmentType {
+  BONUS
+  DEDUCTION
+  CORRECTION
+}
+
+enum WorkerPaymentType {
+  SALARY
+  ADVANCE
+  LOAN
+  SETTLEMENT
+  ADJUSTMENT
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum RepayableStatus {
+  ACTIVE
+  FULLY_REPAID
+  WRITTEN_OFF
+}
+
+enum ExpenseCategory {
+  TRANSPORT
+  ACCOMMODATION
+  RECRUITMENT
+  TRAVEL
+  MEDICAL
+  WORKER
+  SITE
+  OFFICE
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  APPROVED
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum CommissionType {
+  PERCENT_OF_SALES
+  PERCENT_OF_INVOICE
+  PERCENT_OF_PROFIT
+  PER_WORKER
+  PER_HOUR
+  FIXED_AMOUNT
+}
+
+enum CommissionStatus {
+  DRAFT
+  APPROVED
+  PAYABLE
+  PAID
+}
+
+// ---------------------------------------------------------------------------
+// Identity & access
+//
+// RBAC is enforced in code (src/server/rbac.ts: a Role -> Resource -> Action
+// matrix, checked server-side on every action/query) rather than as dynamic
+// roles/permissions tables. With a fixed, well-specified set of 8 roles and
+// no stated need for admin-configurable permissions at runtime, a DB-driven
+// permission graph would add real complexity (request-time lookups, cache
+// invalidation, an admin UI to manage it) without a clear benefit over a
+// reviewable, type-checked, zero-latency code matrix. AuditLog remains the
+// authoritative "who did what" trail; this is a deliberate simplification,
+// easy to revisit if the company later needs runtime-configurable roles.
+// ---------------------------------------------------------------------------
+
+// Credentials-based auth (JWT session strategy — Auth.js does not support
+// database sessions with a Credentials provider). No Account/Session tables
+// are needed unless an OAuth provider is added later.
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  role         Role
+  status       EntityStatus @default(ACTIVE)
+
+  // Scopes a COORDINATOR-role user to their own coordinator record,
+  // and a CLIENT-role user to their own client portal data.
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+  clientId      String?
+  client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uploadedDocuments  WorkerDocument[]
+  createdAssignments Assignment[]
+  auditLogs          AuditLog[]
+
+  @@index([role])
+}
+
+model Coordinator {
+  id     String       @id @default(cuid())
+  name   String
+  phone  String?
+  email  String?
+  status EntityStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           User[]
+  workers         Worker[]
+  assignments     Assignment[]
+  employees       InternalEmployee[]
+  sales           Sale[]
+  commissionRules CommissionRule[]
+  commissions     Commission[]
+}
+
+// ---------------------------------------------------------------------------
+// Client hierarchy: Client -> Project -> Site
+// ---------------------------------------------------------------------------
+
+model Client {
+  id            String       @id @default(cuid())
+  companyName   String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  contractRef   String?
+  paymentTerms  String?
+  billingTerms  String?
+  status        EntityStatus @default(ACTIVE)
+  deletedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects    Project[]
+  assignments Assignment[]
+  users       User[]
+  contacts    ClientContact[]
+  contracts   ClientContract[]
+  expenses    Expense[]
+  invoices    Invoice[]
+  payments    ClientPayment[]
+  sales       Sale[]
+
+  @@index([status])
+}
+
+model ClientContact {
+  id           String  @id @default(cuid())
+  clientId     String
+  client       Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name         String
+  designation  String?
+  phone        String?
+  email        String?
+  isPrimary    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+model ClientContract {
+  id              String       @id @default(cuid())
+  clientId        String
+  client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contractNumber  String?
+  startDate       DateTime?
+  endDate         DateTime?
+  terms           String?      @db.Text
+  documentUrl     String?
+  status          EntityStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+model Project {
+  id        String       @id @default(cuid())
+  clientId  String
+  client    Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  name      String
+  status    EntityStatus @default(ACTIVE)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sites       Site[]
+  assignments Assignment[]
+  invoices    Invoice[]
+
+  @@index([clientId])
+}
+
+model Site {
+  id        String       @id @default(cuid())
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  name      String
+  location  String?
+  status    EntityStatus @default(ACTIVE)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments  Assignment[]
+  timesheets   Timesheet[]
+  expenses     Expense[]
+  invoiceItems InvoiceItem[]
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Shared lookups
+// ---------------------------------------------------------------------------
+
+model Designation {
+  id     String       @id @default(cuid())
+  title  String       @unique
+  status EntityStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workers   Worker[]
+  employees InternalEmployee[]
+}
+
+model Department {
+  id     String       @id @default(cuid())
+  name   String       @unique
+  status EntityStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees InternalEmployee[]
+}
+
+model Holiday {
+  id   String   @id @default(cuid())
+  date DateTime @unique
+  name String
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+// ---------------------------------------------------------------------------
+// Worker master
+// ---------------------------------------------------------------------------
+
+model Worker {
+  id          String @id @default(cuid())
+  sequenceNo  Int    @unique @default(autoincrement())
+  iqamaNumber String @unique
+
+  fullName           String
+  mobile             String?
+  passportNumber     String?
+  nationality        String?
+  dateOfBirth        DateTime?
+  designationId      String?
+  designation        Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  skillCategory      String?
+  joiningDate        DateTime?
+  mobilizationDate   DateTime?
+  demobilizationDate DateTime?
+
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+
+  hourlyRate   Decimal? @db.Decimal(14, 2)
+  overtimeRate Decimal? @db.Decimal(14, 2)
+
+  status WorkerStatus @default(AVAILABLE)
+
+  bankName        String?
+  bankAccountIban String?
+  notes           String? @db.Text
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  assignments    Assignment[]
+  documents      WorkerDocument[]
+  statusHistory  WorkerStatusHistory[]
+  timesheetItems TimesheetItem[]
+  payrollRows    WorkerPayroll[]
+  payments       WorkerPayment[]
+  advances       Advance[]
+  loans          Loan[]
+  leaveBalances  LeaveBalance[]
+  leaveRequests  LeaveRequest[]
+  expenses       Expense[]
+  invoiceItems   InvoiceItem[]
+  salaryAdjustments SalaryAdjustment[]
+
+  @@index([status])
+  @@index([coordinatorId])
+  @@index([fullName])
+  @@index([designationId])
+}
+
+model WorkerStatusHistory {
+  id            String       @id @default(cuid())
+  workerId      String
+  worker        Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  previousStatus WorkerStatus?
+  newStatus     WorkerStatus
+  reason        String?
+  changedById   String?
+  changedAt     DateTime     @default(now())
+
+  @@index([workerId])
+}
+
+model WorkerDocument {
+  id       String @id @default(cuid())
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  fileName String
+  fileUrl  String
+  fileType String?
+
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedAt   DateTime @default(now())
+
+  @@index([workerId])
+}
+
+// ---------------------------------------------------------------------------
+// Assignment: Worker <-> Client/Project/Site, rate pair, historical record
+// ---------------------------------------------------------------------------
+
+model Assignment {
+  id String @id @default(cuid())
+
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Restrict)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  siteId String
+  site   Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+  designation String?
+
+  workerHourlyRate  Decimal @db.Decimal(14, 2)
+  clientBillingRate Decimal @db.Decimal(14, 2)
+
+  startDate DateTime
+  endDate   DateTime?
+
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+
+  status AssignmentStatus @default(ACTIVE)
+  notes  String?
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timesheetItems TimesheetItem[]
+
+  @@index([workerId])
+  @@index([clientId])
+  @@index([siteId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Internal employee HR — separate from manpower Workers (§15). Fixed/monthly
+// salary payroll, not hourly, and never mixed with worker payroll.
+// ---------------------------------------------------------------------------
+
+model InternalEmployee {
+  id         String @id @default(cuid())
+  sequenceNo Int    @unique @default(autoincrement())
+
+  fullName      String
+  email         String?
+  phone         String?
+  departmentId  String?
+  department    Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designationId String?
+  designation   Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  joiningDate   DateTime?
+
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+
+  baseSalary Decimal @db.Decimal(14, 2)
+
+  status EmployeeStatus @default(ACTIVE)
+
+  bankName        String?
+  bankAccountIban String?
+  notes           String? @db.Text
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  attendance        Attendance[]
+  payrollRows       EmployeePayroll[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]
+  advances          Advance[]
+  loans             Loan[]
+  salaryAdjustments SalaryAdjustment[]
+
+  @@index([status])
+  @@index([departmentId])
+}
+
+model Attendance {
+  id         String            @id @default(cuid())
+  employeeId String
+  employee   InternalEmployee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime
+  status     AttendanceStatus
+  checkIn    DateTime?
+  checkOut   DateTime?
+  remarks    String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+}
+
+// ---------------------------------------------------------------------------
+// Leave — shared by Workers and Internal Employees (both can take leave;
+// exactly one of workerId/employeeId is set, enforced in application code).
+// ---------------------------------------------------------------------------
+
+model LeaveType {
+  id                String       @id @default(cuid())
+  name              String       @unique
+  isPaid            Boolean      @default(true)
+  defaultAnnualDays Decimal?     @db.Decimal(6, 2)
+  status            EntityStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  balances LeaveBalance[]
+  requests LeaveRequest[]
+}
+
+model LeaveBalance {
+  id     String @id @default(cuid())
+  year   Int
+
+  workerId String?
+  worker   Worker? @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   InternalEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  entitledDays Decimal @db.Decimal(6, 2)
+  usedDays     Decimal @default(0) @db.Decimal(6, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workerId, employeeId, leaveTypeId, year])
+  @@index([workerId])
+  @@index([employeeId])
+}
+
+model LeaveRequest {
+  id String @id @default(cuid())
+
+  workerId String?
+  worker   Worker? @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   InternalEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  startDate DateTime
+  endDate   DateTime
+  days      Decimal  @db.Decimal(6, 2)
+  reason    String?
+
+  status        LeaveRequestStatus @default(PENDING)
+  requestedById String?
+  approvedById  String?
+  approvedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workerId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Timesheet — header + line items. Workers are matched by Iqama number, not
+// name (§9). A worker can have at most one timesheet entry per calendar
+// date — enforced with a unique constraint, not just app-level checking.
+// ---------------------------------------------------------------------------
+
+model Timesheet {
+  id        String   @id @default(cuid())
+  clientId  String?
+  projectId String?
+  siteId    String?
+  site      Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  period    DateTime // first day of the covered month, for grouping/filtering
+
+  uploadSource UploadSource    @default(MANUAL)
+  status       TimesheetStatus @default(UPLOADED)
+
+  uploadedById String?
+  approvedById String?
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items TimesheetItem[]
+
+  @@index([siteId])
+  @@index([period])
+  @@index([status])
+}
+
+model TimesheetItem {
+  id          String    @id @default(cuid())
+  timesheetId String
+  timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  workerId     String
+  worker       Worker  @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  assignmentId String?
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  // Snapshot of the Iqama at import time — the primary matching key for
+  // Excel/CSV imports, kept even if the worker record later changes.
+  iqamaNumber String
+
+  date          DateTime
+  loginTime     DateTime?
+  logoutTime    DateTime?
+  breakMinutes  Int      @default(0)
+  regularHours  Decimal  @default(0) @db.Decimal(6, 2)
+  overtimeHours Decimal  @default(0) @db.Decimal(6, 2)
+  holidayHours  Decimal  @default(0) @db.Decimal(6, 2)
+  totalHours    Decimal  @default(0) @db.Decimal(6, 2)
+
+  status  TimesheetItemStatus @default(PENDING)
+  remarks String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workerId, date])
+  @@index([timesheetId])
+  @@index([workerId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Payroll — periods lock independently; payroll rows snapshot the rate used
+// so a later rate change never recalculates historical pay (§8/§10).
+// ---------------------------------------------------------------------------
+
+model PayrollPeriod {
+  id          String        @id @default(cuid())
+  name        String // e.g. "August 2026"
+  periodStart DateTime
+  periodEnd   DateTime
+  status      PayrollStatus @default(DRAFT)
+  lockedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workerPayrolls   WorkerPayroll[]
+  employeePayrolls EmployeePayroll[]
+  salaryAdjustments SalaryAdjustment[]
+
+  @@unique([periodStart, periodEnd])
+  @@index([status])
+}
+
+model WorkerPayroll {
+  id              String        @id @default(cuid())
+  payrollPeriodId String
+  payrollPeriod   PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  workerId        String
+  worker          Worker        @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  assignmentId    String?
+
+  regularHours Decimal @default(0) @db.Decimal(8, 2)
+  overtimeHours Decimal @default(0) @db.Decimal(8, 2)
+  // Rate snapshots — never re-derived from the worker's current rate.
+  regularRate  Decimal @db.Decimal(14, 2)
+  overtimeRate Decimal @db.Decimal(14, 2)
+
+  grossPay        Decimal @default(0) @db.Decimal(14, 2)
+  allowances      Decimal @default(0) @db.Decimal(14, 2)
+  bonuses         Decimal @default(0) @db.Decimal(14, 2)
+  advanceDeduction Decimal @default(0) @db.Decimal(14, 2)
+  loanDeduction   Decimal @default(0) @db.Decimal(14, 2)
+  leaveDeduction  Decimal @default(0) @db.Decimal(14, 2)
+  otherDeductions Decimal @default(0) @db.Decimal(14, 2)
+  netPayable      Decimal @default(0) @db.Decimal(14, 2)
+
+  status PayrollStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    WorkerPayrollItem[]
+  payments WorkerPayment[]
+
+  @@unique([payrollPeriodId, workerId])
+  @@index([workerId])
+  @@index([status])
+}
+
+model WorkerPayrollItem {
+  id              String          @id @default(cuid())
+  workerPayrollId String
+  workerPayroll   WorkerPayroll   @relation(fields: [workerPayrollId], references: [id], onDelete: Cascade)
+  type            PayrollItemType
+  description     String?
+  quantity        Decimal?        @db.Decimal(8, 2)
+  rate            Decimal?        @db.Decimal(14, 2)
+  amount          Decimal         @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([workerPayrollId])
+}
+
+model EmployeePayroll {
+  id              String        @id @default(cuid())
+  payrollPeriodId String
+  payrollPeriod   PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  employeeId      String
+  employee        InternalEmployee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  // Salary snapshot — never re-derived from the employee's current salary.
+  baseSalary Decimal @db.Decimal(14, 2)
+
+  allowances       Decimal @default(0) @db.Decimal(14, 2)
+  bonuses          Decimal @default(0) @db.Decimal(14, 2)
+  advanceDeduction Decimal @default(0) @db.Decimal(14, 2)
+  loanDeduction    Decimal @default(0) @db.Decimal(14, 2)
+  leaveDeduction   Decimal @default(0) @db.Decimal(14, 2)
+  otherDeductions  Decimal @default(0) @db.Decimal(14, 2)
+  netPayable       Decimal @default(0) @db.Decimal(14, 2)
+
+  status PayrollStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items EmployeePayrollItem[]
+
+  @@unique([payrollPeriodId, employeeId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+model EmployeePayrollItem {
+  id                String          @id @default(cuid())
+  employeePayrollId String
+  employeePayroll   EmployeePayroll @relation(fields: [employeePayrollId], references: [id], onDelete: Cascade)
+  type              PayrollItemType
+  description       String?
+  amount            Decimal         @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([employeePayrollId])
+}
+
+model SalaryAdjustment {
+  id String @id @default(cuid())
+
+  workerId String?
+  worker   Worker? @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   InternalEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  payrollPeriodId String?
+  payrollPeriod   PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: SetNull)
+
+  type      SalaryAdjustmentType
+  amount    Decimal              @db.Decimal(14, 2)
+  reason    String?
+  createdById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([workerId])
+  @@index([employeeId])
+}
+
+// ---------------------------------------------------------------------------
+// Finance — payment ledgers (not a single "paid amount" field, §11),
+// advances and loans with full repayment history (§12).
+// ---------------------------------------------------------------------------
+
+model WorkerPayment {
+  id              String         @id @default(cuid())
+  workerId        String
+  worker          Worker         @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  workerPayrollId String?
+  workerPayroll   WorkerPayroll? @relation(fields: [workerPayrollId], references: [id], onDelete: SetNull)
+
+  amount          Decimal           @db.Decimal(14, 2)
+  paymentType     WorkerPaymentType
+  method          PaymentMethod
+  referenceNumber String?
+  date            DateTime          @default(now())
+  remarks         String?
+
+  createdById  String?
+  approvedById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([workerId])
+  @@index([workerPayrollId])
+}
+
+model ClientPayment {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  amount          Decimal       @db.Decimal(14, 2)
+  method          PaymentMethod
+  referenceNumber String?
+  date            DateTime      @default(now())
+  remarks         String?
+
+  createdById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+  @@index([invoiceId])
+}
+
+model Advance {
+  id String @id @default(cuid())
+
+  workerId String?
+  worker   Worker? @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   InternalEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  amount      Decimal          @db.Decimal(14, 2)
+  dateGiven   DateTime         @default(now())
+  reason      String?
+  status      RepayableStatus  @default(ACTIVE)
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  repayments AdvanceRepayment[]
+
+  @@index([workerId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+model AdvanceRepayment {
+  id              String        @id @default(cuid())
+  advanceId       String
+  advance         Advance       @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+  amount          Decimal       @db.Decimal(14, 2)
+  payrollPeriodId String?
+  date            DateTime      @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([advanceId])
+}
+
+model Loan {
+  id String @id @default(cuid())
+
+  workerId String?
+  worker   Worker? @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   InternalEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  principalAmount   Decimal         @db.Decimal(14, 2)
+  dateGiven         DateTime        @default(now())
+  installments      Int?
+  installmentAmount Decimal?        @db.Decimal(14, 2)
+  reason            String?
+  status            RepayableStatus @default(ACTIVE)
+  createdById       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  repayments LoanRepayment[]
+
+  @@index([workerId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+model LoanRepayment {
+  id              String   @id @default(cuid())
+  loanId          String
+  loan            Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  amount          Decimal  @db.Decimal(14, 2)
+  payrollPeriodId String?
+  date            DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([loanId])
+}
+
+model Expense {
+  id       String          @id @default(cuid())
+  category ExpenseCategory
+  amount   Decimal         @db.Decimal(14, 2)
+  date     DateTime        @default(now())
+
+  workerId      String?
+  worker        Worker?      @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  clientId      String?
+  client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  siteId        String?
+  site          Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  coordinatorId String?
+  departmentId  String?
+
+  description String?
+  createdById String?
+  deletedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workerId])
+  @@index([clientId])
+  @@index([siteId])
+  @@index([date])
+}
+
+// ---------------------------------------------------------------------------
+// Client billing — invoices generated from approved hours, independent of
+// worker payroll (§13/§16).
+// ---------------------------------------------------------------------------
+
+model Invoice {
+  id            String   @id @default(cuid())
+  sequenceNo    Int      @unique @default(autoincrement())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+
+  status InvoiceStatus @default(DRAFT)
+
+  subtotal   Decimal @default(0) @db.Decimal(14, 2)
+  taxAmount  Decimal @default(0) @db.Decimal(14, 2)
+  totalAmount Decimal @default(0) @db.Decimal(14, 2)
+
+  issuedAt    DateTime?
+  dueDate     DateTime?
+  createdById String?
+  approvedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    InvoiceItem[]
+  payments ClientPayment[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  workerId String?
+  worker   Worker? @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  description String
+  hours       Decimal? @db.Decimal(8, 2)
+  rate        Decimal? @db.Decimal(14, 2)
+  amount      Decimal  @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Coordinators — sales and configurable commission (§14).
+// ---------------------------------------------------------------------------
+
+model Sale {
+  id            String @id @default(cuid())
+  coordinatorId String
+  coordinator   Coordinator @relation(fields: [coordinatorId], references: [id], onDelete: Restrict)
+  clientId      String?
+  client        Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  description String?
+  amount      Decimal  @db.Decimal(14, 2)
+  date        DateTime @default(now())
+  createdById String?
+
+  createdAt DateTime @default(now())
+
+  commissions Commission[]
+
+  @@index([coordinatorId])
+}
+
+model CommissionRule {
+  id            String   @id @default(cuid())
+  // Null coordinatorId = a default/global rule; set = a coordinator-specific override.
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
+
+  type         CommissionType
+  rateOrAmount Decimal        @db.Decimal(14, 4)
+  recurring    Boolean        @default(false)
+  status       EntityStatus   @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  commissions Commission[]
+
+  @@index([coordinatorId])
+}
+
+model Commission {
+  id               String         @id @default(cuid())
+  coordinatorId    String
+  coordinator      Coordinator    @relation(fields: [coordinatorId], references: [id], onDelete: Restrict)
+  commissionRuleId String
+  commissionRule   CommissionRule @relation(fields: [commissionRuleId], references: [id], onDelete: Restrict)
+  saleId           String?
+  sale             Sale?          @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  amount       Decimal           @db.Decimal(14, 2)
+  status       CommissionStatus  @default(DRAFT)
+  approvedById String?
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items CommissionItem[]
+
+  @@index([coordinatorId])
+  @@index([status])
+}
+
+model CommissionItem {
+  id           String     @id @default(cuid())
+  commissionId String
+  commission   Commission @relation(fields: [commissionId], references: [id], onDelete: Cascade)
+  description  String?
+  baseAmount   Decimal    @db.Decimal(14, 2)
+  rate         Decimal    @db.Decimal(14, 4)
+  amount       Decimal    @db.Decimal(14, 2)
+
+  @@index([commissionId])
+}
+
+// ---------------------------------------------------------------------------
+// Configuration — calculation rules live in data, not hardcoded in the app
+// (§17/§20). The hours calculation engine reads the active OvertimeRule;
+// invoicing reads the active BillingRule for tax.
+// ---------------------------------------------------------------------------
+
+model OvertimeRule {
+  id                        String       @id @default(cuid())
+  name                      String
+  dailyRegularHoursThreshold Decimal     @default(8) @db.Decimal(4, 2)
+  overtimeMultiplier        Decimal      @default(1.5) @db.Decimal(4, 2)
+  weeklyOffDay               Int?        // 0 (Sunday) - 6 (Saturday)
+  maxDailyHours              Decimal?    @db.Decimal(4, 2)
+  minPayableHours            Decimal?    @db.Decimal(4, 2)
+  status                     EntityStatus @default(ACTIVE)
+  effectiveFrom               DateTime    @default(now())
+  effectiveTo                 DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model BillingRule {
+  id         String       @id @default(cuid())
+  name       String
+  taxPercent Decimal      @default(0) @db.Decimal(5, 2)
+  status     EntityStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  description String?
+
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Audit log — written by src/server/audit.ts on every mutating action
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action     String
+  entityType String
+  entityId   String
+
+  previousValue Json?
+  newValue      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

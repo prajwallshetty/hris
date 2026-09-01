@@ -1,6 +1,7 @@
 import {
   Banknote,
   Building2,
+  CircleCheck,
   Clock,
   ClipboardList,
   HandCoins,
@@ -14,11 +15,15 @@ import {
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { Timeline } from "@/components/shared/timeline";
 import { ClientProfitabilityChart } from "@/components/shared/charts/client-profitability-chart";
 import { WorkersByClientChart } from "@/components/shared/charts/workers-by-client-chart";
 import { WorkersByStatusChart } from "@/components/shared/charts/workers-by-status-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { auth } from "@/auth";
+import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { can } from "@/server/rbac";
 import {
   getClientProfitabilitySummary,
@@ -28,42 +33,27 @@ import {
   getWorkersByClient,
   getWorkersByStatus,
 } from "@/server/queries/dashboard";
+import { getNotifications } from "@/server/queries/notifications";
 import { getSessionUser } from "@/server/session";
 
 function formatMoney(value: number) {
   return `SAR ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-function KpiCard({
-  href,
-  label,
-  value,
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  value: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <Link href={href} className="group">
-      <Card className="group-hover:border-primary/40 group-hover:shadow-sm py-4 transition-all">
-        <CardContent className="flex items-center justify-between gap-3 px-4">
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium">{label}</p>
-            <p className="mt-1 truncate text-xl font-semibold tabular-nums">{value}</p>
-          </div>
-          <div className="bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors">
-            <Icon className="size-4.5" />
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
+const APPROVAL_TITLES = new Set(["Timesheet pending review", "Payroll pending approval", "Leave approval pending", "Commission payable"]);
+const OVERDUE_TITLES = new Set(["Client payment overdue", "Salary due"]);
+
 export default async function DashboardPage() {
-  const user = await getSessionUser();
+  const [session, user] = await Promise.all([auth(), getSessionUser()]);
+  const firstName = (session?.user?.name ?? session?.user?.email ?? "there").split(" ")[0];
+
   const showAuditLog = can(user, "view", "auditLog");
   const showFinancials = can(user, "view", "invoice") || can(user, "view", "workerPayroll");
   const showTimesheetKpi = can(user, "view", "timesheet");
@@ -71,14 +61,18 @@ export default async function DashboardPage() {
   const showCommissionKpi = can(user, "view", "commission");
   const showExpenseKpi = can(user, "view", "expense");
 
-  const [counts, workersByStatus, workersByClient, profitability, financeKpis, auditLog] = await Promise.all([
+  const [counts, workersByStatus, workersByClient, profitability, financeKpis, auditLog, notifications] = await Promise.all([
     getDashboardCounts(user),
     getWorkersByStatus(user),
     getWorkersByClient(user),
     showFinancials ? getClientProfitabilitySummary(user) : Promise.resolve([]),
     showTimesheetKpi || showPayrollKpi || showCommissionKpi || showExpenseKpi ? getFinanceKpis() : Promise.resolve(null),
     showAuditLog ? getRecentAuditLog(8) : Promise.resolve([]),
+    getNotifications(user),
   ]);
+
+  const pendingApprovals = notifications.filter((n) => APPROVAL_TITLES.has(n.title));
+  const overduePayments = notifications.filter((n) => OVERDUE_TITLES.has(n.title));
 
   const totals = profitability.reduce(
     (acc, row) => ({
@@ -92,7 +86,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Live snapshot of workforce, deployment, and financial health." />
+      <PageHeader title={`${greeting()}, ${firstName}`} description="Here's what's happening across your workforce today." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <KpiCard href="/workers" label="Total Workers" value={counts.totalWorkers.toLocaleString()} icon={Users} />
@@ -176,33 +170,71 @@ export default async function DashboardPage() {
         </Card>
       )}
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pending Approvals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pendingApprovals.length === 0 ? (
+              <EmptyState icon={CircleCheck} title="Nothing waiting on you" description="All caught up." />
+            ) : (
+              <ul className="divide-y">
+                {pendingApprovals.slice(0, 6).map((item) => (
+                  <li key={item.id}>
+                    <Link href={item.href} className="hover:bg-muted/50 -mx-2 flex items-start justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
+                      <span className="min-w-0">
+                        <span className="block font-medium">{item.title}</span>
+                        <span className="text-muted-foreground block truncate">{item.message}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Overdue Payments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {overduePayments.length === 0 ? (
+              <EmptyState icon={CircleCheck} title="No overdue payments" description="Everything is up to date." />
+            ) : (
+              <ul className="divide-y">
+                {overduePayments.slice(0, 6).map((item) => (
+                  <li key={item.id}>
+                    <Link href={item.href} className="hover:bg-muted/50 -mx-2 flex items-start justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
+                      <span className="min-w-0">
+                        <span className="text-destructive block font-medium">{item.title}</span>
+                        <span className="text-muted-foreground block truncate">{item.message}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {showAuditLog && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Recent activity</CardTitle>
           </CardHeader>
           <CardContent>
-            {auditLog.length === 0 ? (
-              <EmptyState icon={ClipboardList} title="No activity yet" />
-            ) : (
-              <ul className="divide-y">
-                {auditLog.map((entry) => (
-                  <li key={entry.id} className="flex items-center justify-between py-2.5 text-sm">
-                    <span>
-                      <span className="font-medium">{entry.user?.name ?? "System"}</span>{" "}
-                      <span className="text-muted-foreground">
-                        {entry.action.replaceAll("_", " ")}d {entry.entityType.toLowerCase()}
-                      </span>
-                    </span>
-                    <span className="text-muted-foreground text-xs">
-                      {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(
-                        entry.createdAt,
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <Timeline
+              items={auditLog.map((entry) => ({
+                id: entry.id,
+                title: `${auditActionLabel(entry.action)} ${entry.entityType} by ${entry.user?.name ?? "System"}`,
+                timestamp: entry.createdAt,
+                tone: auditActionTone(entry.action),
+              }))}
+              emptyMessage="No activity yet"
+            />
           </CardContent>
         </Card>
       )}

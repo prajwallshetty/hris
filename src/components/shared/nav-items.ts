@@ -28,9 +28,13 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-// Grouped so future phases (Timesheets under Workforce, Payroll under its
-// own group, Reports, etc.) slot into an existing section instead of
-// forcing a sidebar restructure later.
+// Enterprise-ERP-style grouping (§4): Overview / Workforce / Clients / HR /
+// Payroll / Operations / Reports / Administration — one group per business
+// domain rather than a generic "Finance" catch-all. Only routes that exist
+// today are listed; Projects/Sites/Contracts/Billing/Leave/Documents/
+// Advances/Loans/Sales/Commission live inside their parent detail pages for
+// now and get their own top-level nav entry once Phases 4-11 build
+// standalone list pages for them.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
@@ -57,12 +61,6 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ClipboardCheck,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
-      {
-        href: "/employees",
-        label: "Employees",
-        icon: UserSquare2,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
     ],
   },
   {
@@ -74,28 +72,33 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Building2,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR"],
       },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [
-      {
-        href: "/payroll",
-        label: "Payroll",
-        icon: Banknote,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
       {
         href: "/invoices",
         label: "Invoices",
         icon: FileText,
         roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"],
       },
+    ],
+  },
+  {
+    label: "HR",
+    items: [
       {
-        href: "/expenses",
-        label: "Expenses",
-        icon: Receipt,
-        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
+        href: "/employees",
+        label: "Employees",
+        icon: UserSquare2,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+    ],
+  },
+  {
+    label: "Payroll",
+    items: [
+      {
+        href: "/payroll",
+        label: "Payroll",
+        icon: Banknote,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
     ],
   },
@@ -108,10 +111,16 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: UserCog,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
       },
+      {
+        href: "/expenses",
+        label: "Expenses",
+        icon: Receipt,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
+      },
     ],
   },
   {
-    label: "Administration",
+    label: "Reports",
     items: [
       {
         href: "/reports",
@@ -119,6 +128,11 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: BarChart3,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
       {
         href: "/audit-log",
         label: "Audit Log",

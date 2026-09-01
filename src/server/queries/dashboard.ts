@@ -1,4 +1,4 @@
-import type { WorkerStatus } from "@prisma/client";
+import type { Prisma, WorkerStatus } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { getClientFinancials } from "@/server/queries/client-detail";
@@ -131,19 +131,33 @@ export async function getRecentAuditLog(limit = 10) {
   });
 }
 
-export async function listAuditLog(params: { page?: number; pageSize?: number } = {}) {
+export async function listAuditLog(
+  params: { page?: number; pageSize?: number; action?: string; entityType?: string } = {},
+) {
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 50;
 
+  const where: Prisma.AuditLogWhereInput = {
+    ...(params.action ? { action: params.action } : {}),
+    ...(params.entityType ? { entityType: params.entityType } : {}),
+  };
+
   const [entries, total] = await Promise.all([
     db.auditLog.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: { user: { select: { name: true, email: true } } },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    db.auditLog.count(),
+    db.auditLog.count({ where }),
   ]);
 
   return { entries, total, page, pageSize };
+}
+
+/** Distinct entity types on file, for the Audit Log page's filter dropdown. */
+export async function listAuditLogEntityTypes() {
+  const rows = await db.auditLog.findMany({ distinct: ["entityType"], select: { entityType: true }, orderBy: { entityType: "asc" } });
+  return rows.map((r) => r.entityType);
 }

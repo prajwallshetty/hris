@@ -5,7 +5,7 @@ export default function AuditLogLoading() {
   return (
     <div className="space-y-6">
       <PageHeaderSkeleton withAction={false} />
-      <TableSkeleton columns={5} rows={12} />
+      <TableSkeleton columns={6} rows={12} />
     </div>
   );
 }

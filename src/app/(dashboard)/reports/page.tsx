@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/server/rbac";
 import {
+  canViewFinanceOverview,
   getAttendanceSummaryReport,
   getCoordinatorPerformanceReport,
   getFinanceOverviewReport,
@@ -28,7 +29,7 @@ export default async function ReportsPage() {
   const showAttendance = can(user, "view", "timesheet");
   const showPayroll = can(user, "view", "payrollPeriod");
   const showCoordinator = can(user, "view", "sale");
-  const showFinance = can(user, "view", "invoice");
+  const showFinance = canViewFinanceOverview(user);
 
   if (!showWorkforce && !showAttendance && !showPayroll && !showCoordinator && !showFinance) forbidden();
 

@@ -2,15 +2,22 @@ import type { WorkerStatus } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { getClientFinancials } from "@/server/queries/client-detail";
-import { workerScopeWhere, clientScopeWhere, can, type SessionUser } from "@/server/rbac";
+import {
+  workerScopeWhere,
+  clientScopeWhere,
+  siteScopeWhere,
+  assignmentScopeWhere,
+  can,
+  type SessionUser,
+} from "@/server/rbac";
 
 export async function getDashboardCounts(user: SessionUser) {
   const [totalWorkers, activeWorkers, totalClients, totalSites, activeAssignments] = await Promise.all([
     db.worker.count({ where: { deletedAt: null, ...workerScopeWhere(user) } }),
     db.worker.count({ where: { deletedAt: null, status: "ACTIVE", ...workerScopeWhere(user) } }),
     db.client.count({ where: { deletedAt: null, ...clientScopeWhere(user) } }),
-    db.site.count({ where: { deletedAt: null } }),
-    db.assignment.count({ where: { status: "ACTIVE" } }),
+    db.site.count({ where: { deletedAt: null, ...siteScopeWhere(user) } }),
+    db.assignment.count({ where: { status: "ACTIVE", ...assignmentScopeWhere(user) } }),
   ]);
 
   return { totalWorkers, activeWorkers, totalClients, totalSites, activeAssignments };
@@ -41,7 +48,7 @@ export async function getWorkersByStatus(user: SessionUser) {
 export async function getWorkersByClient(user: SessionUser, limit = 8) {
   const rows = await db.assignment.groupBy({
     by: ["clientId"],
-    where: { status: "ACTIVE", ...(user.role === "COORDINATOR" ? { coordinatorId: user.coordinatorId ?? "__none__" } : {}) },
+    where: { status: "ACTIVE", ...assignmentScopeWhere(user) },
     _count: { _all: true },
   });
   const clients = await db.client.findMany({

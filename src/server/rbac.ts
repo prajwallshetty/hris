@@ -289,3 +289,15 @@ export function commissionScopeWhere(user: SessionUser): Prisma.CommissionWhereI
   }
   return undefined;
 }
+
+// Sites don't carry a direct client/coordinator column — scope through the
+// assignments working that site (§dashboard/reports leak fix).
+export function siteScopeWhere(user: SessionUser): Prisma.SiteWhereInput | undefined {
+  if (user.role === "COORDINATOR") {
+    return { assignments: { some: { coordinatorId: user.coordinatorId ?? "__none__" } } };
+  }
+  if (user.role === "CLIENT") {
+    return { assignments: { some: { clientId: user.clientId ?? "__none__", status: "ACTIVE" } } };
+  }
+  return undefined;
+}

@@ -34,3 +34,34 @@ export const generateCommissionFromSaleFormSchema = z.object({
 });
 export type GenerateCommissionFromSaleFormInput = z.infer<typeof generateCommissionFromSaleFormSchema>;
 export type GenerateCommissionFromSaleFormValues = z.input<typeof generateCommissionFromSaleFormSchema>;
+
+// Covers the four bases that don't derive from a single Sale record.
+export const generateAdvancedCommissionFormSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("PERCENT_OF_INVOICE"),
+    coordinatorId: z.string().min(1),
+    commissionRuleId: z.string().min(1),
+    invoiceId: z.string().min(1, "Invoice is required"),
+  }),
+  z.object({
+    type: z.literal("PERCENT_OF_PROFIT"),
+    coordinatorId: z.string().min(1),
+    commissionRuleId: z.string().min(1),
+    clientId: z.string().min(1, "Client is required"),
+    periodStart: z.string().min(1, "Start date is required"),
+    periodEnd: z.string().min(1, "End date is required"),
+  }),
+  z.object({
+    type: z.literal("PER_WORKER"),
+    coordinatorId: z.string().min(1),
+    commissionRuleId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("PER_HOUR"),
+    coordinatorId: z.string().min(1),
+    commissionRuleId: z.string().min(1),
+    periodStart: z.string().min(1, "Start date is required"),
+    periodEnd: z.string().min(1, "End date is required"),
+  }),
+]);
+export type GenerateAdvancedCommissionFormInput = z.infer<typeof generateAdvancedCommissionFormSchema>;

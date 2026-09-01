@@ -16,9 +16,11 @@ import {
   listCoordinatorSales,
   listUncommissionedSales,
 } from "@/server/queries/coordinators";
+import { listInvoicesForSelect } from "@/server/queries/invoices";
 import { getSessionUser } from "@/server/session";
 
 import { AdvanceCommissionButton, GenerateCommissionDialog } from "./commission-actions";
+import { GenerateAdvancedCommissionDialog } from "./generate-advanced-commission-dialog";
 import { SaleDialog } from "./sale-dialog";
 
 function formatDate(date: Date) {
@@ -39,12 +41,13 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
   const canGenerateCommission = can(user, "create", "commission");
   const canUpdateCommission = can(user, "update", "commission");
 
-  const [sales, commissions, uncommissionedSales, rules, clients] = await Promise.all([
+  const [sales, commissions, uncommissionedSales, rules, clients, invoices] = await Promise.all([
     listCoordinatorSales(coordinator.id),
     listCoordinatorCommissions(coordinator.id),
     canGenerateCommission ? listUncommissionedSales(coordinator.id) : Promise.resolve([]),
     canGenerateCommission ? getApplicableCommissionRules(coordinator.id) : Promise.resolve([]),
-    canRecordSale ? listAllClientsForSelect() : Promise.resolve([]),
+    canRecordSale || canGenerateCommission ? listAllClientsForSelect() : Promise.resolve([]),
+    canGenerateCommission ? listInvoicesForSelect(user) : Promise.resolve([]),
   ]);
 
   const totalSales = sales.reduce((sum, s) => sum + Number(s.amount), 0);
@@ -110,7 +113,7 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
 
         <TabsContent value="commissions" className="space-y-4">
           {canGenerateCommission && (
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
               <GenerateCommissionDialog
                 sales={uncommissionedSales.map((s) => ({
                   id: s.id,
@@ -124,6 +127,22 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
                   rateOrAmount: r.rateOrAmount.toString(),
                   coordinatorId: r.coordinatorId,
                 }))}
+              />
+              <GenerateAdvancedCommissionDialog
+                coordinatorId={coordinator.id}
+                rules={rules.map((r) => ({
+                  id: r.id,
+                  type: r.type,
+                  rateOrAmount: r.rateOrAmount.toString(),
+                  coordinatorId: r.coordinatorId,
+                }))}
+                invoices={invoices.map((inv) => ({
+                  id: inv.id,
+                  sequenceNo: inv.sequenceNo,
+                  totalAmount: inv.totalAmount.toString(),
+                  clientName: inv.client.companyName,
+                }))}
+                clients={clients.map((c) => ({ id: c.id, companyName: c.companyName }))}
               />
             </div>
           )}

@@ -31,6 +31,17 @@ export async function listInvoices(
   return { invoices, total, page, pageSize };
 }
 
+/** For the "generate commission from an invoice" picker — any non-cancelled invoice. */
+export async function listInvoicesForSelect(user: SessionUser) {
+  assertCan(user, "view", "invoice");
+  return db.invoice.findMany({
+    where: { ...invoiceScopeWhere(user), status: { not: "CANCELLED" } },
+    select: { id: true, sequenceNo: true, totalAmount: true, client: { select: { companyName: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+}
+
 export async function getInvoiceDetail(user: SessionUser, id: string) {
   assertCan(user, "view", "invoice");
   return db.invoice.findFirst({

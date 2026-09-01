@@ -5,15 +5,22 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
   commissionRuleFormSchema,
+  generateAdvancedCommissionFormSchema,
   generateCommissionFromSaleFormSchema,
   saleFormSchema,
   type CommissionRuleFormInput,
+  type GenerateAdvancedCommissionFormInput,
   type GenerateCommissionFromSaleFormInput,
   type SaleFormInput,
 } from "@/lib/validation/coordinator-finance";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { calculateCommission } from "@/server/calc";
+import {
+  getActiveWorkerCountForCoordinator,
+  getApprovedHoursForCoordinatorPeriod,
+  getClientProfitForPeriod,
+} from "@/server/queries/coordinators";
 import { assertCan } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
@@ -151,6 +158,111 @@ export async function generateCommissionFromSale(
     });
 
     revalidatePath(`/coordinators/${sale.coordinatorId}`);
+    return ok({ id: commission.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+/**
+ * Generates a Commission for the four bases that don't derive from a
+ * single Sale record: percent of a specific invoice, percent of a
+ * client's profit for a period, a flat rate per worker currently
+ * deployed under the coordinator, or a rate per approved hour in a
+ * period — filling the gap left by generateCommissionFromSale, which
+ * only covers PERCENT_OF_SALES/FIXED_AMOUNT (§27: every configurable
+ * commission basis needs a real generation path, not just the calc
+ * engine support for it).
+ */
+export async function generateAdvancedCommission(
+  input: GenerateAdvancedCommissionFormInput,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "create", "commission");
+    const data = generateAdvancedCommissionFormSchema.parse(input);
+
+    const rule = await db.commissionRule.findUniqueOrThrow({ where: { id: data.commissionRuleId } });
+    if (rule.type !== data.type) {
+      return { success: false, error: "This commission rule doesn't match the selected basis." };
+    }
+
+    let amount: ReturnType<typeof calculateCommission>;
+    let itemDescription: string;
+    let baseAmount: string;
+
+    if (data.type === "PERCENT_OF_INVOICE") {
+      const invoice = await db.invoice.findUniqueOrThrow({
+        where: { id: data.invoiceId },
+        include: { client: true },
+      });
+      amount = calculateCommission(
+        { type: rule.type, rateOrAmount: rule.rateOrAmount.toString() },
+        { invoiceAmount: invoice.subtotal.toString() },
+      );
+      itemDescription = `Invoice #${invoice.sequenceNo} — ${invoice.client.companyName}`;
+      baseAmount = invoice.subtotal.toString();
+    } else if (data.type === "PERCENT_OF_PROFIT") {
+      const periodStart = new Date(data.periodStart);
+      const periodEnd = new Date(data.periodEnd);
+      const client = await db.client.findUniqueOrThrow({ where: { id: data.clientId } });
+      const { profit } = await getClientProfitForPeriod(data.clientId, periodStart, periodEnd);
+      if (profit <= 0) {
+        return { success: false, error: "This client had no profit in the selected period to base commission on." };
+      }
+      amount = calculateCommission({ type: rule.type, rateOrAmount: rule.rateOrAmount.toString() }, { profitAmount: profit });
+      itemDescription = `${client.companyName} profit, ${data.periodStart} to ${data.periodEnd}`;
+      baseAmount = profit.toString();
+    } else if (data.type === "PER_WORKER") {
+      const workerCount = await getActiveWorkerCountForCoordinator(data.coordinatorId);
+      if (workerCount === 0) {
+        return { success: false, error: "This coordinator has no actively deployed workers right now." };
+      }
+      amount = calculateCommission({ type: rule.type, rateOrAmount: rule.rateOrAmount.toString() }, { workerCount });
+      itemDescription = `${workerCount} active worker(s)`;
+      baseAmount = String(workerCount);
+    } else {
+      const periodStart = new Date(data.periodStart);
+      const periodEnd = new Date(data.periodEnd);
+      const hours = await getApprovedHoursForCoordinatorPeriod(data.coordinatorId, periodStart, periodEnd);
+      if (hours.lte(0)) {
+        return { success: false, error: "No approved hours were found for this coordinator in the selected period." };
+      }
+      amount = calculateCommission({ type: rule.type, rateOrAmount: rule.rateOrAmount.toString() }, { hours });
+      itemDescription = `${hours.toFixed(2)} approved hour(s), ${data.periodStart} to ${data.periodEnd}`;
+      baseAmount = hours.toString();
+    }
+
+    const commission = await db.$transaction(async (tx) => {
+      const created = await tx.commission.create({
+        data: {
+          coordinatorId: data.coordinatorId,
+          commissionRuleId: rule.id,
+          amount: amount.toFixed(2),
+          status: "DRAFT",
+        },
+      });
+      await tx.commissionItem.create({
+        data: {
+          commissionId: created.id,
+          description: itemDescription,
+          baseAmount,
+          rate: rule.rateOrAmount,
+          amount: amount.toFixed(2),
+        },
+      });
+      return created;
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "create",
+      entityType: "Commission",
+      entityId: commission.id,
+      newValue: { ...data, amount: amount.toFixed(2) },
+    });
+
+    revalidatePath(`/coordinators/${data.coordinatorId}`);
     return ok({ id: commission.id });
   } catch (error) {
     return actionError(error);

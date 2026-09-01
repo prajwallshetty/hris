@@ -41,6 +41,7 @@ export default async function InvoicesPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Clients" }, { label: "Invoices" }]}
         title="Invoices"
         description="Client billing generated from approved, locked timesheet hours — independent of worker payroll."
         actions={canCreate && <GenerateInvoiceDialog clients={clients} />}
@@ -68,6 +69,7 @@ export default async function InvoicesPage({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Invoice #</TableHead>
                   <TableHead>Client</TableHead>
                   <TableHead>Billing Period</TableHead>
                   <TableHead>Total</TableHead>
@@ -85,6 +87,11 @@ export default async function InvoicesPage({
                     (invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID");
                   return (
                     <TableRow key={invoice.id}>
+                      <TableCell className="text-muted-foreground font-mono text-xs">
+                        <Link href={`/invoices/${invoice.id}`} className="hover:underline">
+                          #{invoice.sequenceNo}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <Link href={`/invoices/${invoice.id}`} className="font-medium hover:underline">
                           {invoice.client.companyName}

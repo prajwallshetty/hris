@@ -453,15 +453,22 @@ export async function lockPayrollPeriod(id: string): Promise<ActionResult<{ id: 
     const user = await getSessionUser();
     assertCan(user, "update", "payrollPeriod");
 
-    const before = await db.payrollPeriod.findUniqueOrThrow({ where: { id }, include: { workerPayrolls: true } });
-    if (before.workerPayrolls.length === 0) {
-      return { success: false, error: "Generate payroll for at least one worker before locking the period." };
+    const before = await db.payrollPeriod.findUniqueOrThrow({
+      where: { id },
+      include: { workerPayrolls: true, employeePayrolls: true },
+    });
+    if (before.workerPayrolls.length === 0 && before.employeePayrolls.length === 0) {
+      return { success: false, error: "Generate payroll for at least one worker or employee before locking the period." };
     }
     const notApproved = before.workerPayrolls.filter(
       (p) => p.status !== "APPROVED" && p.status !== "PAID" && p.status !== "PARTIALLY_PAID",
     );
     if (notApproved.length > 0) {
       return { success: false, error: `${notApproved.length} worker payroll row(s) still need to be approved first.` };
+    }
+    const notApprovedEmployees = before.employeePayrolls.filter((p) => p.status !== "APPROVED" && p.status !== "PAID");
+    if (notApprovedEmployees.length > 0) {
+      return { success: false, error: `${notApprovedEmployees.length} employee payroll row(s) still need to be approved first.` };
     }
 
     const period = await db.payrollPeriod.update({ where: { id }, data: { status: "APPROVED", lockedAt: new Date() } });

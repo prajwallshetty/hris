@@ -39,6 +39,10 @@ export async function getPayrollPeriod(user: SessionUser, id: string) {
         include: { worker: true, payments: true },
         orderBy: { worker: { fullName: "asc" } },
       },
+      employeePayrolls: {
+        include: { employee: true },
+        orderBy: { employee: { fullName: "asc" } },
+      },
     },
   });
 }

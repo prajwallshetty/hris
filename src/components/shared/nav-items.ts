@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
+  UserSquare2,
   Building2,
   Banknote,
   ClipboardList,
@@ -52,6 +53,12 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/timesheets",
         label: "Timesheets",
         icon: ClipboardCheck,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+      {
+        href: "/employees",
+        label: "Employees",
+        icon: UserSquare2,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
     ],

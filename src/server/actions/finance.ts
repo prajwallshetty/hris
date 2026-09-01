@@ -25,7 +25,8 @@ export async function createAdvance(input: AdvanceFormInput): Promise<ActionResu
 
     const advance = await db.advance.create({
       data: {
-        workerId: data.workerId,
+        workerId: data.workerId || null,
+        employeeId: data.employeeId || null,
         amount: data.amount,
         dateGiven: new Date(data.dateGiven),
         reason: data.reason || null,
@@ -35,7 +36,7 @@ export async function createAdvance(input: AdvanceFormInput): Promise<ActionResu
     });
 
     await logAudit({ userId: user.id, action: "create", entityType: "Advance", entityId: advance.id, newValue: data });
-    revalidatePath(`/workers/${data.workerId}`);
+    revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
     return ok({ id: advance.id });
   } catch (error) {
     return actionError(error);
@@ -50,7 +51,8 @@ export async function createLoan(input: LoanFormInput): Promise<ActionResult<{ i
 
     const loan = await db.loan.create({
       data: {
-        workerId: data.workerId,
+        workerId: data.workerId || null,
+        employeeId: data.employeeId || null,
         principalAmount: data.principalAmount,
         dateGiven: new Date(data.dateGiven),
         installments: data.installments ?? null,
@@ -62,7 +64,7 @@ export async function createLoan(input: LoanFormInput): Promise<ActionResult<{ i
     });
 
     await logAudit({ userId: user.id, action: "create", entityType: "Loan", entityId: loan.id, newValue: data });
-    revalidatePath(`/workers/${data.workerId}`);
+    revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
     return ok({ id: loan.id });
   } catch (error) {
     return actionError(error);

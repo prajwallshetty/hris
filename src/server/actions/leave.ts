@@ -23,7 +23,8 @@ export async function createLeaveRequest(input: LeaveRequestFormInput): Promise<
 
     const request = await db.leaveRequest.create({
       data: {
-        workerId: data.workerId,
+        workerId: data.workerId || null,
+        employeeId: data.employeeId || null,
         leaveTypeId: data.leaveTypeId,
         startDate,
         endDate,
@@ -35,7 +36,7 @@ export async function createLeaveRequest(input: LeaveRequestFormInput): Promise<
     });
 
     await logAudit({ userId: user.id, action: "create", entityType: "LeaveRequest", entityId: request.id, newValue: data });
-    revalidatePath(`/workers/${data.workerId}`);
+    revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
     return ok({ id: request.id });
   } catch (error) {
     return actionError(error);
@@ -63,7 +64,11 @@ export async function decideLeaveRequest(
     if (decision === "APPROVED") {
       const year = request.startDate.getFullYear();
       const balance = await db.leaveBalance.findFirst({
-        where: { workerId: request.workerId, leaveTypeId: request.leaveTypeId, year },
+        where: {
+          leaveTypeId: request.leaveTypeId,
+          year,
+          ...(request.workerId ? { workerId: request.workerId } : { employeeId: request.employeeId }),
+        },
       });
       if (balance) {
         await db.leaveBalance.update({
@@ -82,7 +87,7 @@ export async function decideLeaveRequest(
       newValue: { status: decision },
     });
 
-    revalidatePath(`/workers/${request.workerId ?? ""}`);
+    revalidatePath(request.workerId ? `/workers/${request.workerId}` : `/employees/${request.employeeId}`);
     return ok({ id: request.id });
   } catch (error) {
     return actionError(error);

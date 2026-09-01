@@ -11,10 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { can } from "@/server/rbac";
 import { lockPayrollPeriod } from "@/server/actions/payroll";
 import { listClientHierarchyForSelect } from "@/server/queries/clients";
+import { listEmployeesForSelect } from "@/server/queries/employees";
 import { getPayrollPeriod } from "@/server/queries/payroll";
 import { listWorkersForSelect } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
 
+import { GenerateEmployeePayrollForm } from "./generate-employee-form";
 import { GeneratePayrollForm } from "./generate-form";
 
 function formatMoney(value: unknown) {
@@ -28,14 +30,16 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
   if (!period) notFound();
 
   const canGenerate = can(user, "create", "workerPayroll");
+  const canGenerateEmployeePayroll = can(user, "create", "employeePayroll");
   const canLock = can(user, "update", "payrollPeriod");
-  const notApprovedCount = period.workerPayrolls.filter(
-    (p) => p.status !== "APPROVED" && p.status !== "PAID" && p.status !== "PARTIALLY_PAID",
-  ).length;
+  const notApprovedCount =
+    period.workerPayrolls.filter((p) => p.status !== "APPROVED" && p.status !== "PAID" && p.status !== "PARTIALLY_PAID").length +
+    period.employeePayrolls.filter((p) => p.status !== "APPROVED" && p.status !== "PAID").length;
 
-  const [clients, workers] = await Promise.all([
+  const [clients, workers, employees] = await Promise.all([
     canGenerate ? listClientHierarchyForSelect() : Promise.resolve([]),
     canGenerate ? listWorkersForSelect(user) : Promise.resolve([]),
+    canGenerateEmployeePayroll ? listEmployeesForSelect(user) : Promise.resolve([]),
   ]);
 
   return (
@@ -67,6 +71,9 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
 
       {canGenerate && !period.lockedAt && (
         <GeneratePayrollForm payrollPeriodId={period.id} clients={clients} workers={workers} />
+      )}
+      {canGenerateEmployeePayroll && !period.lockedAt && (
+        <GenerateEmployeePayrollForm payrollPeriodId={period.id} employees={employees} />
       )}
 
       {period.workerPayrolls.length === 0 ? (
@@ -107,6 +114,39 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
                     </TableRow>
                   );
                 })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      {period.employeePayrolls.length > 0 && (
+        <div className="rounded-lg border">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Base Salary</TableHead>
+                  <TableHead>Net Payable</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {period.employeePayrolls.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <Link href={`/payroll/employee/${p.id}`} className="font-medium hover:underline">
+                        {p.employee.fullName}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{formatMoney(p.baseSalary)}</TableCell>
+                    <TableCell className="font-medium">{formatMoney(p.netPayable)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={p.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>

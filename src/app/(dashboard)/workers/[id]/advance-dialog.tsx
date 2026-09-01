@@ -22,13 +22,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { advanceFormSchema, type AdvanceFormInput, type AdvanceFormValues } from "@/lib/validation/finance";
 import { createAdvance } from "@/server/actions/finance";
 
-export function AdvanceDialog({ workerId }: { workerId: string }) {
+export function AdvanceDialog({ workerId, employeeId }: { workerId?: string; employeeId?: string }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
+  const defaults: AdvanceFormValues = {
+    workerId: workerId ?? "",
+    employeeId: employeeId ?? "",
+    amount: 0,
+    dateGiven: today,
+    reason: "",
+  };
   const form = useForm<AdvanceFormValues, unknown, AdvanceFormInput>({
     resolver: zodResolver(advanceFormSchema),
-    defaultValues: { workerId, amount: 0, dateGiven: today, reason: "" },
+    defaultValues: defaults,
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -37,7 +44,7 @@ export function AdvanceDialog({ workerId }: { workerId: string }) {
     if (result.success) {
       toast.success("Advance recorded.");
       setOpen(false);
-      form.reset({ workerId, amount: 0, dateGiven: today, reason: "" });
+      form.reset(defaults);
       router.refresh();
     } else {
       toast.error(result.error);

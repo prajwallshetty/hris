@@ -22,11 +22,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { loanFormSchema, type LoanFormInput, type LoanFormValues } from "@/lib/validation/finance";
 import { createLoan } from "@/server/actions/finance";
 
-export function LoanDialog({ workerId }: { workerId: string }) {
+export function LoanDialog({ workerId, employeeId }: { workerId?: string; employeeId?: string }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
-  const defaults: LoanFormValues = { workerId, principalAmount: 0, dateGiven: today, reason: "" };
+  const defaults: LoanFormValues = {
+    workerId: workerId ?? "",
+    employeeId: employeeId ?? "",
+    principalAmount: 0,
+    dateGiven: today,
+    reason: "",
+  };
   const form = useForm<LoanFormValues, unknown, LoanFormInput>({
     resolver: zodResolver(loanFormSchema),
     defaultValues: defaults,

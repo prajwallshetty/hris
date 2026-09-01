@@ -8,10 +8,10 @@ import { cn } from "@/lib/utils";
 type Tone = "success" | "warning" | "destructive" | "info" | "neutral";
 
 const TONE_CLASSES: Record<Tone, string> = {
-  success: "bg-success/15 text-success dark:bg-success/20",
-  warning: "bg-warning/20 text-warning-foreground dark:bg-warning/15 dark:text-warning",
-  destructive: "bg-destructive/10 text-destructive dark:bg-destructive/20",
-  info: "bg-info/15 text-info dark:bg-info/20",
+  success: "bg-success/15 text-success",
+  warning: "bg-warning/20 text-warning-foreground",
+  destructive: "bg-destructive/10 text-destructive",
+  info: "bg-info/15 text-info",
   neutral: "bg-muted text-muted-foreground",
 };
 

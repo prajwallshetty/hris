@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Building2, FileText, MapPin, Search, UserCog, UserSquare2, Users, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -14,6 +14,15 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { globalSearch, type SearchResultGroup } from "@/server/actions/search";
+
+const GROUP_ICONS: Record<string, LucideIcon> = {
+  Workers: Users,
+  Clients: Building2,
+  Sites: MapPin,
+  Coordinators: UserCog,
+  Invoices: FileText,
+  Employees: UserSquare2,
+};
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
@@ -67,18 +76,22 @@ export function GlobalSearch() {
           ) : groups.length === 0 ? (
             <CommandEmpty>No results found.</CommandEmpty>
           ) : (
-            groups.map((group) => (
-              <CommandGroup key={group.label} heading={group.label}>
-                {group.items.map((item) => (
-                  <CommandItem key={item.id} value={`${group.label}-${item.id}`} onSelect={() => handleSelect(item.href)}>
-                    <div className="min-w-0">
-                      <p className="truncate">{item.label}</p>
-                      {item.sublabel && <p className="text-muted-foreground truncate text-xs">{item.sublabel}</p>}
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ))
+            groups.map((group) => {
+              const Icon = GROUP_ICONS[group.label];
+              return (
+                <CommandGroup key={group.label} heading={group.label}>
+                  {group.items.map((item) => (
+                    <CommandItem key={item.id} value={`${group.label}-${item.id}`} onSelect={() => handleSelect(item.href)}>
+                      {Icon && <Icon className="text-muted-foreground size-4 shrink-0" />}
+                      <div className="min-w-0">
+                        <p className="truncate">{item.label}</p>
+                        {item.sublabel && <p className="text-muted-foreground truncate text-xs">{item.sublabel}</p>}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              );
+            })
           )}
         </CommandList>
       </CommandDialog>

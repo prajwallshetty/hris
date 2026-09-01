@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -42,9 +43,20 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
     canGenerateEmployeePayroll ? listEmployeesForSelect(user) : Promise.resolve([]),
   ]);
 
+  // §20 payroll-period summary strip.
+  const totalWorkers = period.workerPayrolls.length + period.employeePayrolls.length;
+  const grossTotal =
+    period.workerPayrolls.reduce((sum, p) => sum + Number(p.grossPay), 0) +
+    period.employeePayrolls.reduce((sum, p) => sum + Number(p.baseSalary), 0);
+  const netTotal =
+    period.workerPayrolls.reduce((sum, p) => sum + Number(p.netPayable), 0) +
+    period.employeePayrolls.reduce((sum, p) => sum + Number(p.netPayable), 0);
+  const deductionsTotal = grossTotal - netTotal;
+
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Payroll", href: "/payroll" }, { label: period.name }]}
         title={period.name}
         description={`${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(period.periodStart)} – ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(period.periodEnd)}`}
         actions={
@@ -68,6 +80,15 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
           </>
         }
       />
+
+      {totalWorkers > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard label="Workers" value={totalWorkers.toLocaleString()} />
+          <KpiCard label="Gross" value={formatMoney(grossTotal)} />
+          <KpiCard label="Deductions" value={formatMoney(deductionsTotal)} />
+          <KpiCard label="Net" value={formatMoney(netTotal)} />
+        </div>
+      )}
 
       {canGenerate && !period.lockedAt && (
         <GeneratePayrollForm payrollPeriodId={period.id} clients={clients} workers={workers} />

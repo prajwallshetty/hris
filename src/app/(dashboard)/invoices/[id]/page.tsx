@@ -4,12 +4,15 @@ import { notFound } from "next/navigation";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { calculateOutstanding } from "@/server/calc";
 import { can } from "@/server/rbac";
 import { approveInvoice, cancelInvoice } from "@/server/actions/invoices";
+import { getEntityAuditLog } from "@/server/queries/dashboard";
 import { getInvoiceDetail } from "@/server/queries/invoices";
 import { getSessionUser } from "@/server/session";
 
@@ -33,16 +36,31 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   const canUpdate = can(user, "update", "invoice");
   const canPay = can(user, "create", "clientPayment");
+  const canViewActivity = can(user, "view", "auditLog");
   const paid = invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const outstanding = calculateOutstanding(
     invoice.totalAmount.toString(),
     invoice.payments.map((p) => p.amount.toString()),
   ).toNumber();
 
+  const activity = canViewActivity ? await getEntityAuditLog("Invoice", invoice.id) : [];
+  const activityItems: TimelineItem[] = activity.map((entry) => ({
+    id: entry.id,
+    title: `${auditActionLabel(entry.action)} by ${entry.user?.name ?? "System"}`,
+    timestamp: entry.createdAt,
+    tone: auditActionTone(entry.action),
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title={invoice.client.companyName}
+        breadcrumbs={[
+          { label: "Home", href: "/dashboard" },
+          { label: "Clients" },
+          { label: "Invoices", href: "/invoices" },
+          { label: `#${invoice.sequenceNo}` },
+        ]}
+        title={`Invoice #${invoice.sequenceNo} — ${invoice.client.companyName}`}
         description={`${formatDate(invoice.billingPeriodStart)} – ${formatDate(invoice.billingPeriodEnd)}`}
         actions={
           <>
@@ -197,6 +215,13 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
         )}
       </div>
+
+      {canViewActivity && (
+        <div className="rounded-lg border p-4">
+          <p className="mb-3 text-sm font-medium">Activity</p>
+          <Timeline items={activityItems} emptyMessage="No recorded changes for this invoice yet" />
+        </div>
+      )}
     </div>
   );
 }

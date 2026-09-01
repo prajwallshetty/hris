@@ -4,16 +4,20 @@ import { notFound } from "next/navigation";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { calculateRepayableBalance } from "@/server/calc";
 import { can } from "@/server/rbac";
 import { archiveWorker, demobilizeWorker, reactivateWorker } from "@/server/actions/workers";
 import { listClientHierarchyForSelect } from "@/server/queries/clients";
+import { getEntityAuditLog } from "@/server/queries/dashboard";
 import { getWorker } from "@/server/queries/workers";
 import {
   listWorkerAdvances,
@@ -44,6 +48,7 @@ function formatMoney(value: unknown) {
   return `SAR ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
 
+
 export default async function WorkerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getSessionUser();
@@ -59,15 +64,24 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canManageAdvances = can(user, "create", "advance");
   const canManageLoans = can(user, "create", "loan");
   const canManagePayments = can(user, "create", "workerPayment");
+  const canViewActivity = can(user, "view", "auditLog");
 
-  const [clients, payrollHistory, leave, advances, loans, payments] = await Promise.all([
+  const [clients, payrollHistory, leave, advances, loans, payments, activity] = await Promise.all([
     canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
     listWorkerPayrollHistory(worker.id),
     listWorkerLeave(worker.id),
     listWorkerAdvances(worker.id),
     listWorkerLoans(worker.id),
     listWorkerPayments(worker.id),
+    canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
   ]);
+
+  const activityItems: TimelineItem[] = activity.map((entry) => ({
+    id: entry.id,
+    title: `${auditActionLabel(entry.action)} by ${entry.user?.name ?? "System"}`,
+    timestamp: entry.createdAt,
+    tone: auditActionTone(entry.action),
+  }));
 
   const currentAssignment = worker.assignments.find((a) => a.status === "ACTIVE");
   const isDemobilizable = currentAssignment !== undefined && worker.status !== "DEMOBILIZED";
@@ -83,6 +97,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[
+          { label: "Home", href: "/dashboard" },
+          { label: "Workforce" },
+          { label: "Workers", href: "/workers" },
+          { label: worker.fullName },
+        ]}
         title={worker.fullName}
         description={`Iqama: ${worker.iqamaNumber}`}
         actions={
@@ -151,19 +171,19 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryStat label="Hourly Rate" value={formatMoney(worker.hourlyRate)} />
+        <KpiCard label="Hourly Rate" value={formatMoney(worker.hourlyRate)} />
         {latestPayroll ? (
           <>
-            <SummaryStat label="Net Payable" value={formatMoney(latestPayroll.netPayable)} emphasize />
-            <SummaryStat label="Paid" value={formatMoney(latestPayrollPaid)} />
-            <SummaryStat
+            <KpiCard label="Net Payable" value={formatMoney(latestPayroll.netPayable)} />
+            <KpiCard label="Paid" value={formatMoney(latestPayrollPaid)} />
+            <KpiCard
               label="Outstanding"
               value={formatMoney(latestPayrollOutstanding)}
-              tone={latestPayrollOutstanding > 0 ? "warning" : undefined}
+              className={latestPayrollOutstanding > 0 ? "text-warning-foreground" : undefined}
             />
           </>
         ) : (
-          <SummaryStat label="Payroll" value="No payroll yet" className="col-span-3" />
+          <KpiCard label="Payroll" value="No payroll yet" className="col-span-3" />
         )}
       </div>
 
@@ -177,6 +197,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -610,6 +631,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
         </TabsContent>
+
+        {canViewActivity && (
+          <TabsContent value="activity">
+            <Timeline items={activityItems} emptyMessage="No recorded changes for this worker yet" />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
@@ -621,34 +648,5 @@ function Detail({ label, value }: { label: string; value?: string | null }) {
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium">{value || "—"}</dd>
     </div>
-  );
-}
-
-function SummaryStat({
-  label,
-  value,
-  emphasize,
-  tone,
-  className,
-}: {
-  label: string;
-  value: string;
-  emphasize?: boolean;
-  tone?: "warning";
-  className?: string;
-}) {
-  return (
-    <Card className={className}>
-      <CardContent className="px-4 py-3">
-        <p className="text-muted-foreground text-xs font-medium">{label}</p>
-        <p
-          className={`mt-1 truncate tabular-nums ${emphasize ? "text-xl font-semibold" : "text-lg font-medium"} ${
-            tone === "warning" ? "text-warning-foreground" : ""
-          }`}
-        >
-          {value}
-        </p>
-      </CardContent>
-    </Card>
   );
 }

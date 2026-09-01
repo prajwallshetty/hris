@@ -3,12 +3,15 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { can } from "@/server/rbac";
 import { getClient } from "@/server/queries/clients";
 import {
@@ -18,6 +21,7 @@ import {
   listClientInvoices,
   listClientWorkers,
 } from "@/server/queries/client-detail";
+import { getEntityAuditLog } from "@/server/queries/dashboard";
 import { getSessionUser } from "@/server/session";
 
 import { ClientFormDialog } from "../client-form-dialog";
@@ -55,18 +59,28 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const canViewFinancials = can(user, "view", "invoice") || can(user, "view", "workerPayroll");
   const canGenerateInvoice = can(user, "create", "invoice");
   const canRecordPayment = can(user, "create", "clientPayment");
+  const canViewActivity = can(user, "view", "auditLog");
 
-  const [contacts, contracts, workers, financials, invoices] = await Promise.all([
+  const [contacts, contracts, workers, financials, invoices, activity] = await Promise.all([
     listClientContacts(client.id),
     listClientContracts(client.id),
     listClientWorkers(client.id),
     canViewFinancials ? getClientFinancials(client.id) : Promise.resolve(null),
     canViewFinancials ? listClientInvoices(client.id) : Promise.resolve([]),
+    canViewActivity ? getEntityAuditLog("Client", client.id) : Promise.resolve([]),
   ]);
+
+  const activityItems: TimelineItem[] = activity.map((entry) => ({
+    id: entry.id,
+    title: `${auditActionLabel(entry.action)} by ${entry.user?.name ?? "System"}`,
+    timestamp: entry.createdAt,
+    tone: auditActionTone(entry.action),
+  }));
 
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Clients", href: "/clients" }, { label: client.companyName }]}
         title={client.companyName}
         description={client.contactPerson || undefined}
         actions={
@@ -106,6 +120,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="sites">Projects & Sites</TabsTrigger>
           <TabsTrigger value="workers">Workers</TabsTrigger>
           {canViewFinancials && <TabsTrigger value="billing">Billing</TabsTrigger>}
+          {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -299,12 +314,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <TabsContent value="billing" className="space-y-4">
             {financials && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                <SummaryCard label="Revenue" value={formatMoney(financials.revenue)} />
-                <SummaryCard label="Invoiced" value={formatMoney(financials.totalInvoiced)} />
-                <SummaryCard label="Paid" value={formatMoney(financials.totalPaid)} />
-                <SummaryCard label="Outstanding" value={formatMoney(financials.outstanding)} />
-                <SummaryCard label="Worker Cost" value={formatMoney(financials.workerCost)} />
-                <SummaryCard label="Profitability" value={formatMoney(financials.profit)} />
+                <KpiCard label="Revenue" value={formatMoney(financials.revenue)} />
+                <KpiCard label="Invoiced" value={formatMoney(financials.totalInvoiced)} />
+                <KpiCard label="Paid" value={formatMoney(financials.totalPaid)} />
+                <KpiCard label="Outstanding" value={formatMoney(financials.outstanding)} />
+                <KpiCard label="Worker Cost" value={formatMoney(financials.workerCost)} />
+                <KpiCard label="Profitability" value={formatMoney(financials.profit)} />
               </div>
             )}
 
@@ -365,18 +380,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             )}
           </TabsContent>
         )}
+
+        {canViewActivity && (
+          <TabsContent value="activity">
+            <Timeline items={activityItems} emptyMessage="No recorded changes for this client yet" />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <p className="text-muted-foreground text-xs">{label}</p>
-        <p className="text-lg font-semibold">{value}</p>
-      </CardContent>
-    </Card>
   );
 }

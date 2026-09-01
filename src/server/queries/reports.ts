@@ -1,15 +1,16 @@
+import type { Role } from "@prisma/client";
 import { Decimal } from "decimal.js";
 
 import { db } from "@/lib/db";
 import { calculateOutstanding, calculateRepayableBalance } from "@/server/calc";
-import { assertCan, type SessionUser } from "@/server/rbac";
+import { assertCan, can, coordinatorScopeWhere, assignmentScopeWhere, ForbiddenError, type SessionUser } from "@/server/rbac";
 
 /** §31 Workforce report: active headcount per client/site. */
 export async function getWorkforceAllocationReport(user: SessionUser) {
   assertCan(user, "view", "assignment");
   const rows = await db.assignment.groupBy({
     by: ["clientId", "siteId"],
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...assignmentScopeWhere(user) },
     _count: { _all: true },
   });
 
@@ -124,7 +125,7 @@ export async function getPayrollSummaryReport(user: SessionUser) {
 export async function getCoordinatorPerformanceReport(user: SessionUser) {
   assertCan(user, "view", "sale");
   const coordinators = await db.coordinator.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...coordinatorScopeWhere(user) },
     include: { sales: true, commissions: true },
     orderBy: { name: "asc" },
   });
@@ -142,9 +143,19 @@ export async function getCoordinatorPerformanceReport(user: SessionUser) {
     .filter((r) => r.totalSales > 0 || r.commissionGenerated > 0);
 }
 
+// Company-wide revenue/expense/payroll aggregates — never scoped to a single
+// client or coordinator, so this is restricted to roles that see the whole
+// company's finances, not just anyone holding resource-level "invoice" view
+// (a CLIENT role has that for their own invoices, not the company rollup).
+const FINANCE_OVERVIEW_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"];
+
+export function canViewFinanceOverview(user: SessionUser) {
+  return can(user, "view", "invoice") && FINANCE_OVERVIEW_ROLES.includes(user.role);
+}
+
 /** §31 Finance report: company-wide revenue, expenses, receivables, payables, profit. */
 export async function getFinanceOverviewReport(user: SessionUser) {
-  assertCan(user, "view", "invoice");
+  if (!canViewFinanceOverview(user)) throw new ForbiddenError();
 
   const [invoices, expenses, workerPayrolls, employeePayrolls, commissions, advances, loans] = await Promise.all([
     db.invoice.findMany({ where: { status: { not: "CANCELLED" } }, include: { payments: true } }),

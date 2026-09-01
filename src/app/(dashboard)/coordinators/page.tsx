@@ -22,6 +22,7 @@ export default async function CoordinatorsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Operations" }, { label: "Coordinators" }]}
         title="Coordinators"
         description="Staff who manage worker deployments and client relationships."
         actions={

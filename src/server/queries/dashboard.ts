@@ -1,16 +1,23 @@
-import type { WorkerStatus } from "@prisma/client";
+import type { Prisma, WorkerStatus } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { getClientFinancials } from "@/server/queries/client-detail";
-import { workerScopeWhere, clientScopeWhere, can, type SessionUser } from "@/server/rbac";
+import {
+  workerScopeWhere,
+  clientScopeWhere,
+  siteScopeWhere,
+  assignmentScopeWhere,
+  can,
+  type SessionUser,
+} from "@/server/rbac";
 
 export async function getDashboardCounts(user: SessionUser) {
   const [totalWorkers, activeWorkers, totalClients, totalSites, activeAssignments] = await Promise.all([
     db.worker.count({ where: { deletedAt: null, ...workerScopeWhere(user) } }),
     db.worker.count({ where: { deletedAt: null, status: "ACTIVE", ...workerScopeWhere(user) } }),
     db.client.count({ where: { deletedAt: null, ...clientScopeWhere(user) } }),
-    db.site.count({ where: { deletedAt: null } }),
-    db.assignment.count({ where: { status: "ACTIVE" } }),
+    db.site.count({ where: { deletedAt: null, ...siteScopeWhere(user) } }),
+    db.assignment.count({ where: { status: "ACTIVE", ...assignmentScopeWhere(user) } }),
   ]);
 
   return { totalWorkers, activeWorkers, totalClients, totalSites, activeAssignments };
@@ -41,7 +48,7 @@ export async function getWorkersByStatus(user: SessionUser) {
 export async function getWorkersByClient(user: SessionUser, limit = 8) {
   const rows = await db.assignment.groupBy({
     by: ["clientId"],
-    where: { status: "ACTIVE", ...(user.role === "COORDINATOR" ? { coordinatorId: user.coordinatorId ?? "__none__" } : {}) },
+    where: { status: "ACTIVE", ...assignmentScopeWhere(user) },
     _count: { _all: true },
   });
   const clients = await db.client.findMany({
@@ -104,6 +111,18 @@ export async function getFinanceKpis() {
   };
 }
 
+// Entity-scoped audit trail for a detail page's Activity tab (§8/§37) —
+// the same AuditLog table the global Audit Log page reads, filtered to one
+// record via its existing [entityType, entityId] index.
+export async function getEntityAuditLog(entityType: string, entityId: string, limit = 20) {
+  return db.auditLog.findMany({
+    where: { entityType, entityId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: { user: { select: { name: true, email: true } } },
+  });
+}
+
 export async function getRecentAuditLog(limit = 10) {
   return db.auditLog.findMany({
     orderBy: { createdAt: "desc" },
@@ -112,19 +131,33 @@ export async function getRecentAuditLog(limit = 10) {
   });
 }
 
-export async function listAuditLog(params: { page?: number; pageSize?: number } = {}) {
+export async function listAuditLog(
+  params: { page?: number; pageSize?: number; action?: string; entityType?: string } = {},
+) {
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 50;
 
+  const where: Prisma.AuditLogWhereInput = {
+    ...(params.action ? { action: params.action } : {}),
+    ...(params.entityType ? { entityType: params.entityType } : {}),
+  };
+
   const [entries, total] = await Promise.all([
     db.auditLog.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: { user: { select: { name: true, email: true } } },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    db.auditLog.count(),
+    db.auditLog.count({ where }),
   ]);
 
   return { entries, total, page, pageSize };
+}
+
+/** Distinct entity types on file, for the Audit Log page's filter dropdown. */
+export async function listAuditLogEntityTypes() {
+  const rows = await db.auditLog.findMany({ distinct: ["entityType"], select: { entityType: true }, orderBy: { entityType: "asc" } });
+  return rows.map((r) => r.entityType);
 }

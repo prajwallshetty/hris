@@ -8,6 +8,7 @@ import { SearchInput } from "@/components/shared/search-input";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatEmployeeCode } from "@/lib/codes";
 import { can } from "@/server/rbac";
 import { listEmployees } from "@/server/queries/employees";
 import { getSessionUser } from "@/server/session";
@@ -31,6 +32,7 @@ export default async function EmployeesPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "HR" }, { label: "Employees" }]}
         title="Employees"
         description="Internal staff on fixed monthly salary — kept separate from hourly manpower workers."
         actions={
@@ -53,6 +55,7 @@ export default async function EmployeesPage({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Employee ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Designation</TableHead>
@@ -63,6 +66,9 @@ export default async function EmployeesPage({
               <TableBody>
                 {employees.map((employee) => (
                   <TableRow key={employee.id}>
+                    <TableCell className="text-muted-foreground font-mono text-xs">
+                      {formatEmployeeCode(employee.sequenceNo)}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/employees/${employee.id}`} className="hover:underline">
                         {employee.fullName}

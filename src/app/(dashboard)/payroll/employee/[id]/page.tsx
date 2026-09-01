@@ -3,14 +3,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { calculateOutstanding } from "@/server/calc";
 import { can } from "@/server/rbac";
 import { approveEmployeePayroll, submitEmployeePayrollForReview } from "@/server/actions/employee-payroll";
+import { getEntityAuditLog } from "@/server/queries/dashboard";
 import { getEmployeePayrollDetail } from "@/server/queries/employee-payroll";
 import { getSessionUser } from "@/server/session";
 
@@ -33,6 +37,7 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
 
   const canUpdate = can(user, "update", "employeePayroll");
   const canPay = can(user, "create", "workerPayment");
+  const canViewActivity = can(user, "view", "auditLog");
   const editable = payroll.status === "DRAFT" || payroll.status === "REVIEW";
   const paid = payroll.payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const outstanding = calculateOutstanding(
@@ -40,9 +45,23 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
     payroll.payments.map((p) => p.amount.toString()),
   ).toNumber();
 
+  const activity = canViewActivity ? await getEntityAuditLog("EmployeePayroll", payroll.id) : [];
+  const activityItems: TimelineItem[] = activity.map((entry) => ({
+    id: entry.id,
+    title: `${auditActionLabel(entry.action)} by ${entry.user?.name ?? "System"}`,
+    timestamp: entry.createdAt,
+    tone: auditActionTone(entry.action),
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[
+          { label: "Home", href: "/dashboard" },
+          { label: "Payroll", href: "/payroll" },
+          { label: payroll.payrollPeriod.name, href: `/payroll/${payroll.payrollPeriodId}` },
+          { label: payroll.employee.fullName },
+        ]}
         title={payroll.employee.fullName}
         description={payroll.payrollPeriod.name}
         actions={
@@ -83,32 +102,20 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
       />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <div className="rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Base Salary</p>
-          <p className="mt-1 text-xl font-semibold tabular-nums">{formatMoney(payroll.baseSalary)}</p>
-        </div>
-        <div className="rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Deductions</p>
-          <p className="mt-1 text-lg font-medium tabular-nums">
-            {formatMoney(
-              Number(payroll.advanceDeduction) + Number(payroll.loanDeduction) + Number(payroll.leaveDeduction) + Number(payroll.otherDeductions),
-            )}
-          </p>
-        </div>
-        <div className="rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Net Payable</p>
-          <p className="mt-1 text-lg font-medium tabular-nums">{formatMoney(payroll.netPayable)}</p>
-        </div>
-        <div className="rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Paid</p>
-          <p className="mt-1 text-lg font-medium tabular-nums">{formatMoney(paid)}</p>
-        </div>
-        <div className="rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Outstanding</p>
-          <p className={`mt-1 text-lg font-medium tabular-nums ${outstanding > 0 ? "text-warning-foreground" : ""}`}>
-            {formatMoney(outstanding)}
-          </p>
-        </div>
+        <KpiCard label="Base Salary" value={formatMoney(payroll.baseSalary)} />
+        <KpiCard
+          label="Deductions"
+          value={formatMoney(
+            Number(payroll.advanceDeduction) + Number(payroll.loanDeduction) + Number(payroll.leaveDeduction) + Number(payroll.otherDeductions),
+          )}
+        />
+        <KpiCard label="Net Payable" value={formatMoney(payroll.netPayable)} />
+        <KpiCard label="Paid" value={formatMoney(paid)} />
+        <KpiCard
+          label="Outstanding"
+          value={formatMoney(outstanding)}
+          className={outstanding > 0 ? "text-warning-foreground" : undefined}
+        />
       </div>
 
       <div className="rounded-lg border p-4">
@@ -188,6 +195,13 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
           </div>
         )}
       </div>
+
+      {canViewActivity && (
+        <div className="rounded-lg border p-4">
+          <p className="mb-3 text-sm font-medium">Activity</p>
+          <Timeline items={activityItems} emptyMessage="No recorded changes for this payroll record yet" />
+        </div>
+      )}
 
       <Link href={`/payroll/${payroll.payrollPeriodId}`} className="text-muted-foreground text-sm hover:underline">
         ← Back to {payroll.payrollPeriod.name}

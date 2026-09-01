@@ -49,6 +49,7 @@ export default async function ExpensesPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Operations" }, { label: "Expenses" }]}
         title="Expenses"
         description="Transport, accommodation, recruitment, medical, and other company costs — linkable to a worker, client, site, or coordinator."
         actions={canCreate && <ExpenseFormDialog clients={clients} workers={workers} coordinators={coordinators} />}

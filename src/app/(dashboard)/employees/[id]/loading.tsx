@@ -1,5 +1,5 @@
 import { ProfileSkeleton } from "@/components/shared/skeletons";
 
-export default function WorkerDetailLoading() {
+export default function EmployeeDetailLoading() {
   return <ProfileSkeleton />;
 }

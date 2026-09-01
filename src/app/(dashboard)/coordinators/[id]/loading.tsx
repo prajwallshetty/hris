@@ -1,5 +1,5 @@
 import { DetailSkeleton } from "@/components/shared/skeletons";
 
-export default function ClientDetailLoading() {
+export default function CoordinatorDetailLoading() {
   return <DetailSkeleton />;
 }

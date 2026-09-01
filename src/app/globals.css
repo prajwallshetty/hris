@@ -144,3 +144,14 @@
     @apply font-sans;
   }
 }
+
+/* Shimmer skeleton sweep (§41) — a horizontal light-sweep gradient rather
+   than a flat opacity pulse. motion-reduce: falls back to a static block. */
+@keyframes shimmer-sweep {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}

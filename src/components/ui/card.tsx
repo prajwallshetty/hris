@@ -2,17 +2,36 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+const CARD_VARIANT_CLASSES = {
+  // Default content surface — subtle 1px ring, no shadow (§40: "do not turn
+  // every piece of information into a card").
+  standard: "",
+  // Raised above the page for emphasis (summary panels, highlighted totals).
+  elevated: "shadow-sm ring-foreground/8",
+  // Clickable card rows — a hover lift instead of a static ring.
+  interactive:
+    "cursor-pointer transition-shadow hover:shadow-sm hover:ring-foreground/15",
+  // Callout / attention card — primary-tinted left accent.
+  highlight: "border-l-2 border-l-primary ring-foreground/8",
+} as const;
+
 function Card({
   className,
   size = "default",
+  variant = "standard",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm";
+  variant?: keyof typeof CARD_VARIANT_CLASSES;
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-variant={variant}
       className={cn(
         "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        CARD_VARIANT_CLASSES[variant],
         className
       )}
       {...props}

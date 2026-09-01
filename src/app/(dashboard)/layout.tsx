@@ -8,7 +8,6 @@ import { GlobalSearch } from "@/components/shared/global-search";
 import { NotificationsBell } from "@/components/shared/notifications-bell";
 import { QuickCreateMenu } from "@/components/shared/quick-create-menu";
 import { SidebarNav } from "@/components/shared/sidebar-nav";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { UserMenu } from "@/components/shared/user-menu";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -55,7 +54,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <GlobalSearch />
             <QuickCreateMenu role={session.user.role} />
             <NotificationsBell />
-            <ThemeToggle />
             <UserMenu
               name={session.user.name ?? session.user.email ?? "User"}
               email={session.user.email ?? ""}

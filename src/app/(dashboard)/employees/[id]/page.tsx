@@ -4,15 +4,19 @@ import { notFound } from "next/navigation";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { calculateRepayableBalance } from "@/server/calc";
 import { can } from "@/server/rbac";
 import { archiveEmployee, reactivateEmployee } from "@/server/actions/employees";
+import { getEntityAuditLog } from "@/server/queries/dashboard";
 import { getEmployee } from "@/server/queries/employees";
 import {
   listEmployeeAdvances,
@@ -57,18 +61,33 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   const canDecideLeave = can(user, "update", "leaveRequest");
   const canManageAdvances = can(user, "create", "advance");
   const canManageLoans = can(user, "create", "loan");
+  const canViewActivity = can(user, "view", "auditLog");
 
-  const [attendance, leave, advances, loans, payrollHistory] = await Promise.all([
+  const [attendance, leave, advances, loans, payrollHistory, activity] = await Promise.all([
     listEmployeeAttendance(employee.id),
     listEmployeeLeave(employee.id),
     listEmployeeAdvances(employee.id),
     listEmployeeLoans(employee.id),
     listEmployeePayrollHistory(employee.id),
+    canViewActivity ? getEntityAuditLog("InternalEmployee", employee.id) : Promise.resolve([]),
   ]);
+
+  const activityItems: TimelineItem[] = activity.map((entry) => ({
+    id: entry.id,
+    title: `${auditActionLabel(entry.action)} by ${entry.user?.name ?? "System"}`,
+    timestamp: entry.createdAt,
+    tone: auditActionTone(entry.action),
+  }));
 
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[
+          { label: "Home", href: "/dashboard" },
+          { label: "HR" },
+          { label: "Employees", href: "/employees" },
+          { label: employee.fullName },
+        ]}
         title={employee.fullName}
         description={employee.designation?.title ?? undefined}
         actions={
@@ -121,10 +140,10 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryStat label="Base Salary" value={formatMoney(employee.baseSalary)} />
-        <SummaryStat label="Department" value={employee.department?.name ?? "—"} />
-        <SummaryStat label="Coordinator" value={employee.coordinator?.name ?? "—"} />
-        <SummaryStat label="Joined" value={formatDate(employee.joiningDate)} />
+        <KpiCard label="Base Salary" value={formatMoney(employee.baseSalary)} />
+        <KpiCard label="Department" value={employee.department?.name ?? "—"} />
+        <KpiCard label="Coordinator" value={employee.coordinator?.name ?? "—"} />
+        <KpiCard label="Joined" value={formatDate(employee.joiningDate)} />
       </div>
 
       <Tabs defaultValue="attendance">
@@ -134,6 +153,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
+          {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="attendance" className="space-y-4">
@@ -363,18 +383,13 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             </div>
           )}
         </TabsContent>
+
+        {canViewActivity && (
+          <TabsContent value="activity">
+            <Timeline items={activityItems} emptyMessage="No recorded changes for this employee yet" />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
-  );
-}
-
-function SummaryStat({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent className="px-4 py-3">
-        <p className="text-muted-foreground text-xs font-medium">{label}</p>
-        <p className="mt-1 truncate text-lg font-medium tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
   );
 }

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
@@ -170,19 +171,19 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryStat label="Hourly Rate" value={formatMoney(worker.hourlyRate)} />
+        <KpiCard label="Hourly Rate" value={formatMoney(worker.hourlyRate)} />
         {latestPayroll ? (
           <>
-            <SummaryStat label="Net Payable" value={formatMoney(latestPayroll.netPayable)} emphasize />
-            <SummaryStat label="Paid" value={formatMoney(latestPayrollPaid)} />
-            <SummaryStat
+            <KpiCard label="Net Payable" value={formatMoney(latestPayroll.netPayable)} />
+            <KpiCard label="Paid" value={formatMoney(latestPayrollPaid)} />
+            <KpiCard
               label="Outstanding"
               value={formatMoney(latestPayrollOutstanding)}
-              tone={latestPayrollOutstanding > 0 ? "warning" : undefined}
+              className={latestPayrollOutstanding > 0 ? "text-warning-foreground" : undefined}
             />
           </>
         ) : (
-          <SummaryStat label="Payroll" value="No payroll yet" className="col-span-3" />
+          <KpiCard label="Payroll" value="No payroll yet" className="col-span-3" />
         )}
       </div>
 
@@ -647,34 +648,5 @@ function Detail({ label, value }: { label: string; value?: string | null }) {
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium">{value || "—"}</dd>
     </div>
-  );
-}
-
-function SummaryStat({
-  label,
-  value,
-  emphasize,
-  tone,
-  className,
-}: {
-  label: string;
-  value: string;
-  emphasize?: boolean;
-  tone?: "warning";
-  className?: string;
-}) {
-  return (
-    <Card className={className}>
-      <CardContent className="px-4 py-3">
-        <p className="text-muted-foreground text-xs font-medium">{label}</p>
-        <p
-          className={`mt-1 truncate tabular-nums ${emphasize ? "text-xl font-semibold" : "text-lg font-medium"} ${
-            tone === "warning" ? "text-warning-foreground" : ""
-          }`}
-        >
-          {value}
-        </p>
-      </CardContent>
-    </Card>
   );
 }

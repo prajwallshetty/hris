@@ -49,6 +49,7 @@ export default async function AssignmentsPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Workforce" }, { label: "Assignments" }]}
         title="Assignments"
         description="Every worker deployment to a client site, past and present."
         actions={

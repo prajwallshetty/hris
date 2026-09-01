@@ -1,16 +1,33 @@
 "use client";
 
+import { Archive, Eye, MoreHorizontal, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
-import { bulkArchiveWorkers } from "@/server/actions/workers";
+import { archiveWorker, bulkArchiveWorkers } from "@/server/actions/workers";
 
 export type WorkerRow = {
   id: string;
@@ -25,10 +42,37 @@ export type WorkerRow = {
   status: string;
 };
 
-export function WorkersTable({ rows, canBulkArchive }: { rows: WorkerRow[]; canBulkArchive: boolean }) {
+export function WorkersTable({
+  rows,
+  canBulkArchive,
+  canEdit = canBulkArchive,
+}: {
+  rows: WorkerRow[];
+  canBulkArchive: boolean;
+  canEdit?: boolean;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [archiveTarget, setArchiveTarget] = useState<WorkerRow | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [, startTransition] = useTransition();
+
+  async function handleRowArchive() {
+    if (!archiveTarget) return;
+    setIsArchiving(true);
+    try {
+      const result = await archiveWorker(archiveTarget.id);
+      if (result.success) {
+        toast.success(`${archiveTarget.fullName} archived.`);
+        setArchiveTarget(null);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setIsArchiving(false);
+    }
+  }
 
   const allSelected = rows.length > 0 && selected.size === rows.length;
   const someSelected = selected.size > 0;
@@ -98,6 +142,7 @@ export function WorkersTable({ rows, canBulkArchive }: { rows: WorkerRow[]; canB
                 <TableHead>Coordinator</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-10 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -126,12 +171,66 @@ export function WorkersTable({ rows, canBulkArchive }: { rows: WorkerRow[]; canB
                   <TableCell>
                     <StatusBadge status={worker.status} />
                   </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${worker.fullName}`}>
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          render={
+                            <Link href={`/workers/${worker.id}`}>
+                              <Eye className="size-4" />
+                              View
+                            </Link>
+                          }
+                        />
+                        {canEdit && (
+                          <DropdownMenuItem
+                            render={
+                              <Link href={`/workers/${worker.id}/edit`}>
+                                <Pencil className="size-4" />
+                                Edit
+                              </Link>
+                            }
+                          />
+                        )}
+                        {canBulkArchive && worker.status !== "TERMINATED" && (
+                          <DropdownMenuItem variant="destructive" onClick={() => setArchiveTarget(worker)}>
+                            <Archive className="size-4" />
+                            Archive
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       </div>
+
+      <AlertDialog open={archiveTarget != null} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {archiveTarget?.fullName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This worker and their history are kept, but hidden from active lists.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isArchiving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRowArchive} disabled={isArchiving} className="bg-destructive hover:bg-destructive/90">
+              {isArchiving ? "Please wait…" : "Archive"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

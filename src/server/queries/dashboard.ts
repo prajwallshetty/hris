@@ -111,6 +111,18 @@ export async function getFinanceKpis() {
   };
 }
 
+// Entity-scoped audit trail for a detail page's Activity tab (§8/§37) —
+// the same AuditLog table the global Audit Log page reads, filtered to one
+// record via its existing [entityType, entityId] index.
+export async function getEntityAuditLog(entityType: string, entityId: string, limit = 20) {
+  return db.auditLog.findMany({
+    where: { entityType, entityId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: { user: { select: { name: true, email: true } } },
+  });
+}
+
 export async function getRecentAuditLog(limit = 10) {
   return db.auditLog.findMany({
     orderBy: { createdAt: "desc" },

@@ -48,10 +48,12 @@ export default async function WorkersPage({
   });
 
   const canArchive = can(user, "archive", "worker");
+  const canEdit = can(user, "update", "worker");
 
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Workforce" }, { label: "Workers" }]}
         title="Workers"
         description="Manpower roster, identified by Iqama number."
         actions={
@@ -88,7 +90,7 @@ export default async function WorkersPage({
         />
       ) : (
         <>
-          <WorkersTable rows={rows} canBulkArchive={canArchive} />
+          <WorkersTable rows={rows} canBulkArchive={canArchive} canEdit={canEdit} />
           <Pagination page={page} pageSize={pageSize} total={total} />
         </>
       )}

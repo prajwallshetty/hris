@@ -6,6 +6,7 @@ import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Timeline, type TimelineItem, type TimelineTone } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +15,7 @@ import { calculateRepayableBalance } from "@/server/calc";
 import { can } from "@/server/rbac";
 import { archiveWorker, demobilizeWorker, reactivateWorker } from "@/server/actions/workers";
 import { listClientHierarchyForSelect } from "@/server/queries/clients";
+import { getEntityAuditLog } from "@/server/queries/dashboard";
 import { getWorker } from "@/server/queries/workers";
 import {
   listWorkerAdvances,
@@ -44,6 +46,24 @@ function formatMoney(value: unknown) {
   return `SAR ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  create: "Created",
+  update: "Updated",
+  archive: "Archived",
+  reactivate: "Reactivated",
+  end_assignment: "Assignment ended",
+  import: "Imported",
+};
+
+const ACTION_TONES: Record<string, TimelineTone> = {
+  create: "success",
+  update: "info",
+  archive: "destructive",
+  reactivate: "success",
+  end_assignment: "warning",
+  import: "info",
+};
+
 export default async function WorkerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getSessionUser();
@@ -59,15 +79,24 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canManageAdvances = can(user, "create", "advance");
   const canManageLoans = can(user, "create", "loan");
   const canManagePayments = can(user, "create", "workerPayment");
+  const canViewActivity = can(user, "view", "auditLog");
 
-  const [clients, payrollHistory, leave, advances, loans, payments] = await Promise.all([
+  const [clients, payrollHistory, leave, advances, loans, payments, activity] = await Promise.all([
     canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
     listWorkerPayrollHistory(worker.id),
     listWorkerLeave(worker.id),
     listWorkerAdvances(worker.id),
     listWorkerLoans(worker.id),
     listWorkerPayments(worker.id),
+    canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
   ]);
+
+  const activityItems: TimelineItem[] = activity.map((entry) => ({
+    id: entry.id,
+    title: `${ACTION_LABELS[entry.action] ?? entry.action} by ${entry.user?.name ?? "System"}`,
+    timestamp: entry.createdAt,
+    tone: ACTION_TONES[entry.action] ?? "default",
+  }));
 
   const currentAssignment = worker.assignments.find((a) => a.status === "ACTIVE");
   const isDemobilizable = currentAssignment !== undefined && worker.status !== "DEMOBILIZED";
@@ -83,6 +112,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[
+          { label: "Home", href: "/dashboard" },
+          { label: "Workforce" },
+          { label: "Workers", href: "/workers" },
+          { label: worker.fullName },
+        ]}
         title={worker.fullName}
         description={`Iqama: ${worker.iqamaNumber}`}
         actions={
@@ -177,6 +212,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -610,6 +646,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
         </TabsContent>
+
+        {canViewActivity && (
+          <TabsContent value="activity">
+            <Timeline items={activityItems} emptyMessage="No recorded changes for this worker yet" />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

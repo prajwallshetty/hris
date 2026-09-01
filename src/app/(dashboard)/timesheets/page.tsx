@@ -43,6 +43,7 @@ export default async function TimesheetsPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Workforce" }, { label: "Timesheets" }]}
         title="Timesheets"
         description="Login-sheet uploads and manual attendance, from upload through approval and locking."
         actions={

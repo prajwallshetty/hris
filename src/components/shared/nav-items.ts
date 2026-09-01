@@ -91,7 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/coordinators",
         label: "Coordinators",
         icon: UserCog,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR"],
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
       },
     ],
   },

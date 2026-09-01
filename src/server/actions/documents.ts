@@ -3,23 +3,42 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
-import { documentFormSchema, type DocumentFormInput } from "@/lib/validation/document";
+import { documentMetaSchema } from "@/lib/validation/document";
+import { saveUploadedFile } from "@/lib/storage";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { assertCan } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
-export async function uploadWorkerDocument(input: DocumentFormInput): Promise<ActionResult<{ id: string }>> {
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export async function uploadWorkerDocument(formData: FormData): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();
     assertCan(user, "update", "worker");
-    const data = documentFormSchema.parse(input);
+
+    const data = documentMetaSchema.parse({
+      workerId: formData.get("workerId"),
+      documentType: formData.get("documentType"),
+      expiryDate: formData.get("expiryDate"),
+    });
+
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { success: false, error: "Please choose a file to upload." };
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return { success: false, error: "File is too large (10 MB limit)." };
+    }
+
+    const stored = await saveUploadedFile(file, `workers/${data.workerId}`);
 
     const document = await db.workerDocument.create({
       data: {
         workerId: data.workerId,
-        fileName: data.fileName,
-        fileUrl: data.fileUrl,
+        fileName: file.name,
+        fileUrl: stored.url,
+        fileType: file.type || null,
         documentType: data.documentType || null,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         verificationStatus: "PENDING",
@@ -27,7 +46,13 @@ export async function uploadWorkerDocument(input: DocumentFormInput): Promise<Ac
       },
     });
 
-    await logAudit({ userId: user.id, action: "create", entityType: "WorkerDocument", entityId: document.id, newValue: data });
+    await logAudit({
+      userId: user.id,
+      action: "create",
+      entityType: "WorkerDocument",
+      entityId: document.id,
+      newValue: { workerId: data.workerId, documentType: data.documentType, fileName: file.name },
+    });
     revalidatePath(`/workers/${data.workerId}`);
     return ok({ id: document.id });
   } catch (error) {

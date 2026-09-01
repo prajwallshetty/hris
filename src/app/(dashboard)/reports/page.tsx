@@ -2,9 +2,9 @@ import { BarChart3 } from "lucide-react";
 import { forbidden } from "next/navigation";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/server/rbac";
@@ -45,7 +45,11 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Reports" description="Aggregated, DB-backed rollups across workforce, attendance, payroll, coordinators, and finance." />
+      <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Reports" }]}
+        title="Reports"
+        description="Aggregated, DB-backed rollups across workforce, attendance, payroll, coordinators, and finance."
+      />
 
       <Tabs defaultValue={defaultTab}>
         <TabsList>
@@ -197,29 +201,18 @@ export default async function ReportsPage() {
         {showFinance && finance && (
           <TabsContent value="finance">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <SummaryCard label="Revenue" value={formatMoney(finance.revenue)} />
-              <SummaryCard label="Worker Cost" value={formatMoney(finance.workerCost)} />
-              <SummaryCard label="Expenses" value={formatMoney(finance.expenses)} />
-              <SummaryCard label="Commission" value={formatMoney(finance.commission)} />
-              <SummaryCard label="Receivables (from clients)" value={formatMoney(finance.receivables)} />
-              <SummaryCard label="Payables (to workers/employees)" value={formatMoney(finance.payables)} />
-              <SummaryCard label="Advances Outstanding" value={formatMoney(finance.advancesOutstanding)} />
-              <SummaryCard label="Loans Outstanding" value={formatMoney(finance.loansOutstanding)} />
+              <KpiCard label="Revenue" value={formatMoney(finance.revenue)} />
+              <KpiCard label="Worker Cost" value={formatMoney(finance.workerCost)} />
+              <KpiCard label="Expenses" value={formatMoney(finance.expenses)} />
+              <KpiCard label="Commission" value={formatMoney(finance.commission)} />
+              <KpiCard label="Receivables (from clients)" value={formatMoney(finance.receivables)} />
+              <KpiCard label="Payables (to workers/employees)" value={formatMoney(finance.payables)} />
+              <KpiCard label="Advances Outstanding" value={formatMoney(finance.advancesOutstanding)} />
+              <KpiCard label="Loans Outstanding" value={formatMoney(finance.loansOutstanding)} />
             </div>
           </TabsContent>
         )}
       </Tabs>
     </div>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent className="px-4 py-3">
-        <p className="text-muted-foreground text-xs font-medium">{label}</p>
-        <p className="mt-1 truncate text-lg font-semibold tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
   );
 }

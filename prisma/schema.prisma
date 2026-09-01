@@ -680,6 +680,7 @@ model Timesheet {
   items TimesheetItem[]
 
   @@index([siteId])
+  @@index([clientId])
   @@index([period])
   @@index([status])
 }
@@ -717,6 +718,8 @@ model TimesheetItem {
   @@index([timesheetId])
   @@index([workerId])
   @@index([status])
+  @@index([date])
+  @@index([status, date])
 }
 
 // ---------------------------------------------------------------------------

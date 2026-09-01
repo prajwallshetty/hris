@@ -7,6 +7,7 @@ import {
   Banknote,
   ClipboardList,
   ClipboardCheck,
+  FileText,
   UserCog,
   History,
   Settings,
@@ -67,13 +68,19 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Payroll",
+    label: "Finance",
     items: [
       {
         href: "/payroll",
         label: "Payroll",
         icon: Banknote,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+      {
+        href: "/invoices",
+        label: "Invoices",
+        icon: FileText,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"],
       },
     ],
   },

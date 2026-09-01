@@ -250,3 +250,18 @@ export function assignmentScopeWhere(user: SessionUser): Prisma.AssignmentWhereI
   }
   return undefined;
 }
+
+// A CLIENT-role user must never see another client's invoices/payments (§33).
+export function invoiceScopeWhere(user: SessionUser): Prisma.InvoiceWhereInput | undefined {
+  if (user.role === "CLIENT") {
+    return { clientId: user.clientId ?? "__none__" };
+  }
+  return undefined;
+}
+
+export function clientPaymentScopeWhere(user: SessionUser): Prisma.ClientPaymentWhereInput | undefined {
+  if (user.role === "CLIENT") {
+    return { clientId: user.clientId ?? "__none__" };
+  }
+  return undefined;
+}

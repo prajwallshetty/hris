@@ -1,4 +1,16 @@
-import { Banknote, Building2, ClipboardList, TrendingUp, UserCheck, Users, Wallet } from "lucide-react";
+import {
+  Banknote,
+  Building2,
+  Clock,
+  ClipboardList,
+  HandCoins,
+  MapPin,
+  Receipt,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -11,6 +23,7 @@ import { can } from "@/server/rbac";
 import {
   getClientProfitabilitySummary,
   getDashboardCounts,
+  getFinanceKpis,
   getRecentAuditLog,
   getWorkersByClient,
   getWorkersByStatus,
@@ -53,12 +66,17 @@ export default async function DashboardPage() {
   const user = await getSessionUser();
   const showAuditLog = can(user, "view", "auditLog");
   const showFinancials = can(user, "view", "invoice") || can(user, "view", "workerPayroll");
+  const showTimesheetKpi = can(user, "view", "timesheet");
+  const showPayrollKpi = can(user, "view", "workerPayroll") || can(user, "view", "employeePayroll");
+  const showCommissionKpi = can(user, "view", "commission");
+  const showExpenseKpi = can(user, "view", "expense");
 
-  const [counts, workersByStatus, workersByClient, profitability, auditLog] = await Promise.all([
+  const [counts, workersByStatus, workersByClient, profitability, financeKpis, auditLog] = await Promise.all([
     getDashboardCounts(user),
     getWorkersByStatus(user),
     getWorkersByClient(user),
     showFinancials ? getClientProfitabilitySummary(user) : Promise.resolve([]),
+    showTimesheetKpi || showPayrollKpi || showCommissionKpi || showExpenseKpi ? getFinanceKpis() : Promise.resolve(null),
     showAuditLog ? getRecentAuditLog(8) : Promise.resolve([]),
   ]);
 
@@ -76,7 +94,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <PageHeader title="Dashboard" description="Live snapshot of workforce, deployment, and financial health." />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <KpiCard href="/workers" label="Total Workers" value={counts.totalWorkers.toLocaleString()} icon={Users} />
         <KpiCard
           href="/workers?status=ACTIVE"
@@ -85,6 +103,7 @@ export default async function DashboardPage() {
           icon={UserCheck}
         />
         <KpiCard href="/clients" label="Clients" value={counts.totalClients.toLocaleString()} icon={Building2} />
+        <KpiCard href="/clients" label="Sites" value={counts.totalSites.toLocaleString()} icon={MapPin} />
         <KpiCard
           href="/assignments?status=ACTIVE"
           label="Active Assignments"
@@ -93,11 +112,24 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {financeKpis && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {showTimesheetKpi && (
+            <KpiCard href="/timesheets" label="Approved Hours" value={financeKpis.totalHours.toLocaleString(undefined, { maximumFractionDigits: 0 })} icon={Clock} />
+          )}
+          {showPayrollKpi && <KpiCard href="/payroll" label="Total Payroll" value={formatMoney(financeKpis.totalPayroll)} icon={Wallet} />}
+          {showCommissionKpi && (
+            <KpiCard href="/coordinators" label="Commission" value={formatMoney(financeKpis.totalCommission)} icon={HandCoins} />
+          )}
+          {showExpenseKpi && <KpiCard href="/expenses" label="Expenses" value={formatMoney(financeKpis.totalExpenses)} icon={Receipt} />}
+        </div>
+      )}
+
       {showFinancials && profitability.length > 0 && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard href="/clients" label="Revenue" value={formatMoney(totals.revenue)} icon={TrendingUp} />
-          <KpiCard href="/clients" label="Worker Cost" value={formatMoney(totals.workerCost)} icon={Wallet} />
-          <KpiCard href="/clients" label="Outstanding" value={formatMoney(totals.outstanding)} icon={Banknote} />
+          <KpiCard href="/invoices" label="Revenue" value={formatMoney(totals.revenue)} icon={TrendingUp} />
+          <KpiCard href="/payroll" label="Worker Cost" value={formatMoney(totals.workerCost)} icon={Wallet} />
+          <KpiCard href="/invoices" label="Outstanding" value={formatMoney(totals.outstanding)} icon={Banknote} />
           <KpiCard href="/clients" label="Profit" value={formatMoney(totals.profit)} icon={TrendingUp} />
         </div>
       )}

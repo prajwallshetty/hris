@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   FileText,
   Receipt,
+  BarChart3,
   UserCog,
   History,
   Settings,
@@ -112,6 +113,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Administration",
     items: [
+      {
+        href: "/reports",
+        label: "Reports",
+        icon: BarChart3,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
       {
         href: "/audit-log",
         label: "Audit Log",

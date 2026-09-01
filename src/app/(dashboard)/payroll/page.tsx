@@ -35,6 +35,7 @@ export default async function PayrollPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Payroll" }]}
         title="Payroll"
         description="Generate worker payroll from locked timesheets, review, approve, and lock each period."
         actions={canCreate && <PayrollPeriodFormDialog />}

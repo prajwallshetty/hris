@@ -11,7 +11,7 @@ import {
 } from "@/lib/validation/timesheet";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
-import { calculateOvertime, calculateRegularHours, type OvertimeRuleConfig } from "@/server/calc";
+import { calculateOvertime, calculateRegularHours } from "@/server/calc";
 import {
   detectTimesheetColumns,
   extractTimesheetRows,
@@ -21,27 +21,13 @@ import {
   type ValidTimesheetImportRow,
 } from "@/server/import/timesheet-import";
 import { assertCan } from "@/server/rbac";
-import { getActiveOvertimeRule } from "@/server/queries/settings";
+import { getActiveOvertimeRule, toOvertimeRuleConfig } from "@/server/queries/settings";
 import {
   findWorkersByIqamas,
   getAssignedIqamasForSite,
   getExistingTimesheetKeys,
 } from "@/server/queries/timesheets";
 import { getSessionUser } from "@/server/session";
-
-function toOvertimeRuleConfig(rule: {
-  dailyRegularHoursThreshold: unknown;
-  overtimeMultiplier: unknown;
-  maxDailyHours: unknown;
-  minPayableHours: unknown;
-}): OvertimeRuleConfig {
-  return {
-    dailyRegularHoursThreshold: String(rule.dailyRegularHoursThreshold),
-    overtimeMultiplier: String(rule.overtimeMultiplier),
-    maxDailyHours: rule.maxDailyHours === null ? null : String(rule.maxDailyHours),
-    minPayableHours: rule.minPayableHours === null ? null : String(rule.minPayableHours),
-  };
-}
 
 function combineLocalTime(date: Date, time: string): Date {
   const [hours, minutes] = time.split(":").map(Number);

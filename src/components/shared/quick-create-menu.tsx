@@ -1,7 +1,7 @@
 "use client";
 
 import type { Role } from "@prisma/client";
-import { Building2, ClipboardCheck, ClipboardList, Plus, UserCog, UserPlus } from "lucide-react";
+import { Banknote, Building2, ClipboardCheck, ClipboardList, Plus, UserCog, UserPlus } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export function QuickCreateMenu({ role }: { role: Role }) {
     can(user, "create", "client") && { href: "/clients", label: "Add Client", icon: Building2 },
     can(user, "create", "assignment") && { href: "/assignments", label: "New Assignment", icon: ClipboardList },
     can(user, "create", "timesheet") && { href: "/timesheets/upload", label: "Upload Timesheet", icon: ClipboardCheck },
+    can(user, "create", "payrollPeriod") && { href: "/payroll", label: "New Payroll Period", icon: Banknote },
     can(user, "create", "coordinator") && { href: "/coordinators", label: "Add Coordinator", icon: UserCog },
   ].filter((item): item is { href: string; label: string; icon: typeof UserPlus } => Boolean(item));
 

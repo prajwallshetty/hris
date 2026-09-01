@@ -18,6 +18,7 @@ import { getWorker } from "@/server/queries/workers";
 import {
   listWorkerAdvances,
   listWorkerLeave,
+  listWorkerLoans,
   listWorkerPayments,
   listWorkerPayrollHistory,
 } from "@/server/queries/worker-detail";
@@ -27,6 +28,7 @@ import { AssignmentFormDialog } from "../../assignments/assignment-form";
 import { AdvanceDialog } from "./advance-dialog";
 import { LeaveDecisionButtons } from "./leave-decision-buttons";
 import { LeaveRequestDialog } from "./leave-request-dialog";
+import { LoanDialog } from "./loan-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
 
@@ -53,13 +55,15 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canRequestLeave = can(user, "create", "leaveRequest");
   const canDecideLeave = can(user, "update", "leaveRequest");
   const canManageAdvances = can(user, "create", "advance");
+  const canManageLoans = can(user, "create", "loan");
   const canManagePayments = can(user, "create", "workerPayment");
 
-  const [clients, payrollHistory, leave, advances, payments] = await Promise.all([
+  const [clients, payrollHistory, leave, advances, loans, payments] = await Promise.all([
     canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
     listWorkerPayrollHistory(worker.id),
     listWorkerLeave(worker.id),
     listWorkerAdvances(worker.id),
+    listWorkerLoans(worker.id),
     listWorkerPayments(worker.id),
   ]);
 
@@ -168,6 +172,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="advances">Advances</TabsTrigger>
+          <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
         </TabsList>
 
@@ -458,6 +463,55 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                         <TableCell>{advance.reason ?? "—"}</TableCell>
                         <TableCell>
                           <StatusBadge status={advance.status} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="loans" className="space-y-4">
+          {canManageLoans && (
+            <div className="flex justify-end">
+              <LoanDialog workerId={worker.id} />
+            </div>
+          )}
+          {loans.length === 0 ? (
+            <EmptyState icon={ClipboardList} title="No loans given" />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Principal</TableHead>
+                    <TableHead>Repaid</TableHead>
+                    <TableHead>Remaining</TableHead>
+                    <TableHead>Installment</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loans.map((loan) => {
+                    const repaid = loan.repayments.reduce((sum, r) => sum + Number(r.amount), 0);
+                    const remaining = calculateRepayableBalance(
+                      loan.principalAmount.toString(),
+                      loan.repayments.map((r) => r.amount.toString()),
+                    );
+                    return (
+                      <TableRow key={loan.id}>
+                        <TableCell>{formatDate(loan.dateGiven)}</TableCell>
+                        <TableCell>{formatMoney(loan.principalAmount)}</TableCell>
+                        <TableCell>{formatMoney(repaid)}</TableCell>
+                        <TableCell className="font-medium">{formatMoney(remaining.toNumber())}</TableCell>
+                        <TableCell>{loan.installmentAmount ? formatMoney(loan.installmentAmount) : "—"}</TableCell>
+                        <TableCell>{loan.reason ?? "—"}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={loan.status} />
                         </TableCell>
                       </TableRow>
                     );

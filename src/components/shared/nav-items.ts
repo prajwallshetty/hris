@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Users,
   Building2,
+  Banknote,
   ClipboardList,
   ClipboardCheck,
   UserCog,
@@ -62,6 +63,17 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Clients",
         icon: Building2,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR"],
+      },
+    ],
+  },
+  {
+    label: "Payroll",
+    items: [
+      {
+        href: "/payroll",
+        label: "Payroll",
+        icon: Banknote,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
     ],
   },

@@ -14,6 +14,7 @@ export type AdvanceFormValues = z.input<typeof advanceFormSchema>;
 
 export const workerPaymentFormSchema = z.object({
   workerId: z.string().min(1),
+  workerPayrollId: z.string().optional().or(z.literal("")),
   amount: z.coerce.number().positive("Must be greater than 0"),
   paymentType: z.enum(WORKER_PAYMENT_TYPES),
   method: z.enum(PAYMENT_METHODS),
@@ -23,3 +24,14 @@ export const workerPaymentFormSchema = z.object({
 });
 export type WorkerPaymentFormInput = z.infer<typeof workerPaymentFormSchema>;
 export type WorkerPaymentFormValues = z.input<typeof workerPaymentFormSchema>;
+
+export const loanFormSchema = z.object({
+  workerId: z.string().min(1),
+  principalAmount: z.coerce.number().positive("Must be greater than 0"),
+  dateGiven: z.string().min(1, "Date is required"),
+  installments: z.coerce.number().int().positive().optional(),
+  installmentAmount: z.coerce.number().positive().optional(),
+  reason: z.string().trim().optional().or(z.literal("")),
+});
+export type LoanFormInput = z.infer<typeof loanFormSchema>;
+export type LoanFormValues = z.input<typeof loanFormSchema>;

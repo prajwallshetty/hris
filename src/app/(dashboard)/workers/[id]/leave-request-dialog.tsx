@@ -29,12 +29,29 @@ import { createLeaveRequest } from "@/server/actions/leave";
 
 type LeaveType = { id: string; name: string };
 
-export function LeaveRequestDialog({ workerId, leaveTypes }: { workerId: string; leaveTypes: LeaveType[] }) {
+export function LeaveRequestDialog({
+  workerId,
+  employeeId,
+  leaveTypes,
+}: {
+  workerId?: string;
+  employeeId?: string;
+  leaveTypes: LeaveType[];
+}) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const defaults: LeaveRequestFormValues = {
+    workerId: workerId ?? "",
+    employeeId: employeeId ?? "",
+    leaveTypeId: "",
+    startDate: "",
+    endDate: "",
+    days: 1,
+    reason: "",
+  };
   const form = useForm<LeaveRequestFormValues, unknown, LeaveRequestFormInput>({
     resolver: zodResolver(leaveRequestFormSchema),
-    defaultValues: { workerId, leaveTypeId: "", startDate: "", endDate: "", days: 1, reason: "" },
+    defaultValues: defaults,
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -43,7 +60,7 @@ export function LeaveRequestDialog({ workerId, leaveTypes }: { workerId: string;
     if (result.success) {
       toast.success("Leave request submitted.");
       setOpen(false);
-      form.reset({ workerId, leaveTypeId: "", startDate: "", endDate: "", days: 1, reason: "" });
+      form.reset(defaults);
       router.refresh();
     } else {
       toast.error(result.error);

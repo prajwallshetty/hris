@@ -18,6 +18,7 @@ import { getWorker } from "@/server/queries/workers";
 import {
   listWorkerAdvances,
   listWorkerLeave,
+  listWorkerLoans,
   listWorkerPayments,
   listWorkerPayrollHistory,
 } from "@/server/queries/worker-detail";
@@ -25,8 +26,11 @@ import { getSessionUser } from "@/server/session";
 
 import { AssignmentFormDialog } from "../../assignments/assignment-form";
 import { AdvanceDialog } from "./advance-dialog";
+import { DocumentActions } from "./document-actions";
+import { DocumentDialog } from "./document-dialog";
 import { LeaveDecisionButtons } from "./leave-decision-buttons";
 import { LeaveRequestDialog } from "./leave-request-dialog";
+import { LoanDialog } from "./loan-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
 
@@ -53,13 +57,15 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canRequestLeave = can(user, "create", "leaveRequest");
   const canDecideLeave = can(user, "update", "leaveRequest");
   const canManageAdvances = can(user, "create", "advance");
+  const canManageLoans = can(user, "create", "loan");
   const canManagePayments = can(user, "create", "workerPayment");
 
-  const [clients, payrollHistory, leave, advances, payments] = await Promise.all([
+  const [clients, payrollHistory, leave, advances, loans, payments] = await Promise.all([
     canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
     listWorkerPayrollHistory(worker.id),
     listWorkerLeave(worker.id),
     listWorkerAdvances(worker.id),
+    listWorkerLoans(worker.id),
     listWorkerPayments(worker.id),
   ]);
 
@@ -164,10 +170,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="assignments">Assignment History</TabsTrigger>
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="advances">Advances</TabsTrigger>
+          <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
         </TabsList>
 
@@ -180,6 +188,8 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <Detail label="Mobile" value={worker.mobile} />
                 <Detail label="Passport Number" value={worker.passportNumber} />
+                <Detail label="Passport Expiry" value={formatDate(worker.passportExpiryDate)} />
+                <Detail label="Iqama Expiry" value={formatDate(worker.iqamaExpiryDate)} />
                 <Detail label="Nationality" value={worker.nationality} />
                 <Detail label="Date of Birth" value={formatDate(worker.dateOfBirth)} />
               </CardContent>
@@ -224,6 +234,52 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          {canEdit && (
+            <div className="flex justify-end">
+              <DocumentDialog workerId={worker.id} />
+            </div>
+          )}
+          {worker.documents.length === 0 ? (
+            <EmptyState icon={ClipboardList} title="No documents uploaded yet" />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>File</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Expiry</TableHead>
+                    <TableHead>Verification</TableHead>
+                    {canEdit && <TableHead className="text-right">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {worker.documents.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell>
+                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">
+                          {doc.fileName}
+                        </a>
+                      </TableCell>
+                      <TableCell>{doc.documentType ?? "—"}</TableCell>
+                      <TableCell>{formatDate(doc.expiryDate)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={doc.verificationStatus} />
+                      </TableCell>
+                      {canEdit && (
+                        <TableCell className="text-right">
+                          <DocumentActions documentId={doc.id} canVerify={doc.verificationStatus === "PENDING"} />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="assignments" className="space-y-4">
@@ -458,6 +514,55 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                         <TableCell>{advance.reason ?? "—"}</TableCell>
                         <TableCell>
                           <StatusBadge status={advance.status} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="loans" className="space-y-4">
+          {canManageLoans && (
+            <div className="flex justify-end">
+              <LoanDialog workerId={worker.id} />
+            </div>
+          )}
+          {loans.length === 0 ? (
+            <EmptyState icon={ClipboardList} title="No loans given" />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Principal</TableHead>
+                    <TableHead>Repaid</TableHead>
+                    <TableHead>Remaining</TableHead>
+                    <TableHead>Installment</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loans.map((loan) => {
+                    const repaid = loan.repayments.reduce((sum, r) => sum + Number(r.amount), 0);
+                    const remaining = calculateRepayableBalance(
+                      loan.principalAmount.toString(),
+                      loan.repayments.map((r) => r.amount.toString()),
+                    );
+                    return (
+                      <TableRow key={loan.id}>
+                        <TableCell>{formatDate(loan.dateGiven)}</TableCell>
+                        <TableCell>{formatMoney(loan.principalAmount)}</TableCell>
+                        <TableCell>{formatMoney(repaid)}</TableCell>
+                        <TableCell className="font-medium">{formatMoney(remaining.toNumber())}</TableCell>
+                        <TableCell>{loan.installmentAmount ? formatMoney(loan.installmentAmount) : "—"}</TableCell>
+                        <TableCell>{loan.reason ?? "—"}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={loan.status} />
                         </TableCell>
                       </TableRow>
                     );

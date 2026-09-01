@@ -3,8 +3,14 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
+  UserSquare2,
   Building2,
+  Banknote,
   ClipboardList,
+  ClipboardCheck,
+  FileText,
+  Receipt,
+  BarChart3,
   UserCog,
   History,
   Settings,
@@ -45,6 +51,18 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ClipboardList,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
       },
+      {
+        href: "/timesheets",
+        label: "Timesheets",
+        icon: ClipboardCheck,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+      {
+        href: "/employees",
+        label: "Employees",
+        icon: UserSquare2,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
     ],
   },
   {
@@ -59,19 +77,48 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Finance",
+    items: [
+      {
+        href: "/payroll",
+        label: "Payroll",
+        icon: Banknote,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+      {
+        href: "/invoices",
+        label: "Invoices",
+        icon: FileText,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"],
+      },
+      {
+        href: "/expenses",
+        label: "Expenses",
+        icon: Receipt,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
+      },
+    ],
+  },
+  {
     label: "Operations",
     items: [
       {
         href: "/coordinators",
         label: "Coordinators",
         icon: UserCog,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR"],
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
       },
     ],
   },
   {
     label: "Administration",
     items: [
+      {
+        href: "/reports",
+        label: "Reports",
+        icon: BarChart3,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
       {
         href: "/audit-log",
         label: "Audit Log",

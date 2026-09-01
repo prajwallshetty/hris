@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import { auth } from "@/auth";
 import { DesktopSidebar } from "@/components/shared/desktop-sidebar";
+import { GlobalSearch } from "@/components/shared/global-search";
+import { NotificationsBell } from "@/components/shared/notifications-bell";
 import { QuickCreateMenu } from "@/components/shared/quick-create-menu";
 import { SidebarNav } from "@/components/shared/sidebar-nav";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -50,7 +52,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
+            <GlobalSearch />
             <QuickCreateMenu role={session.user.role} />
+            <NotificationsBell />
             <ThemeToggle />
             <UserMenu
               name={session.user.name ?? session.user.email ?? "User"}

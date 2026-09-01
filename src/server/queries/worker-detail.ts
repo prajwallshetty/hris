@@ -36,3 +36,11 @@ export async function listWorkerPayments(workerId: string) {
     orderBy: { date: "desc" },
   });
 }
+
+export async function listWorkerLoans(workerId: string) {
+  return db.loan.findMany({
+    where: { workerId },
+    include: { repayments: { orderBy: { date: "asc" } } },
+    orderBy: { dateGiven: "desc" },
+  });
+}

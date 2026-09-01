@@ -23,6 +23,8 @@ import { getSessionUser } from "@/server/session";
 import { ClientFormDialog } from "../client-form-dialog";
 import { AddContactDialog, AddContractDialog } from "../contact-contract-dialogs";
 import { AddProjectDialog, AddSiteDialog } from "../project-site-dialogs";
+import { ClientPaymentDialog } from "../../invoices/client-payment-dialog";
+import { GenerateInvoiceDialog } from "../../invoices/generate-invoice-dialog";
 
 function Detail({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -51,6 +53,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const canEdit = can(user, "update", "client");
   const canManageProjects = can(user, "create", "project");
   const canViewFinancials = can(user, "view", "invoice") || can(user, "view", "workerPayroll");
+  const canGenerateInvoice = can(user, "create", "invoice");
+  const canRecordPayment = can(user, "create", "clientPayment");
 
   const [contacts, contracts, workers, financials, invoices] = await Promise.all([
     listClientContacts(client.id),
@@ -304,6 +308,22 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               </div>
             )}
 
+            <div className="flex justify-end gap-2">
+              {canRecordPayment && <ClientPaymentDialog clientId={client.id} />}
+              {canGenerateInvoice && (
+                <GenerateInvoiceDialog
+                  clients={[
+                    {
+                      id: client.id,
+                      companyName: client.companyName,
+                      projects: client.projects.map((p) => ({ id: p.id, name: p.name })),
+                    },
+                  ]}
+                  presetClientId={client.id}
+                />
+              )}
+            </div>
+
             {invoices.length === 0 ? (
               <EmptyState icon={FileText} title="No invoices yet" />
             ) : (
@@ -325,7 +345,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                       return (
                         <TableRow key={invoice.id}>
                           <TableCell>
-                            {formatDate(invoice.billingPeriodStart)} – {formatDate(invoice.billingPeriodEnd)}
+                            <Link href={`/invoices/${invoice.id}`} className="font-medium hover:underline">
+                              {formatDate(invoice.billingPeriodStart)} – {formatDate(invoice.billingPeriodEnd)}
+                            </Link>
                           </TableCell>
                           <TableCell>{formatMoney(Number(invoice.subtotal))}</TableCell>
                           <TableCell>{formatMoney(Number(invoice.taxAmount))}</TableCell>

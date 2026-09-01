@@ -18,6 +18,8 @@ export const workerFormSchema = z.object({
   fullName: z.string().trim().min(2, "Full name is required"),
   mobile: z.string().trim().optional().or(z.literal("")),
   passportNumber: z.string().trim().optional().or(z.literal("")),
+  passportExpiryDate: z.string().optional().or(z.literal("")),
+  iqamaExpiryDate: z.string().optional().or(z.literal("")),
   nationality: z.string().trim().optional().or(z.literal("")),
   dateOfBirth: z.string().optional().or(z.literal("")),
   designation: z.string().trim().optional().or(z.literal("")),

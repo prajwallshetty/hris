@@ -180,6 +180,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     project: VIEW,
     site: VIEW,
     assignment: VIEW,
+    coordinator: VIEW, // their own profile only — see coordinatorScopeWhere
     sale: ["view", "create"],
     commission: VIEW,
   },
@@ -247,6 +248,44 @@ export function assignmentScopeWhere(user: SessionUser): Prisma.AssignmentWhereI
   }
   if (user.role === "CLIENT") {
     return { clientId: user.clientId ?? "__none__" };
+  }
+  return undefined;
+}
+
+// A CLIENT-role user must never see another client's invoices/payments (§33).
+export function invoiceScopeWhere(user: SessionUser): Prisma.InvoiceWhereInput | undefined {
+  if (user.role === "CLIENT") {
+    return { clientId: user.clientId ?? "__none__" };
+  }
+  return undefined;
+}
+
+export function clientPaymentScopeWhere(user: SessionUser): Prisma.ClientPaymentWhereInput | undefined {
+  if (user.role === "CLIENT") {
+    return { clientId: user.clientId ?? "__none__" };
+  }
+  return undefined;
+}
+
+// A COORDINATOR-role user only ever sees their own coordinator profile,
+// sales, and commissions — never another coordinator's.
+export function coordinatorScopeWhere(user: SessionUser): Prisma.CoordinatorWhereInput | undefined {
+  if (user.role === "COORDINATOR") {
+    return { id: user.coordinatorId ?? "__none__" };
+  }
+  return undefined;
+}
+
+export function saleScopeWhere(user: SessionUser): Prisma.SaleWhereInput | undefined {
+  if (user.role === "COORDINATOR") {
+    return { coordinatorId: user.coordinatorId ?? "__none__" };
+  }
+  return undefined;
+}
+
+export function commissionScopeWhere(user: SessionUser): Prisma.CommissionWhereInput | undefined {
+  if (user.role === "COORDINATOR") {
+    return { coordinatorId: user.coordinatorId ?? "__none__" };
   }
   return undefined;
 }

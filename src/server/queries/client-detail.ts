@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { calculateAssignmentMargin, calculateOutstanding } from "@/server/calc";
+import { calculateAssignmentMargin, calculateOutstanding, calculateProfitability } from "@/server/calc";
 
 export async function listClientContacts(clientId: string) {
   return db.clientContact.findMany({ where: { clientId }, orderBy: [{ isPrimary: "desc" }, { name: "asc" }] });
@@ -71,6 +71,7 @@ export async function getClientFinancials(clientId: string) {
   );
 
   const margin = calculateAssignmentMargin(revenue, workerCost);
+  const profit = calculateProfitability({ revenue, workerCost, expenses: expenseTotal, commission: commissionTotal });
 
   return {
     invoiceCount: invoices.length,
@@ -82,6 +83,6 @@ export async function getClientFinancials(clientId: string) {
     expenseTotal,
     commissionTotal,
     margin: margin.toNumber(),
-    profit: margin.minus(expenseTotal).minus(commissionTotal).toNumber(),
+    profit: profit.toNumber(),
   };
 }

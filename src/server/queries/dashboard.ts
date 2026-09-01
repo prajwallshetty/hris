@@ -78,6 +78,32 @@ export async function getClientProfitabilitySummary(user: SessionUser) {
   return results.filter((r) => r.revenue > 0 || r.workerCost > 0);
 }
 
+// Company-wide finance KPIs for the dashboard — same underlying tables as
+// the Payroll/Timesheets/Coordinators/Expenses pages, just summed (§30/§45:
+// one calculation, shown consistently everywhere).
+export async function getFinanceKpis() {
+  const [hours, workerPayroll, employeePayroll, commission, expenses] = await Promise.all([
+    db.timesheetItem.aggregate({
+      where: { status: "APPROVED" },
+      _sum: { regularHours: true, overtimeHours: true },
+    }),
+    db.workerPayroll.aggregate({ _sum: { netPayable: true } }),
+    db.employeePayroll.aggregate({ _sum: { netPayable: true } }),
+    db.commission.aggregate({ _sum: { amount: true } }),
+    db.expense.aggregate({ where: { deletedAt: null }, _sum: { amount: true } }),
+  ]);
+
+  const totalHours = Number(hours._sum.regularHours ?? 0) + Number(hours._sum.overtimeHours ?? 0);
+  const totalPayroll = Number(workerPayroll._sum.netPayable ?? 0) + Number(employeePayroll._sum.netPayable ?? 0);
+
+  return {
+    totalHours,
+    totalPayroll,
+    totalCommission: Number(commission._sum.amount ?? 0),
+    totalExpenses: Number(expenses._sum.amount ?? 0),
+  };
+}
+
 export async function getRecentAuditLog(limit = 10) {
   return db.auditLog.findMany({
     orderBy: { createdAt: "desc" },

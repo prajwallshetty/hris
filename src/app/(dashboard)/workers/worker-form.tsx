@@ -39,6 +39,8 @@ export function WorkerForm({
       fullName: "",
       mobile: "",
       passportNumber: "",
+      passportExpiryDate: "",
+      iqamaExpiryDate: "",
       nationality: "",
       dateOfBirth: "",
       designation: "",
@@ -89,12 +91,20 @@ export function WorkerForm({
               {errors.fullName && <FieldError>{errors.fullName.message}</FieldError>}
             </Field>
             <Field>
+              <FieldLabel htmlFor="iqamaExpiryDate">Iqama Expiry Date</FieldLabel>
+              <Input id="iqamaExpiryDate" type="date" {...form.register("iqamaExpiryDate")} />
+            </Field>
+            <Field>
               <FieldLabel htmlFor="mobile">Mobile</FieldLabel>
               <Input id="mobile" {...form.register("mobile")} />
             </Field>
             <Field>
               <FieldLabel htmlFor="passportNumber">Passport Number</FieldLabel>
               <Input id="passportNumber" {...form.register("passportNumber")} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="passportExpiryDate">Passport Expiry Date</FieldLabel>
+              <Input id="passportExpiryDate" type="date" {...form.register("passportExpiryDate")} />
             </Field>
             <Field>
               <FieldLabel htmlFor="nationality">Nationality</FieldLabel>

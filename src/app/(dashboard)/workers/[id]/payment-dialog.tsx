@@ -29,21 +29,37 @@ import {
 } from "@/lib/validation/finance";
 import { createWorkerPayment } from "@/server/actions/finance";
 
-export function PaymentDialog({ workerId }: { workerId: string }) {
+export function PaymentDialog({
+  workerId,
+  workerPayrollId,
+  employeeId,
+  employeePayrollId,
+  trigger,
+}: {
+  workerId?: string;
+  workerPayrollId?: string;
+  employeeId?: string;
+  employeePayrollId?: string;
+  trigger?: React.ReactElement;
+}) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
+  const defaults: WorkerPaymentFormValues = {
+    workerId: workerId ?? "",
+    workerPayrollId: workerPayrollId ?? "",
+    employeeId: employeeId ?? "",
+    employeePayrollId: employeePayrollId ?? "",
+    amount: 0,
+    paymentType: "SALARY",
+    method: "BANK_TRANSFER",
+    referenceNumber: "",
+    date: today,
+    remarks: "",
+  };
   const form = useForm<WorkerPaymentFormValues, unknown, WorkerPaymentFormInput>({
     resolver: zodResolver(workerPaymentFormSchema),
-    defaultValues: {
-      workerId,
-      amount: 0,
-      paymentType: "SALARY",
-      method: "BANK_TRANSFER",
-      referenceNumber: "",
-      date: today,
-      remarks: "",
-    },
+    defaultValues: defaults,
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -52,7 +68,7 @@ export function PaymentDialog({ workerId }: { workerId: string }) {
     if (result.success) {
       toast.success("Payment recorded.");
       setOpen(false);
-      form.reset({ workerId, amount: 0, paymentType: "SALARY", method: "BANK_TRANSFER", referenceNumber: "", date: today, remarks: "" });
+      form.reset(defaults);
       router.refresh();
     } else {
       toast.error(result.error);
@@ -61,12 +77,15 @@ export function PaymentDialog({ workerId }: { workerId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm">Record Payment</Button>} />
+      <DialogTrigger render={trigger ?? <Button size="sm">Record Payment</Button>} />
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <input type="hidden" {...form.register("workerPayrollId")} />
+          <input type="hidden" {...form.register("employeeId")} />
+          <input type="hidden" {...form.register("employeePayrollId")} />
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="amount">Amount (SAR) *</FieldLabel>

@@ -3,22 +3,26 @@ import { forbidden } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { can } from "@/server/rbac";
+import { listAllCommissionRules, listCoordinators } from "@/server/queries/coordinators";
 import { getActiveBillingRule, getActiveOvertimeRule, getSystemSettings } from "@/server/queries/settings";
 import { getSessionUser } from "@/server/session";
 
+import { CommissionRulesSection } from "./commission-rules";
 import { BillingRuleForm, CurrencyForm, OvertimeRuleForm } from "./settings-forms";
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
   if (!can(user, "view", "settings")) forbidden();
 
-  const [overtimeRule, billingRule, systemSettings] = await Promise.all([
+  const canEdit = can(user, "update", "settings");
+
+  const [overtimeRule, billingRule, systemSettings, commissionRules, coordinators] = await Promise.all([
     getActiveOvertimeRule(),
     getActiveBillingRule(),
     getSystemSettings(),
+    canEdit ? listAllCommissionRules() : Promise.resolve([]),
+    canEdit ? listCoordinators(user) : Promise.resolve([]),
   ]);
-
-  const canEdit = can(user, "update", "settings");
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -82,6 +86,29 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {canEdit && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Commission Rules</CardTitle>
+            <CardDescription>
+              Configurable per coordinator or as a company-wide default — never a single hardcoded formula.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CommissionRulesSection
+              rules={commissionRules.map((r) => ({
+                id: r.id,
+                type: r.type,
+                rateOrAmount: r.rateOrAmount.toString(),
+                recurring: r.recurring,
+                coordinator: r.coordinator ? { name: r.coordinator.name } : null,
+              }))}
+              coordinators={coordinators.map((c) => ({ id: c.id, name: c.name }))}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

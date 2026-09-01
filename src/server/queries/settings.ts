@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { DEFAULT_OVERTIME_RULE } from "@/server/calc";
+import { DEFAULT_OVERTIME_RULE, type OvertimeRuleConfig } from "@/server/calc";
 
 const CURRENCY_KEY = "currency_code";
 const COMPANY_NAME_KEY = "company_name";
@@ -29,3 +29,18 @@ export async function getSystemSettings() {
 }
 
 export const SETTING_KEYS = { CURRENCY_KEY, COMPANY_NAME_KEY };
+
+/** Converts a stored OvertimeRule row (Prisma Decimals) into the calc engine's plain config shape. */
+export function toOvertimeRuleConfig(rule: {
+  dailyRegularHoursThreshold: unknown;
+  overtimeMultiplier: unknown;
+  maxDailyHours: unknown;
+  minPayableHours: unknown;
+}): OvertimeRuleConfig {
+  return {
+    dailyRegularHoursThreshold: String(rule.dailyRegularHoursThreshold),
+    overtimeMultiplier: String(rule.overtimeMultiplier),
+    maxDailyHours: rule.maxDailyHours === null ? null : String(rule.maxDailyHours),
+    minPayableHours: rule.minPayableHours === null ? null : String(rule.minPayableHours),
+  };
+}

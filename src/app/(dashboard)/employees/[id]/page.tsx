@@ -330,11 +330,14 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                     <TableHead>Base Salary</TableHead>
                     <TableHead>Deductions</TableHead>
                     <TableHead>Net Payable</TableHead>
+                    <TableHead>Paid</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payrollHistory.map((p) => (
+                  {payrollHistory.map((p) => {
+                    const paid = p.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+                    return (
                     <TableRow key={p.id}>
                       <TableCell>
                         <Link href={`/payroll/employee/${p.id}`} className="font-medium hover:underline">
@@ -348,11 +351,13 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{formatMoney(p.netPayable)}</TableCell>
+                      <TableCell>{formatMoney(paid)}</TableCell>
                       <TableCell>
                         <StatusBadge status={p.status} />
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

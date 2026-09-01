@@ -205,25 +205,3 @@ export async function approveEmployeePayroll(id: string): Promise<ActionResult<{
     return actionError(error);
   }
 }
-
-// No shared payment ledger exists for internal employees yet (WorkerPayment
-// is worker-only — see Advance/Loan for the dual workerId/employeeId
-// pattern this would need). Until that's added, "Paid" is a direct status
-// transition rather than derived from a payment ledger like worker payroll.
-export async function markEmployeePayrollPaid(id: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const user = await getSessionUser();
-    assertCan(user, "update", "employeePayroll");
-    const before = await db.employeePayroll.findUniqueOrThrow({ where: { id } });
-    if (before.status !== "APPROVED") {
-      return { success: false, error: "Only approved payroll can be marked paid." };
-    }
-    const payroll = await db.employeePayroll.update({ where: { id }, data: { status: "PAID" } });
-    await logAudit({ userId: user.id, action: "update", entityType: "EmployeePayroll", entityId: id, previousValue: before, newValue: payroll });
-    revalidatePath(`/payroll/employee/${id}`);
-    revalidatePath(`/payroll/${before.payrollPeriodId}`);
-    return ok({ id });
-  } catch (error) {
-    return actionError(error);
-  }
-}

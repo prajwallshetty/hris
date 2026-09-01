@@ -7,7 +7,12 @@ export async function getEmployeePayrollDetail(user: SessionUser, id: string) {
   assertCan(user, "view", "employeePayroll");
   return db.employeePayroll.findUnique({
     where: { id },
-    include: { payrollPeriod: true, employee: true, items: { orderBy: { createdAt: "asc" } } },
+    include: {
+      payrollPeriod: true,
+      employee: true,
+      items: { orderBy: { createdAt: "asc" } },
+      payments: { orderBy: { date: "desc" } },
+    },
   });
 }
 

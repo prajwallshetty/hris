@@ -83,8 +83,10 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
     const payment = await db.$transaction(async (tx) => {
       const created = await tx.workerPayment.create({
         data: {
-          workerId: data.workerId,
+          workerId: data.workerId || null,
           workerPayrollId: data.workerPayrollId || null,
+          employeeId: data.employeeId || null,
+          employeePayrollId: data.employeePayrollId || null,
           amount: data.amount,
           paymentType: data.paymentType,
           method: data.method,
@@ -110,12 +112,28 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
         });
       }
 
+      if (data.employeePayrollId) {
+        const payroll = await tx.employeePayroll.findUniqueOrThrow({
+          where: { id: data.employeePayrollId },
+          include: { payments: true },
+        });
+        const outstanding = calculateOutstanding(
+          payroll.netPayable.toString(),
+          payroll.payments.map((p) => p.amount.toString()),
+        );
+        await tx.employeePayroll.update({
+          where: { id: data.employeePayrollId },
+          data: { status: outstanding.lte(0) ? "PAID" : "PARTIALLY_PAID" },
+        });
+      }
+
       return created;
     });
 
     await logAudit({ userId: user.id, action: "create", entityType: "WorkerPayment", entityId: payment.id, newValue: data });
-    revalidatePath(`/workers/${data.workerId}`);
+    revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
     if (data.workerPayrollId) revalidatePath(`/payroll/worker/${data.workerPayrollId}`);
+    if (data.employeePayrollId) revalidatePath(`/payroll/employee/${data.employeePayrollId}`);
     return ok({ id: payment.id });
   } catch (error) {
     return actionError(error);

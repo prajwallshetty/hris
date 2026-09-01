@@ -32,18 +32,24 @@ import { createWorkerPayment } from "@/server/actions/finance";
 export function PaymentDialog({
   workerId,
   workerPayrollId,
+  employeeId,
+  employeePayrollId,
   trigger,
 }: {
-  workerId: string;
+  workerId?: string;
   workerPayrollId?: string;
+  employeeId?: string;
+  employeePayrollId?: string;
   trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const defaults: WorkerPaymentFormValues = {
-    workerId,
+    workerId: workerId ?? "",
     workerPayrollId: workerPayrollId ?? "",
+    employeeId: employeeId ?? "",
+    employeePayrollId: employeePayrollId ?? "",
     amount: 0,
     paymentType: "SALARY",
     method: "BANK_TRANSFER",
@@ -78,6 +84,8 @@ export function PaymentDialog({
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <input type="hidden" {...form.register("workerPayrollId")} />
+          <input type="hidden" {...form.register("employeeId")} />
+          <input type="hidden" {...form.register("employeePayrollId")} />
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="amount">Amount (SAR) *</FieldLabel>

@@ -8,19 +8,21 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { calculateOutstanding } from "@/server/calc";
 import { can } from "@/server/rbac";
-import {
-  approveEmployeePayroll,
-  markEmployeePayrollPaid,
-  submitEmployeePayrollForReview,
-} from "@/server/actions/employee-payroll";
+import { approveEmployeePayroll, submitEmployeePayrollForReview } from "@/server/actions/employee-payroll";
 import { getEmployeePayrollDetail } from "@/server/queries/employee-payroll";
 import { getSessionUser } from "@/server/session";
 
+import { PaymentDialog } from "../../../workers/[id]/payment-dialog";
 import { EmployeePayrollAdjustmentDialog } from "./employee-payroll-actions";
 
 function formatMoney(value: unknown) {
   return `SAR ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+}
+
+function formatDate(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
 }
 
 export default async function EmployeePayrollDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,7 +32,13 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
   if (!payroll) notFound();
 
   const canUpdate = can(user, "update", "employeePayroll");
+  const canPay = can(user, "create", "workerPayment");
   const editable = payroll.status === "DRAFT" || payroll.status === "REVIEW";
+  const paid = payroll.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const outstanding = calculateOutstanding(
+    payroll.netPayable.toString(),
+    payroll.payments.map((p) => p.amount.toString()),
+  ).toNumber();
 
   return (
     <div className="space-y-6">
@@ -70,21 +78,11 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
                 successMessage="Payroll approved."
               />
             )}
-            {canUpdate && payroll.status === "APPROVED" && (
-              <ConfirmActionButton
-                trigger={<Button>Mark Paid</Button>}
-                title="Mark this payroll as paid?"
-                description="There is no payment ledger for internal employees yet, so this is a direct status change rather than a recorded transaction."
-                confirmLabel="Mark Paid"
-                action={markEmployeePayrollPaid.bind(null, payroll.id)}
-                successMessage="Payroll marked paid."
-              />
-            )}
           </>
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <div className="rounded-lg border p-4">
           <p className="text-muted-foreground text-xs font-medium">Base Salary</p>
           <p className="mt-1 text-xl font-semibold tabular-nums">{formatMoney(payroll.baseSalary)}</p>
@@ -100,6 +98,16 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
         <div className="rounded-lg border p-4">
           <p className="text-muted-foreground text-xs font-medium">Net Payable</p>
           <p className="mt-1 text-lg font-medium tabular-nums">{formatMoney(payroll.netPayable)}</p>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-muted-foreground text-xs font-medium">Paid</p>
+          <p className="mt-1 text-lg font-medium tabular-nums">{formatMoney(paid)}</p>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-muted-foreground text-xs font-medium">Outstanding</p>
+          <p className={`mt-1 text-lg font-medium tabular-nums ${outstanding > 0 ? "text-warning-foreground" : ""}`}>
+            {formatMoney(outstanding)}
+          </p>
         </div>
       </div>
 
@@ -140,6 +148,45 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
             <span className="tabular-nums">{formatMoney(payroll.netPayable)}</span>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-medium">Payments</p>
+          {canPay && (payroll.status === "APPROVED" || payroll.status === "PARTIALLY_PAID") && (
+            <PaymentDialog
+              employeeId={payroll.employeeId}
+              employeePayrollId={payroll.id}
+              trigger={<Button size="sm">Record Payment</Button>}
+            />
+          )}
+        </div>
+        {payroll.payments.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No payments recorded yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Reference</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payroll.payments.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>{formatDate(p.date)}</TableCell>
+                    <TableCell className="font-medium">{formatMoney(p.amount)}</TableCell>
+                    <TableCell>{p.method.replaceAll("_", " ")}</TableCell>
+                    <TableCell>{p.referenceNumber ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       <Link href={`/payroll/${payroll.payrollPeriodId}`} className="text-muted-foreground text-sm hover:underline">

@@ -558,6 +558,7 @@ model InternalEmployee {
   leaveRequests     LeaveRequest[]
   advances          Advance[]
   loans             Loan[]
+  payments          WorkerPayment[]
   salaryAdjustments SalaryAdjustment[]
 
   @@index([status])
@@ -820,7 +821,8 @@ model EmployeePayroll {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items EmployeePayrollItem[]
+  items    EmployeePayrollItem[]
+  payments WorkerPayment[]
 
   @@unique([payrollPeriodId, employeeId])
   @@index([employeeId])
@@ -868,12 +870,21 @@ model SalaryAdjustment {
 // advances and loans with full repayment history (§12).
 // ---------------------------------------------------------------------------
 
+// Despite the name (kept to avoid a wider rename), this is the shared
+// worker/employee payment ledger — mirrors the Advance/Loan dual-FK
+// pattern so internal-employee payroll gets a real payment ledger instead
+// of a direct status flip.
 model WorkerPayment {
   id              String         @id @default(cuid())
-  workerId        String
-  worker          Worker         @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  workerId        String?
+  worker          Worker?        @relation(fields: [workerId], references: [id], onDelete: Restrict)
   workerPayrollId String?
   workerPayroll   WorkerPayroll? @relation(fields: [workerPayrollId], references: [id], onDelete: SetNull)
+
+  employeeId        String?
+  employee          InternalEmployee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  employeePayrollId String?
+  employeePayroll   EmployeePayroll?  @relation(fields: [employeePayrollId], references: [id], onDelete: SetNull)
 
   amount          Decimal           @db.Decimal(14, 2)
   paymentType     WorkerPaymentType
@@ -889,6 +900,8 @@ model WorkerPayment {
 
   @@index([workerId])
   @@index([workerPayrollId])
+  @@index([employeeId])
+  @@index([employeePayrollId])
 }
 
 model ClientPayment {

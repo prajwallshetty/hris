@@ -40,7 +40,7 @@ export async function getPayrollPeriod(user: SessionUser, id: string) {
         orderBy: { worker: { fullName: "asc" } },
       },
       employeePayrolls: {
-        include: { employee: true },
+        include: { employee: true, payments: true },
         orderBy: { employee: { fullName: "asc" } },
       },
     },

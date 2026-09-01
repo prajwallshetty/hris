@@ -84,7 +84,7 @@ export async function getPayrollSummaryReport(user: SessionUser) {
   const periods = await db.payrollPeriod.findMany({
     include: {
       workerPayrolls: { include: { payments: true } },
-      employeePayrolls: true,
+      employeePayrolls: { include: { payments: true } },
     },
     orderBy: { periodStart: "desc" },
   });
@@ -97,6 +97,10 @@ export async function getPayrollSummaryReport(user: SessionUser) {
       0,
     );
     const employeeNet = period.employeePayrolls.reduce((sum, p) => sum + Number(p.netPayable), 0);
+    const employeePaid = period.employeePayrolls.reduce(
+      (sum, p) => sum + p.payments.reduce((s, payment) => s + Number(payment.amount), 0),
+      0,
+    );
     const advances = period.workerPayrolls.reduce((sum, p) => sum + Number(p.advanceDeduction), 0);
     const loans = period.workerPayrolls.reduce((sum, p) => sum + Number(p.loanDeduction), 0);
 
@@ -107,8 +111,8 @@ export async function getPayrollSummaryReport(user: SessionUser) {
       employeeCount: period.employeePayrolls.length,
       grossPay: workerGross,
       netPayable: workerNet + employeeNet,
-      paid: workerPaid,
-      outstanding: workerNet + employeeNet - workerPaid,
+      paid: workerPaid + employeePaid,
+      outstanding: workerNet + employeeNet - (workerPaid + employeePaid),
       advanceDeductions: advances,
       loanDeductions: loans,
       status: period.status,
@@ -146,7 +150,7 @@ export async function getFinanceOverviewReport(user: SessionUser) {
     db.invoice.findMany({ where: { status: { not: "CANCELLED" } }, include: { payments: true } }),
     db.expense.aggregate({ where: { deletedAt: null }, _sum: { amount: true } }),
     db.workerPayroll.findMany({ include: { payments: true } }),
-    db.employeePayroll.findMany(),
+    db.employeePayroll.findMany({ include: { payments: true } }),
     db.commission.aggregate({ _sum: { amount: true } }),
     db.advance.findMany({ where: { status: "ACTIVE" }, include: { repayments: true } }),
     db.loan.findMany({ where: { status: "ACTIVE" }, include: { repayments: true } }),
@@ -160,7 +164,10 @@ export async function getFinanceOverviewReport(user: SessionUser) {
   const workerNet = workerPayrolls.reduce((sum, p) => sum + Number(p.netPayable), 0);
   const workerPaid = workerPayrolls.reduce((sum, p) => sum + p.payments.reduce((s, pay) => s + Number(pay.amount), 0), 0);
   const employeeNet = employeePayrolls.reduce((sum, p) => sum + Number(p.netPayable), 0);
-  const employeePaid = employeePayrolls.filter((p) => p.status === "PAID").reduce((sum, p) => sum + Number(p.netPayable), 0);
+  const employeePaid = employeePayrolls.reduce(
+    (sum, p) => sum + p.payments.reduce((s, pay) => s + Number(pay.amount), 0),
+    0,
+  );
   const payables = calculateOutstanding(workerNet + employeeNet, [workerPaid + employeePaid]).toNumber();
 
   const advancesOutstanding = advances.reduce(

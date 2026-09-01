@@ -18,16 +18,23 @@ export const advanceFormSchema = z
 export type AdvanceFormInput = z.infer<typeof advanceFormSchema>;
 export type AdvanceFormValues = z.input<typeof advanceFormSchema>;
 
-export const workerPaymentFormSchema = z.object({
-  workerId: z.string().min(1),
-  workerPayrollId: z.string().optional().or(z.literal("")),
-  amount: z.coerce.number().positive("Must be greater than 0"),
-  paymentType: z.enum(WORKER_PAYMENT_TYPES),
-  method: z.enum(PAYMENT_METHODS),
-  referenceNumber: z.string().trim().optional().or(z.literal("")),
-  date: z.string().min(1, "Date is required"),
-  remarks: z.string().trim().optional().or(z.literal("")),
-});
+export const workerPaymentFormSchema = z
+  .object({
+    workerId: z.string().optional().or(z.literal("")),
+    workerPayrollId: z.string().optional().or(z.literal("")),
+    employeeId: z.string().optional().or(z.literal("")),
+    employeePayrollId: z.string().optional().or(z.literal("")),
+    amount: z.coerce.number().positive("Must be greater than 0"),
+    paymentType: z.enum(WORKER_PAYMENT_TYPES),
+    method: z.enum(PAYMENT_METHODS),
+    referenceNumber: z.string().trim().optional().or(z.literal("")),
+    date: z.string().min(1, "Date is required"),
+    remarks: z.string().trim().optional().or(z.literal("")),
+  })
+  .refine((data) => Boolean(data.workerId) !== Boolean(data.employeeId), {
+    message: "Exactly one of worker or employee is required",
+    path: ["workerId"],
+  });
 export type WorkerPaymentFormInput = z.infer<typeof workerPaymentFormSchema>;
 export type WorkerPaymentFormValues = z.input<typeof workerPaymentFormSchema>;
 

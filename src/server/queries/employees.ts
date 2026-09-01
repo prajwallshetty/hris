@@ -65,7 +65,7 @@ export async function listEmployeeLoans(employeeId: string) {
 export async function listEmployeePayrollHistory(employeeId: string) {
   return db.employeePayroll.findMany({
     where: { employeeId },
-    include: { payrollPeriod: true, items: true },
+    include: { payrollPeriod: true, items: true, payments: true },
     orderBy: { payrollPeriod: { periodStart: "desc" } },
   });
 }

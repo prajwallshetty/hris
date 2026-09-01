@@ -466,7 +466,9 @@ export async function lockPayrollPeriod(id: string): Promise<ActionResult<{ id: 
     if (notApproved.length > 0) {
       return { success: false, error: `${notApproved.length} worker payroll row(s) still need to be approved first.` };
     }
-    const notApprovedEmployees = before.employeePayrolls.filter((p) => p.status !== "APPROVED" && p.status !== "PAID");
+    const notApprovedEmployees = before.employeePayrolls.filter(
+      (p) => p.status !== "APPROVED" && p.status !== "PAID" && p.status !== "PARTIALLY_PAID",
+    );
     if (notApprovedEmployees.length > 0) {
       return { success: false, error: `${notApprovedEmployees.length} employee payroll row(s) still need to be approved first.` };
     }

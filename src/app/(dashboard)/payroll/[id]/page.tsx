@@ -34,7 +34,7 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
   const canLock = can(user, "update", "payrollPeriod");
   const notApprovedCount =
     period.workerPayrolls.filter((p) => p.status !== "APPROVED" && p.status !== "PAID" && p.status !== "PARTIALLY_PAID").length +
-    period.employeePayrolls.filter((p) => p.status !== "APPROVED" && p.status !== "PAID").length;
+    period.employeePayrolls.filter((p) => p.status !== "APPROVED" && p.status !== "PAID" && p.status !== "PARTIALLY_PAID").length;
 
   const [clients, workers, employees] = await Promise.all([
     canGenerate ? listClientHierarchyForSelect() : Promise.resolve([]),
@@ -129,24 +129,29 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
                   <TableHead>Employee</TableHead>
                   <TableHead>Base Salary</TableHead>
                   <TableHead>Net Payable</TableHead>
+                  <TableHead>Paid</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {period.employeePayrolls.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <Link href={`/payroll/employee/${p.id}`} className="font-medium hover:underline">
-                        {p.employee.fullName}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{formatMoney(p.baseSalary)}</TableCell>
-                    <TableCell className="font-medium">{formatMoney(p.netPayable)}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={p.status} />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {period.employeePayrolls.map((p) => {
+                  const paid = p.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <Link href={`/payroll/employee/${p.id}`} className="font-medium hover:underline">
+                          {p.employee.fullName}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{formatMoney(p.baseSalary)}</TableCell>
+                      <TableCell className="font-medium">{formatMoney(p.netPayable)}</TableCell>
+                      <TableCell>{formatMoney(paid)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={p.status} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

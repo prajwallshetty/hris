@@ -31,6 +31,8 @@ export default async function EditWorkerPage({ params }: { params: Promise<{ id:
           fullName: worker.fullName,
           mobile: worker.mobile ?? "",
           passportNumber: worker.passportNumber ?? "",
+          passportExpiryDate: toDateInput(worker.passportExpiryDate),
+          iqamaExpiryDate: toDateInput(worker.iqamaExpiryDate),
           nationality: worker.nationality ?? "",
           dateOfBirth: toDateInput(worker.dateOfBirth),
           designation: worker.designation?.title ?? "",

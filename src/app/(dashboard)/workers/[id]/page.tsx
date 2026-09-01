@@ -26,6 +26,8 @@ import { getSessionUser } from "@/server/session";
 
 import { AssignmentFormDialog } from "../../assignments/assignment-form";
 import { AdvanceDialog } from "./advance-dialog";
+import { DocumentActions } from "./document-actions";
+import { DocumentDialog } from "./document-dialog";
 import { LeaveDecisionButtons } from "./leave-decision-buttons";
 import { LeaveRequestDialog } from "./leave-request-dialog";
 import { LoanDialog } from "./loan-dialog";
@@ -168,6 +170,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="assignments">Assignment History</TabsTrigger>
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
@@ -185,6 +188,8 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <Detail label="Mobile" value={worker.mobile} />
                 <Detail label="Passport Number" value={worker.passportNumber} />
+                <Detail label="Passport Expiry" value={formatDate(worker.passportExpiryDate)} />
+                <Detail label="Iqama Expiry" value={formatDate(worker.iqamaExpiryDate)} />
                 <Detail label="Nationality" value={worker.nationality} />
                 <Detail label="Date of Birth" value={formatDate(worker.dateOfBirth)} />
               </CardContent>
@@ -229,6 +234,52 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          {canEdit && (
+            <div className="flex justify-end">
+              <DocumentDialog workerId={worker.id} />
+            </div>
+          )}
+          {worker.documents.length === 0 ? (
+            <EmptyState icon={ClipboardList} title="No documents uploaded yet" />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>File</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Expiry</TableHead>
+                    <TableHead>Verification</TableHead>
+                    {canEdit && <TableHead className="text-right">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {worker.documents.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell>
+                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">
+                          {doc.fileName}
+                        </a>
+                      </TableCell>
+                      <TableCell>{doc.documentType ?? "—"}</TableCell>
+                      <TableCell>{formatDate(doc.expiryDate)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={doc.verificationStatus} />
+                      </TableCell>
+                      {canEdit && (
+                        <TableCell className="text-right">
+                          <DocumentActions documentId={doc.id} canVerify={doc.verificationStatus === "PENDING"} />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="assignments" className="space-y-4">

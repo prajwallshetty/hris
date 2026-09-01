@@ -38,6 +38,9 @@ const STATUS_TONES: Record<string, Tone> = {
   APPROVED: "success",
   CANCELLED: "destructive",
 
+  // Document verification
+  VERIFIED: "success",
+
   // Payroll / commission lifecycle
   DRAFT: "neutral",
   REVIEW: "warning",

@@ -26,6 +26,12 @@ enum EntityStatus {
   INACTIVE
 }
 
+enum DocumentVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 enum WorkerStatus {
   ACTIVE
   AVAILABLE
@@ -383,6 +389,8 @@ model Worker {
   fullName           String
   mobile             String?
   passportNumber     String?
+  passportExpiryDate DateTime?
+  iqamaExpiryDate    DateTime?
   nationality        String?
   dateOfBirth        DateTime?
   designationId      String?
@@ -446,15 +454,22 @@ model WorkerDocument {
   workerId String
   worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
-  fileName String
-  fileUrl  String
-  fileType String?
+  fileName     String
+  fileUrl      String
+  fileType     String?
+  documentType String? // e.g. "Iqama", "Passport", "Contract", "Certificate"
+  expiryDate   DateTime?
+
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  verifiedById       String?
+  verifiedAt         DateTime?
 
   uploadedById String?
   uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
   uploadedAt   DateTime @default(now())
 
   @@index([workerId])
+  @@index([expiryDate])
 }
 
 // ---------------------------------------------------------------------------

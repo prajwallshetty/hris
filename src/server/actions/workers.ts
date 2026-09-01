@@ -42,6 +42,8 @@ function buildData(data: WorkerFormInput, designationId: string | null) {
     fullName: data.fullName,
     mobile: data.mobile || null,
     passportNumber: data.passportNumber || null,
+    passportExpiryDate: toDate(data.passportExpiryDate),
+    iqamaExpiryDate: toDate(data.iqamaExpiryDate),
     nationality: data.nationality || null,
     dateOfBirth: toDate(data.dateOfBirth),
     designationId,

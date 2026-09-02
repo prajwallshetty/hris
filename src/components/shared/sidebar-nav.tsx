@@ -38,10 +38,10 @@ export function SidebarNav({
                 onClick={onNavigate}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   collapsed && "justify-center px-2",
                   isActive
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-accent text-primary before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >

@@ -193,12 +193,24 @@ enum CommissionStatus {
 // database sessions with a Credentials provider). No Account/Session tables
 // are needed unless an OAuth provider is added later.
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String
+  id           String  @id @default(cuid())
+  email        String  @unique
+  // Legacy password login — kept (not dropped) for rollback safety after the
+  // access-code migration; no longer read by the Credentials provider.
+  passwordHash String?
   name         String
   role         Role
   status       EntityStatus @default(ACTIVE)
+
+  // Access-code login (replaces password auth). accessCodeHash is a bcrypt
+  // hash used for verification; accessCodeLookupHash is a fast, deterministic
+  // SHA-256 digest of the normalized code, unique/indexed so the row can be
+  // found in O(1) before the slow bcrypt compare — bcrypt hashes are salted
+  // and can't be looked up directly. The plaintext code is never persisted
+  // and is only ever returned once, at generation time, to the caller.
+  accessCodeHash       String?
+  accessCodeLookupHash String?   @unique
+  accessCodeSetAt      DateTime?
 
   // Scopes a COORDINATOR-role user to their own coordinator record,
   // and a CLIENT-role user to their own client portal data.
@@ -213,8 +225,30 @@ model User {
   uploadedDocuments  WorkerDocument[]
   createdAssignments Assignment[]
   auditLogs          AuditLog[]
+  authAttempts       AuthAttempt[]
 
   @@index([role])
+}
+
+// Every login attempt, successful or failed (§ "log successful and failed
+// authentication attempts") — also doubles as the rate-limit store (recent
+// failures per IP within a window) so a login feature doesn't need Redis.
+// codePrefix is diagnostic only (e.g. "ADM") — the full code is never logged.
+model AuthAttempt {
+  id         String  @id @default(cuid())
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  codePrefix String?
+  ipAddress  String?
+  userAgent  String?
+  success    Boolean
+  reason     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 model Coordinator {

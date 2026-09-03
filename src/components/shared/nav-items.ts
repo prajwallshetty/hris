@@ -12,6 +12,7 @@ import {
   Receipt,
   BarChart3,
   UserCog,
+  UsersRound,
   History,
   Settings,
 } from "lucide-react";
@@ -133,6 +134,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Administration",
     items: [
+      {
+        href: "/users",
+        label: "Users",
+        icon: UsersRound,
+        roles: ["SUPER_ADMIN"],
+      },
       {
         href: "/audit-log",
         label: "Audit Log",

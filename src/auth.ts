@@ -1,15 +1,54 @@
-import bcrypt from "bcryptjs";
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { headers } from "next/headers";
 import { z } from "zod";
 
 import { authConfig } from "@/auth.config";
+import { accessCodeLookupHash, isWellFormedAccessCode, verifyAccessCode } from "@/lib/access-code";
 import { db } from "@/lib/db";
 
+// Distinguishable failures from authorize() (§1 login states) — CredentialsSignin's
+// `code` is safe to surface to the client per its own doc comment (it's the only
+// thing that reaches the browser; the full reason is also written to AuthAttempt).
+export class InvalidAccessCodeError extends CredentialsSignin {
+  code = "invalid_code";
+}
+export class AccountDisabledError extends CredentialsSignin {
+  code = "account_disabled";
+}
+export class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
+
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+const RATE_LIMIT_MAX_FAILURES = 5;
+
 const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  accessCode: z.string().min(1),
 });
+
+async function getClientIp(): Promise<string | undefined> {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? undefined;
+}
+
+async function logAttempt(params: {
+  userId: string | null;
+  codePrefix: string | null;
+  ip: string | undefined;
+  success: boolean;
+  reason: string;
+}) {
+  await db.authAttempt.create({
+    data: {
+      userId: params.userId,
+      codePrefix: params.codePrefix,
+      ipAddress: params.ip,
+      success: params.success,
+      reason: params.reason,
+    },
+  });
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -17,19 +56,59 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        accessCode: { label: "Access Code", type: "text" },
       },
       async authorize(rawCredentials) {
         const parsed = credentialsSchema.safeParse(rawCredentials);
-        if (!parsed.success) return null;
-        const { email, password } = parsed.data;
+        if (!parsed.success) throw new InvalidAccessCodeError();
+        const { accessCode } = parsed.data;
+        const ip = await getClientIp();
+        const codePrefix = accessCode.trim().toUpperCase().split("-")[0]?.slice(0, 4) || null;
 
-        const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
-        if (!user || user.status !== "ACTIVE") return null;
+        // Rate limit by IP first — cheap, and avoids doing a bcrypt compare
+        // (or even a DB lookup) once an IP is already locked out (§1).
+        const recentFailures = await db.authAttempt.count({
+          where: {
+            ipAddress: ip,
+            success: false,
+            createdAt: { gte: new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000) },
+          },
+        });
+        if (ip && recentFailures >= RATE_LIMIT_MAX_FAILURES) {
+          await logAttempt({ userId: null, codePrefix, ip, success: false, reason: "rate_limited" });
+          throw new RateLimitedError();
+        }
 
-        const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordMatches) return null;
+        if (!isWellFormedAccessCode(accessCode)) {
+          await logAttempt({ userId: null, codePrefix, ip, success: false, reason: "invalid_code" });
+          throw new InvalidAccessCodeError();
+        }
+
+        const user = await db.user.findUnique({ where: { accessCodeLookupHash: accessCodeLookupHash(accessCode) } });
+        if (!user) {
+          await logAttempt({ userId: null, codePrefix, ip, success: false, reason: "invalid_code" });
+          throw new InvalidAccessCodeError();
+        }
+
+        if (user.status !== "ACTIVE") {
+          await logAttempt({ userId: user.id, codePrefix, ip, success: false, reason: "account_disabled" });
+          throw new AccountDisabledError();
+        }
+
+        if (!user.accessCodeHash) {
+          // No code has been issued yet — surfaces identically to "invalid" so
+          // this can't be used to enumerate which accounts are activated.
+          await logAttempt({ userId: user.id, codePrefix, ip, success: false, reason: "no_code_set" });
+          throw new InvalidAccessCodeError();
+        }
+
+        const matches = await verifyAccessCode(accessCode, user.accessCodeHash);
+        if (!matches) {
+          await logAttempt({ userId: user.id, codePrefix, ip, success: false, reason: "invalid_code" });
+          throw new InvalidAccessCodeError();
+        }
+
+        await logAttempt({ userId: user.id, codePrefix, ip, success: true, reason: "success" });
 
         return {
           id: user.id,

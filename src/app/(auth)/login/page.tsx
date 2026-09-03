@@ -11,8 +11,8 @@ export default function LoginPage() {
         <div className="bg-primary text-primary-foreground mb-2 flex size-10 items-center justify-center rounded-lg">
           <Building2 className="size-5" />
         </div>
-        <CardTitle className="text-xl">Manpower HRIS</CardTitle>
-        <CardDescription>Sign in to your account to continue</CardDescription>
+        <CardTitle className="text-xl">Welcome back</CardTitle>
+        <CardDescription>Sign in to Manpower HRIS with your access code</CardDescription>
       </CardHeader>
       <CardContent>
         <LoginForm />

@@ -4,6 +4,7 @@ import path from "node:path";
 
 import bcrypt from "bcryptjs";
 
+import { accessCodeLookupHash, generateRandomAccessCode, hashAccessCode } from "../src/lib/access-code";
 import { db } from "../src/lib/db";
 import {
   calculateClientBilling,
@@ -27,18 +28,33 @@ const ADMIN_PASSWORD = "ChangeMe123!";
 
 async function seedAdminUser() {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+  const existing = await db.user.findUnique({ where: { email: ADMIN_EMAIL } });
+
+  // Login is access-code based; a legacy passwordHash is kept only for
+  // rollback safety and is never read by the Credentials provider anymore.
+  const accessCode = generateRandomAccessCode("SUPER_ADMIN");
+  const accessCodeHash = await hashAccessCode(accessCode);
+
   await db.user.upsert({
     where: { email: ADMIN_EMAIL },
     update: {},
     create: {
       email: ADMIN_EMAIL,
       passwordHash,
+      accessCodeHash,
+      accessCodeLookupHash: accessCodeLookupHash(accessCode),
+      accessCodeSetAt: new Date(),
       name: "System Administrator",
       role: "SUPER_ADMIN",
       status: "ACTIVE",
     },
   });
-  console.log(`Seeded admin user: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD} — change this password after first login.`);
+
+  if (existing) {
+    console.log(`Admin user already exists: ${ADMIN_EMAIL} — access code unchanged.`);
+  } else {
+    console.log(`Seeded admin user: ${ADMIN_EMAIL} — access code: ${accessCode} (shown once, save it now).`);
+  }
 }
 
 // ---------------------------------------------------------------------------

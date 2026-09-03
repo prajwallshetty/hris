@@ -15,6 +15,18 @@ export function formatInvoiceNumber(sequenceNo: number): string {
   return `INV-${String(sequenceNo).padStart(6, "0")}`;
 }
 
+export function formatVehicleCode(sequenceNo: number): string {
+  return `VEH-${String(sequenceNo).padStart(5, "0")}`;
+}
+
+export function formatEquipmentCode(sequenceNo: number): string {
+  return `EQP-${String(sequenceNo).padStart(5, "0")}`;
+}
+
+export function formatRentalCode(sequenceNo: number): string {
+  return `RNT-${String(sequenceNo).padStart(5, "0")}`;
+}
+
 export function parseWorkerCodeSearch(term: string): number | null {
   const match = term.trim().match(/^w?-?0*(\d+)$/i);
   return match ? Number(match[1]) : null;

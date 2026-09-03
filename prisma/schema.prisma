@@ -193,8 +193,8 @@ enum CommissionStatus {
 // database sessions with a Credentials provider). No Account/Session tables
 // are needed unless an OAuth provider is added later.
 model User {
-  id           String  @id @default(cuid())
-  email        String  @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
   // Legacy password login — kept (not dropped) for rollback safety after the
   // access-code migration; no longer read by the Credentials provider.
   passwordHash String?
@@ -222,10 +222,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  uploadedDocuments  WorkerDocument[]
-  createdAssignments Assignment[]
-  auditLogs          AuditLog[]
-  authAttempts       AuthAttempt[]
+  uploadedDocuments        WorkerDocument[]
+  createdAssignments       Assignment[]
+  auditLogs                AuditLog[]
+  authAttempts             AuthAttempt[]
+  uploadedVehicleDocuments VehicleDocument[]
 
   @@index([role])
 }
@@ -261,13 +262,16 @@ model Coordinator {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users           User[]
-  workers         Worker[]
-  assignments     Assignment[]
-  employees       InternalEmployee[]
-  sales           Sale[]
-  commissionRules CommissionRule[]
-  commissions     Commission[]
+  users              User[]
+  workers            Worker[]
+  assignments        Assignment[]
+  employees          InternalEmployee[]
+  sales              Sale[]
+  commissionRules    CommissionRule[]
+  commissions        Commission[]
+  vehicles           Vehicle[]
+  vehicleAssignments VehicleAssignment[]
+  vehicleExpenses    VehicleExpense[]
 }
 
 // ---------------------------------------------------------------------------
@@ -290,28 +294,30 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projects    Project[]
-  assignments Assignment[]
-  users       User[]
-  contacts    ClientContact[]
-  contracts   ClientContract[]
-  expenses    Expense[]
-  invoices    Invoice[]
-  payments    ClientPayment[]
-  sales       Sale[]
+  projects           Project[]
+  assignments        Assignment[]
+  users              User[]
+  contacts           ClientContact[]
+  contracts          ClientContract[]
+  expenses           Expense[]
+  invoices           Invoice[]
+  payments           ClientPayment[]
+  sales              Sale[]
+  vehicleAssignments VehicleAssignment[]
+  vehicleExpenses    VehicleExpense[]
 
   @@index([status])
 }
 
 model ClientContact {
-  id           String  @id @default(cuid())
-  clientId     String
-  client       Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name         String
-  designation  String?
-  phone        String?
-  email        String?
-  isPrimary    Boolean @default(false)
+  id          String  @id @default(cuid())
+  clientId    String
+  client      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  designation String?
+  phone       String?
+  email       String?
+  isPrimary   Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -320,15 +326,15 @@ model ClientContact {
 }
 
 model ClientContract {
-  id              String       @id @default(cuid())
-  clientId        String
-  client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  contractNumber  String?
-  startDate       DateTime?
-  endDate         DateTime?
-  terms           String?      @db.Text
-  documentUrl     String?
-  status          EntityStatus @default(ACTIVE)
+  id             String       @id @default(cuid())
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contractNumber String?
+  startDate      DateTime?
+  endDate        DateTime?
+  terms          String?      @db.Text
+  documentUrl    String?
+  status         EntityStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -347,9 +353,11 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sites       Site[]
-  assignments Assignment[]
-  invoices    Invoice[]
+  sites              Site[]
+  assignments        Assignment[]
+  invoices           Invoice[]
+  vehicleAssignments VehicleAssignment[]
+  vehicleExpenses    VehicleExpense[]
 
   @@index([clientId])
 }
@@ -366,10 +374,12 @@ model Site {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignments  Assignment[]
-  timesheets   Timesheet[]
-  expenses     Expense[]
-  invoiceItems InvoiceItem[]
+  assignments        Assignment[]
+  timesheets         Timesheet[]
+  expenses           Expense[]
+  invoiceItems       InvoiceItem[]
+  vehicleAssignments VehicleAssignment[]
+  vehicleExpenses    VehicleExpense[]
 
   @@index([projectId])
 }
@@ -450,19 +460,21 @@ model Worker {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  assignments    Assignment[]
-  documents      WorkerDocument[]
-  statusHistory  WorkerStatusHistory[]
-  timesheetItems TimesheetItem[]
-  payrollRows    WorkerPayroll[]
-  payments       WorkerPayment[]
-  advances       Advance[]
-  loans          Loan[]
-  leaveBalances  LeaveBalance[]
-  leaveRequests  LeaveRequest[]
-  expenses       Expense[]
-  invoiceItems   InvoiceItem[]
-  salaryAdjustments SalaryAdjustment[]
+  assignments        Assignment[]
+  documents          WorkerDocument[]
+  statusHistory      WorkerStatusHistory[]
+  timesheetItems     TimesheetItem[]
+  payrollRows        WorkerPayroll[]
+  payments           WorkerPayment[]
+  advances           Advance[]
+  loans              Loan[]
+  leaveBalances      LeaveBalance[]
+  leaveRequests      LeaveRequest[]
+  expenses           Expense[]
+  invoiceItems       InvoiceItem[]
+  salaryAdjustments  SalaryAdjustment[]
+  vehicleAssignments VehicleAssignment[]
+  vehicleExpenses    VehicleExpense[]
 
   @@index([status])
   @@index([coordinatorId])
@@ -471,14 +483,14 @@ model Worker {
 }
 
 model WorkerStatusHistory {
-  id            String       @id @default(cuid())
-  workerId      String
-  worker        Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  id             String        @id @default(cuid())
+  workerId       String
+  worker         Worker        @relation(fields: [workerId], references: [id], onDelete: Cascade)
   previousStatus WorkerStatus?
-  newStatus     WorkerStatus
-  reason        String?
-  changedById   String?
-  changedAt     DateTime     @default(now())
+  newStatus      WorkerStatus
+  reason         String?
+  changedById    String?
+  changedAt      DateTime      @default(now())
 
   @@index([workerId])
 }
@@ -523,7 +535,7 @@ model Assignment {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
   siteId String
-  site   Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Restrict)
 
   designation String?
 
@@ -600,9 +612,9 @@ model InternalEmployee {
 }
 
 model Attendance {
-  id         String            @id @default(cuid())
+  id         String           @id @default(cuid())
   employeeId String
-  employee   InternalEmployee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   InternalEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   date       DateTime
   status     AttendanceStatus
   checkIn    DateTime?
@@ -635,8 +647,8 @@ model LeaveType {
 }
 
 model LeaveBalance {
-  id     String @id @default(cuid())
-  year   Int
+  id   String @id @default(cuid())
+  year Int
 
   workerId String?
   worker   Worker? @relation(fields: [workerId], references: [id], onDelete: Cascade)
@@ -726,7 +738,7 @@ model TimesheetItem {
   timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
 
   workerId     String
-  worker       Worker  @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  worker       Worker      @relation(fields: [workerId], references: [id], onDelete: Restrict)
   assignmentId String?
   assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
 
@@ -737,11 +749,11 @@ model TimesheetItem {
   date          DateTime
   loginTime     DateTime?
   logoutTime    DateTime?
-  breakMinutes  Int      @default(0)
-  regularHours  Decimal  @default(0) @db.Decimal(6, 2)
-  overtimeHours Decimal  @default(0) @db.Decimal(6, 2)
-  holidayHours  Decimal  @default(0) @db.Decimal(6, 2)
-  totalHours    Decimal  @default(0) @db.Decimal(6, 2)
+  breakMinutes  Int       @default(0)
+  regularHours  Decimal   @default(0) @db.Decimal(6, 2)
+  overtimeHours Decimal   @default(0) @db.Decimal(6, 2)
+  holidayHours  Decimal   @default(0) @db.Decimal(6, 2)
+  totalHours    Decimal   @default(0) @db.Decimal(6, 2)
 
   status  TimesheetItemStatus @default(PENDING)
   remarks String?
@@ -773,8 +785,8 @@ model PayrollPeriod {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  workerPayrolls   WorkerPayroll[]
-  employeePayrolls EmployeePayroll[]
+  workerPayrolls    WorkerPayroll[]
+  employeePayrolls  EmployeePayroll[]
   salaryAdjustments SalaryAdjustment[]
 
   @@unique([periodStart, periodEnd])
@@ -789,20 +801,20 @@ model WorkerPayroll {
   worker          Worker        @relation(fields: [workerId], references: [id], onDelete: Restrict)
   assignmentId    String?
 
-  regularHours Decimal @default(0) @db.Decimal(8, 2)
+  regularHours  Decimal @default(0) @db.Decimal(8, 2)
   overtimeHours Decimal @default(0) @db.Decimal(8, 2)
   // Rate snapshots — never re-derived from the worker's current rate.
-  regularRate  Decimal @db.Decimal(14, 2)
-  overtimeRate Decimal @db.Decimal(14, 2)
+  regularRate   Decimal @db.Decimal(14, 2)
+  overtimeRate  Decimal @db.Decimal(14, 2)
 
-  grossPay        Decimal @default(0) @db.Decimal(14, 2)
-  allowances      Decimal @default(0) @db.Decimal(14, 2)
-  bonuses         Decimal @default(0) @db.Decimal(14, 2)
+  grossPay         Decimal @default(0) @db.Decimal(14, 2)
+  allowances       Decimal @default(0) @db.Decimal(14, 2)
+  bonuses          Decimal @default(0) @db.Decimal(14, 2)
   advanceDeduction Decimal @default(0) @db.Decimal(14, 2)
-  loanDeduction   Decimal @default(0) @db.Decimal(14, 2)
-  leaveDeduction  Decimal @default(0) @db.Decimal(14, 2)
-  otherDeductions Decimal @default(0) @db.Decimal(14, 2)
-  netPayable      Decimal @default(0) @db.Decimal(14, 2)
+  loanDeduction    Decimal @default(0) @db.Decimal(14, 2)
+  leaveDeduction   Decimal @default(0) @db.Decimal(14, 2)
+  otherDeductions  Decimal @default(0) @db.Decimal(14, 2)
+  netPayable       Decimal @default(0) @db.Decimal(14, 2)
 
   status PayrollStatus @default(DRAFT)
 
@@ -833,9 +845,9 @@ model WorkerPayrollItem {
 }
 
 model EmployeePayroll {
-  id              String        @id @default(cuid())
+  id              String           @id @default(cuid())
   payrollPeriodId String
-  payrollPeriod   PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
+  payrollPeriod   PayrollPeriod    @relation(fields: [payrollPeriodId], references: [id], onDelete: Restrict)
   employeeId      String
   employee        InternalEmployee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
 
@@ -888,9 +900,9 @@ model SalaryAdjustment {
   payrollPeriodId String?
   payrollPeriod   PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: SetNull)
 
-  type      SalaryAdjustmentType
-  amount    Decimal              @db.Decimal(14, 2)
-  reason    String?
+  type        SalaryAdjustmentType
+  amount      Decimal              @db.Decimal(14, 2)
+  reason      String?
   createdById String?
 
   createdAt DateTime @default(now())
@@ -968,10 +980,10 @@ model Advance {
   employeeId String?
   employee   InternalEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  amount      Decimal          @db.Decimal(14, 2)
-  dateGiven   DateTime         @default(now())
+  amount      Decimal         @db.Decimal(14, 2)
+  dateGiven   DateTime        @default(now())
   reason      String?
-  status      RepayableStatus  @default(ACTIVE)
+  status      RepayableStatus @default(ACTIVE)
   createdById String?
 
   createdAt DateTime @default(now())
@@ -985,12 +997,12 @@ model Advance {
 }
 
 model AdvanceRepayment {
-  id              String        @id @default(cuid())
+  id              String   @id @default(cuid())
   advanceId       String
-  advance         Advance       @relation(fields: [advanceId], references: [id], onDelete: Cascade)
-  amount          Decimal       @db.Decimal(14, 2)
+  advance         Advance  @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+  amount          Decimal  @db.Decimal(14, 2)
   payrollPeriodId String?
-  date            DateTime      @default(now())
+  date            DateTime @default(now())
 
   createdAt DateTime @default(now())
 
@@ -1044,11 +1056,11 @@ model Expense {
   date     DateTime        @default(now())
 
   workerId      String?
-  worker        Worker?      @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  worker        Worker? @relation(fields: [workerId], references: [id], onDelete: SetNull)
   clientId      String?
-  client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  client        Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
   siteId        String?
-  site          Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  site          Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
   coordinatorId String?
   departmentId  String?
 
@@ -1071,25 +1083,25 @@ model Expense {
 // ---------------------------------------------------------------------------
 
 model Invoice {
-  id            String   @id @default(cuid())
-  sequenceNo    Int      @unique @default(autoincrement())
-  clientId      String
-  client        Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  projectId     String?
-  project       Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  id         String   @id @default(cuid())
+  sequenceNo Int      @unique @default(autoincrement())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   billingPeriodStart DateTime
   billingPeriodEnd   DateTime
 
   status InvoiceStatus @default(DRAFT)
 
-  subtotal   Decimal @default(0) @db.Decimal(14, 2)
-  taxAmount  Decimal @default(0) @db.Decimal(14, 2)
+  subtotal    Decimal @default(0) @db.Decimal(14, 2)
+  taxAmount   Decimal @default(0) @db.Decimal(14, 2)
   totalAmount Decimal @default(0) @db.Decimal(14, 2)
 
-  issuedAt    DateTime?
-  dueDate     DateTime?
-  createdById String?
+  issuedAt     DateTime?
+  dueDate      DateTime?
+  createdById  String?
   approvedById String?
 
   createdAt DateTime @default(now())
@@ -1127,7 +1139,7 @@ model InvoiceItem {
 // ---------------------------------------------------------------------------
 
 model Sale {
-  id            String @id @default(cuid())
+  id            String      @id @default(cuid())
   coordinatorId String
   coordinator   Coordinator @relation(fields: [coordinatorId], references: [id], onDelete: Restrict)
   clientId      String?
@@ -1146,7 +1158,7 @@ model Sale {
 }
 
 model CommissionRule {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   // Null coordinatorId = a default/global rule; set = a coordinator-specific override.
   coordinatorId String?
   coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
@@ -1173,8 +1185,8 @@ model Commission {
   saleId           String?
   sale             Sale?          @relation(fields: [saleId], references: [id], onDelete: SetNull)
 
-  amount       Decimal           @db.Decimal(14, 2)
-  status       CommissionStatus  @default(DRAFT)
+  amount       Decimal          @db.Decimal(14, 2)
+  status       CommissionStatus @default(DRAFT)
   approvedById String?
   approvedAt   DateTime?
 
@@ -1206,16 +1218,16 @@ model CommissionItem {
 // ---------------------------------------------------------------------------
 
 model OvertimeRule {
-  id                        String       @id @default(cuid())
-  name                      String
-  dailyRegularHoursThreshold Decimal     @default(8) @db.Decimal(4, 2)
-  overtimeMultiplier        Decimal      @default(1.5) @db.Decimal(4, 2)
-  weeklyOffDay               Int?        // 0 (Sunday) - 6 (Saturday)
-  maxDailyHours              Decimal?    @db.Decimal(4, 2)
-  minPayableHours            Decimal?    @db.Decimal(4, 2)
+  id                         String       @id @default(cuid())
+  name                       String
+  dailyRegularHoursThreshold Decimal      @default(8) @db.Decimal(4, 2)
+  overtimeMultiplier         Decimal      @default(1.5) @db.Decimal(4, 2)
+  weeklyOffDay               Int? // 0 (Sunday) - 6 (Saturday)
+  maxDailyHours              Decimal?     @db.Decimal(4, 2)
+  minPayableHours            Decimal?     @db.Decimal(4, 2)
   status                     EntityStatus @default(ACTIVE)
-  effectiveFrom               DateTime    @default(now())
-  effectiveTo                 DateTime?
+  effectiveFrom              DateTime     @default(now())
+  effectiveTo                DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1262,4 +1274,214 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Vehicle management — tracked independently from worker Assignment. A
+// VehicleAssignment is its own historical record (never edited into a new
+// state, always a new row + a return), exactly like Assignment is for
+// workers: a vehicle's full assignment history stays queryable forever.
+// ---------------------------------------------------------------------------
+
+enum VehicleStatus {
+  AVAILABLE
+  ASSIGNED
+  UNDER_MAINTENANCE
+  INACTIVE
+  RETIRED
+}
+
+enum VehicleAssignmentStatus {
+  ACTIVE
+  RETURNED
+  CANCELLED
+}
+
+enum VehicleExpenseCategory {
+  FUEL
+  MAINTENANCE
+  REPAIR
+  INSURANCE
+  REGISTRATION
+  FINES
+  PARKING
+  TOLL
+  OTHER
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum VehicleDocumentType {
+  REGISTRATION
+  INSURANCE
+  INSPECTION
+  OTHER
+}
+
+model Vehicle {
+  id          String @id @default(cuid())
+  sequenceNo  Int    @unique @default(autoincrement())
+  plateNumber String @unique
+
+  make        String
+  model       String
+  year        Int?
+  color       String?
+  vehicleType String?
+  vin         String?
+
+  currentMileage Decimal?      @db.Decimal(10, 1)
+  status         VehicleStatus @default(AVAILABLE)
+
+  registrationExpiry DateTime?
+  insuranceExpiry    DateTime?
+  inspectionExpiry   DateTime?
+
+  ownerCompany String?
+
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+
+  notes     String?   @db.Text
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments VehicleAssignment[]
+  expenses    VehicleExpense[]
+  maintenance VehicleMaintenance[]
+  documents   VehicleDocument[]
+
+  @@index([status])
+  @@index([coordinatorId])
+}
+
+// Never overwritten on reassignment (§5/§37) — a new vehicle assignment is
+// always a new row; the previous one is closed out via the return fields
+// and status=RETURNED, so the full history stays queryable per vehicle.
+model VehicleAssignment {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  workerId  String
+  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Restrict)
+
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+  clientId      String?
+  client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId     String?
+  project       Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  siteId        String?
+  site          Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  startDate          DateTime
+  expectedReturnDate DateTime?
+  returnedAt         DateTime?
+
+  startingMileage Decimal? @db.Decimal(10, 1)
+  endingMileage   Decimal? @db.Decimal(10, 1)
+
+  status VehicleAssignmentStatus @default(ACTIVE)
+
+  // Return workflow (§8) — populated only once the vehicle actually comes back.
+  condition    String?
+  damageNotes  String?
+  fuelLevel    String?
+  returnNotes  String?
+  returnedById String?
+  receivedById String?
+
+  notes       String? @db.Text
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId])
+  @@index([workerId])
+  @@index([status])
+  @@index([coordinatorId])
+  @@index([clientId])
+}
+
+model VehicleExpense {
+  id       String                 @id @default(cuid())
+  category VehicleExpenseCategory
+  amount   Decimal                @db.Decimal(14, 2)
+  date     DateTime               @default(now())
+
+  vehicleId     String
+  vehicle       Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  workerId      String?
+  worker        Worker?      @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+  clientId      String?
+  client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId     String?
+  project       Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  siteId        String?
+  site          Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  receiptUrl  String?
+  description String?
+  createdById String?
+  deletedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId])
+  @@index([date])
+}
+
+model VehicleMaintenance {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  maintenanceType    String
+  serviceDate        DateTime?
+  serviceMileage     Decimal?  @db.Decimal(10, 1)
+  nextServiceDate    DateTime?
+  nextServiceMileage Decimal?  @db.Decimal(10, 1)
+
+  cost     Decimal?          @db.Decimal(14, 2)
+  workshop String?
+  notes    String?           @db.Text
+  status   MaintenanceStatus @default(SCHEDULED)
+
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId])
+  @@index([status])
+  @@index([nextServiceDate])
+}
+
+model VehicleDocument {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  documentType VehicleDocumentType @default(OTHER)
+  fileName     String
+  fileUrl      String
+  expiryDate   DateTime?
+
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedAt   DateTime @default(now())
+
+  @@index([vehicleId])
+  @@index([expiryDate])
 }

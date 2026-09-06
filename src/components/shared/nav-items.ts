@@ -15,6 +15,7 @@ import {
   UsersRound,
   History,
   Settings,
+  Car,
 } from "lucide-react";
 
 export type NavItem = {
@@ -111,6 +112,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Coordinators",
         icon: UserCog,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
+      },
+      {
+        href: "/vehicles",
+        label: "Vehicles",
+        icon: Car,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
       },
       {
         href: "/expenses",

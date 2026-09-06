@@ -55,6 +55,15 @@ const STATUS_TONES: Record<string, Tone> = {
   // Invoices
   ISSUED: "info",
   OVERDUE: "destructive",
+
+  // Vehicle / vehicle assignment / maintenance lifecycle
+  ASSIGNED: "success",
+  UNDER_MAINTENANCE: "warning",
+  RETIRED: "destructive",
+  RETURNED: "neutral",
+  SCHEDULED: "neutral",
+  IN_PROGRESS: "info",
+  COMPLETED: "success",
 };
 
 function toLabel(status: string) {

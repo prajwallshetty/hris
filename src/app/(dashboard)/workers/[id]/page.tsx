@@ -26,6 +26,7 @@ import {
   listWorkerPayments,
   listWorkerPayrollHistory,
 } from "@/server/queries/worker-detail";
+import { listVehicleAssignmentsForWorker } from "@/server/queries/vehicles";
 import { getSessionUser } from "@/server/session";
 
 import { AssignmentFormDialog } from "../../assignments/assignment-form";
@@ -66,13 +67,14 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canManagePayments = can(user, "create", "workerPayment");
   const canViewActivity = can(user, "view", "auditLog");
 
-  const [clients, payrollHistory, leave, advances, loans, payments, activity] = await Promise.all([
+  const [clients, payrollHistory, leave, advances, loans, payments, vehicleAssignments, activity] = await Promise.all([
     canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
     listWorkerPayrollHistory(worker.id),
     listWorkerLeave(worker.id),
     listWorkerAdvances(worker.id),
     listWorkerLoans(worker.id),
     listWorkerPayments(worker.id),
+    listVehicleAssignmentsForWorker(worker.id),
     canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
   ]);
 
@@ -197,6 +199,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
           {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
@@ -624,6 +627,50 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                       <TableCell>{payment.method.replaceAll("_", " ")}</TableCell>
                       <TableCell>{payment.workerPayroll?.payrollPeriod.name ?? "—"}</TableCell>
                       <TableCell>{payment.referenceNumber ?? "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="vehicles" className="space-y-4">
+          {vehicleAssignments.length === 0 ? (
+            <EmptyState icon={ClipboardList} title="No vehicle assignments yet" />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vehicle</TableHead>
+                    <TableHead>Client / Site</TableHead>
+                    <TableHead>Start</TableHead>
+                    <TableHead>Return</TableHead>
+                    <TableHead>Mileage</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vehicleAssignments.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell>
+                        <Link href={`/vehicles/${a.vehicleId}`} className="font-medium hover:underline">
+                          {a.vehicle.plateNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {a.client?.companyName ?? "—"} {a.site?.name ? `/ ${a.site.name}` : ""}
+                      </TableCell>
+                      <TableCell>{formatDate(a.startDate)}</TableCell>
+                      <TableCell>{formatDate(a.returnedAt ?? a.expectedReturnDate)}</TableCell>
+                      <TableCell>
+                        {a.startingMileage != null ? Number(a.startingMileage).toLocaleString() : "—"}
+                        {a.endingMileage != null ? ` → ${Number(a.endingMileage).toLocaleString()}` : ""} km
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={a.status} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

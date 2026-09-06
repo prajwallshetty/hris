@@ -160,6 +160,14 @@ export async function listRentalsForEquipment(equipmentId: string) {
   });
 }
 
+export async function listEquipmentForCoordinator(coordinatorId: string) {
+  return db.equipment.findMany({
+    where: { coordinatorId, deletedAt: null },
+    orderBy: { name: "asc" },
+    include: CURRENT_RENTAL_INCLUDE,
+  });
+}
+
 export async function listRentalsForClient(clientId: string) {
   return db.equipmentRental.findMany({
     where: { clientId },

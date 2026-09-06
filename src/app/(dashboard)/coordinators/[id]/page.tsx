@@ -1,4 +1,5 @@
-import { DollarSign, HandCoins } from "lucide-react";
+import { Car, DollarSign, HandCoins } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -8,6 +9,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatEquipmentCode, formatVehicleCode } from "@/lib/codes";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { can } from "@/server/rbac";
 import { listAllClientsForSelect } from "@/server/queries/clients";
@@ -19,7 +21,9 @@ import {
   listUncommissionedSales,
 } from "@/server/queries/coordinators";
 import { getEntityAuditLog } from "@/server/queries/dashboard";
+import { listEquipmentForCoordinator } from "@/server/queries/equipment";
 import { listInvoicesForSelect } from "@/server/queries/invoices";
+import { listVehiclesForCoordinator } from "@/server/queries/vehicles";
 import { getSessionUser } from "@/server/session";
 
 import { AdvanceCommissionButton, GenerateCommissionDialog } from "./commission-actions";
@@ -44,16 +48,20 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
   const canGenerateCommission = can(user, "create", "commission");
   const canUpdateCommission = can(user, "update", "commission");
   const canViewActivity = can(user, "view", "auditLog");
+  const canViewFleet = can(user, "view", "vehicle") || can(user, "view", "equipment");
 
-  const [sales, commissions, uncommissionedSales, rules, clients, invoices, activity] = await Promise.all([
-    listCoordinatorSales(coordinator.id),
-    listCoordinatorCommissions(coordinator.id),
-    canGenerateCommission ? listUncommissionedSales(coordinator.id) : Promise.resolve([]),
-    canGenerateCommission ? getApplicableCommissionRules(coordinator.id) : Promise.resolve([]),
-    canRecordSale || canGenerateCommission ? listAllClientsForSelect() : Promise.resolve([]),
-    canGenerateCommission ? listInvoicesForSelect(user) : Promise.resolve([]),
-    canViewActivity ? getEntityAuditLog("Coordinator", coordinator.id) : Promise.resolve([]),
-  ]);
+  const [sales, commissions, uncommissionedSales, rules, clients, invoices, vehicles, equipment, activity] =
+    await Promise.all([
+      listCoordinatorSales(coordinator.id),
+      listCoordinatorCommissions(coordinator.id),
+      canGenerateCommission ? listUncommissionedSales(coordinator.id) : Promise.resolve([]),
+      canGenerateCommission ? getApplicableCommissionRules(coordinator.id) : Promise.resolve([]),
+      canRecordSale || canGenerateCommission ? listAllClientsForSelect() : Promise.resolve([]),
+      canGenerateCommission ? listInvoicesForSelect(user) : Promise.resolve([]),
+      canViewFleet ? listVehiclesForCoordinator(coordinator.id) : Promise.resolve([]),
+      canViewFleet ? listEquipmentForCoordinator(coordinator.id) : Promise.resolve([]),
+      canViewActivity ? getEntityAuditLog("Coordinator", coordinator.id) : Promise.resolve([]),
+    ]);
 
   const totalSales = sales.reduce((sum, s) => sum + Number(s.amount), 0);
   const totalCommission = commissions.reduce((sum, c) => sum + Number(c.amount), 0);
@@ -91,6 +99,7 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
         <TabsList>
           <TabsTrigger value="sales">Sales</TabsTrigger>
           <TabsTrigger value="commissions">Commissions</TabsTrigger>
+          {canViewFleet && <TabsTrigger value="fleet">Fleet</TabsTrigger>}
           {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
@@ -198,6 +207,94 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
             </div>
           )}
         </TabsContent>
+
+        {canViewFleet && (
+          <TabsContent value="fleet" className="space-y-6">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Vehicles</h3>
+              {vehicles.length === 0 ? (
+                <EmptyState icon={Car} title="No vehicles assigned to this coordinator" />
+              ) : (
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Vehicle</TableHead>
+                        <TableHead>Current Driver</TableHead>
+                        <TableHead>Client / Site</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {vehicles.map((vehicle) => {
+                        const active = vehicle.assignments[0];
+                        return (
+                          <TableRow key={vehicle.id}>
+                            <TableCell className="font-medium">
+                              <Link href={`/vehicles/${vehicle.id}`} className="hover:underline">
+                                {vehicle.plateNumber}
+                              </Link>
+                              <span className="text-muted-foreground ml-1 font-mono text-xs">
+                                {formatVehicleCode(vehicle.sequenceNo)}
+                              </span>
+                            </TableCell>
+                            <TableCell>{active?.worker.fullName ?? "—"}</TableCell>
+                            <TableCell>
+                              {active?.client?.companyName ?? "—"} {active?.site?.name ? `/ ${active.site.name}` : ""}
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={vehicle.status} />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Equipment</h3>
+              {equipment.length === 0 ? (
+                <EmptyState icon={Car} title="No equipment assigned to this coordinator" />
+              ) : (
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Equipment</TableHead>
+                        <TableHead>Current Client</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {equipment.map((item) => {
+                        const active = item.rentals[0];
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">
+                              <Link href={`/equipment/${item.id}`} className="hover:underline">
+                                {item.name}
+                              </Link>
+                              <span className="text-muted-foreground ml-1 font-mono text-xs">
+                                {formatEquipmentCode(item.sequenceNo)}
+                              </span>
+                            </TableCell>
+                            <TableCell>{active?.client.companyName ?? "—"}</TableCell>
+                            <TableCell>
+                              <StatusBadge status={item.status} />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        )}
 
         {canViewActivity && (
           <TabsContent value="activity">

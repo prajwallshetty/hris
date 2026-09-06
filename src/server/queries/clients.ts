@@ -35,7 +35,14 @@ export async function getClient(user: SessionUser, id: string) {
           sites: {
             where: { deletedAt: null },
             orderBy: { name: "asc" },
-            include: { _count: { select: { assignments: { where: { status: "ACTIVE" } } } } },
+            include: {
+              _count: {
+                select: {
+                  assignments: { where: { status: "ACTIVE" } },
+                  vehicleAssignments: { where: { status: "ACTIVE" } },
+                },
+              },
+            },
           },
         },
       },

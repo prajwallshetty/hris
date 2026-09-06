@@ -6,6 +6,8 @@ export type AuditAction =
   | "archive"
   | "reactivate"
   | "end_assignment"
+  | "assign_vehicle"
+  | "return_vehicle"
   | "import";
 
 // Single write path for the audit trail (§25). Every mutating server action

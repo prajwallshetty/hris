@@ -7,6 +7,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   archive: "Archived",
   reactivate: "Reactivated",
   end_assignment: "Assignment ended",
+  assign_vehicle: "Vehicle assigned",
+  return_vehicle: "Vehicle returned",
   import: "Imported",
 };
 
@@ -16,6 +18,8 @@ const ACTION_TONES: Record<AuditAction, TimelineTone> = {
   archive: "destructive",
   reactivate: "success",
   end_assignment: "warning",
+  assign_vehicle: "success",
+  return_vehicle: "info",
   import: "info",
 };
 

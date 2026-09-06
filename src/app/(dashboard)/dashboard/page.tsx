@@ -22,6 +22,7 @@ import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Timeline } from "@/components/shared/timeline";
 import { ClientProfitabilityChart } from "@/components/shared/charts/client-profitability-chart";
+import { RevenueCostTrendCard } from "@/components/shared/charts/revenue-cost-trend-card";
 import { WorkersByClientChart } from "@/components/shared/charts/workers-by-client-chart";
 import { WorkersByStatusChart } from "@/components/shared/charts/workers-by-status-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ import {
   getFinanceKpis,
   getFleetCounts,
   getRecentAuditLog,
+  getRevenueCostTrend,
   getWorkersByClient,
   getWorkersByStatus,
 } from "@/server/queries/dashboard";
@@ -71,7 +73,7 @@ export default async function DashboardPage() {
   const showExpenseKpi = can(user, "view", "expense");
   const showFleetKpis = can(user, "view", "vehicle") || can(user, "view", "equipment");
 
-  const [counts, workersByStatus, workersByClient, profitability, financeKpis, fleetCounts, auditLog, notifications] =
+  const [counts, workersByStatus, workersByClient, profitability, financeKpis, fleetCounts, trend, auditLog, notifications] =
     await Promise.all([
       getDashboardCounts(user),
       getWorkersByStatus(user),
@@ -79,6 +81,7 @@ export default async function DashboardPage() {
       showFinancials ? getClientProfitabilitySummary(user) : Promise.resolve([]),
       showTimesheetKpi || showPayrollKpi || showCommissionKpi || showExpenseKpi ? getFinanceKpis() : Promise.resolve(null),
       showFleetKpis ? getFleetCounts(user) : Promise.resolve(null),
+      showFinancials ? getRevenueCostTrend(user, 24) : Promise.resolve([]),
       showAuditLog ? getRecentAuditLog(8) : Promise.resolve([]),
       getNotifications(user),
     ]);
@@ -159,6 +162,8 @@ export default async function DashboardPage() {
           <KpiCard href="/clients" label="Profit" value={formatMoney(totals.profit)} icon={TrendingUp} />
         </div>
       )}
+
+      {showFinancials && trend.length > 0 && <RevenueCostTrendCard data={trend} />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>

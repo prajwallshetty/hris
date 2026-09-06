@@ -7,3 +7,4 @@ export * from "./billing";
 export * from "./commission";
 export * from "./finance";
 export * from "./profitability";
+export * from "./rental";

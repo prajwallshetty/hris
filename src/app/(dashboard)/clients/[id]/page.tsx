@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
+import { calculateOutstanding } from "@/server/calc/finance";
+import { calculateRentalTotal } from "@/server/calc/rental";
 import { can } from "@/server/rbac";
 import { getClient } from "@/server/queries/clients";
 import {
@@ -22,6 +24,7 @@ import {
   listClientWorkers,
 } from "@/server/queries/client-detail";
 import { getEntityAuditLog } from "@/server/queries/dashboard";
+import { listRentalsForClient } from "@/server/queries/equipment";
 import { getSessionUser } from "@/server/session";
 
 import { ClientFormDialog } from "../client-form-dialog";
@@ -60,13 +63,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const canGenerateInvoice = can(user, "create", "invoice");
   const canRecordPayment = can(user, "create", "clientPayment");
   const canViewActivity = can(user, "view", "auditLog");
+  const canViewEquipment = can(user, "view", "equipmentRental");
 
-  const [contacts, contracts, workers, financials, invoices, activity] = await Promise.all([
+  const [contacts, contracts, workers, financials, invoices, rentals, activity] = await Promise.all([
     listClientContacts(client.id),
     listClientContracts(client.id),
     listClientWorkers(client.id),
     canViewFinancials ? getClientFinancials(client.id) : Promise.resolve(null),
     canViewFinancials ? listClientInvoices(client.id) : Promise.resolve([]),
+    canViewEquipment ? listRentalsForClient(client.id) : Promise.resolve([]),
     canViewActivity ? getEntityAuditLog("Client", client.id) : Promise.resolve([]),
   ]);
 
@@ -120,6 +125,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="sites">Projects & Sites</TabsTrigger>
           <TabsTrigger value="workers">Workers</TabsTrigger>
           {canViewFinancials && <TabsTrigger value="billing">Billing</TabsTrigger>}
+          {canViewEquipment && <TabsTrigger value="equipment">Equipment</TabsTrigger>}
           {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
@@ -259,6 +265,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                             <div className="flex items-center gap-3">
                               <span className="text-muted-foreground text-xs">
                                 {site._count.assignments} active workers
+                                {site._count.vehicleAssignments > 0 ? ` · ${site._count.vehicleAssignments} vehicles` : ""}
                               </span>
                               <StatusBadge status={site.status} />
                             </div>
@@ -313,12 +320,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         {canViewFinancials && (
           <TabsContent value="billing" className="space-y-4">
             {financials && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-8">
                 <KpiCard label="Revenue" value={formatMoney(financials.revenue)} />
                 <KpiCard label="Invoiced" value={formatMoney(financials.totalInvoiced)} />
                 <KpiCard label="Paid" value={formatMoney(financials.totalPaid)} />
                 <KpiCard label="Outstanding" value={formatMoney(financials.outstanding)} />
                 <KpiCard label="Worker Cost" value={formatMoney(financials.workerCost)} />
+                <KpiCard label="Vehicle Cost" value={formatMoney(financials.vehicleExpenseTotal)} />
+                <KpiCard label="Equipment Cost" value={formatMoney(financials.equipmentRentalCost)} />
                 <KpiCard label="Profitability" value={formatMoney(financials.profit)} />
               </div>
             )}
@@ -370,6 +379,55 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           <TableCell>{formatMoney(paid)}</TableCell>
                           <TableCell>
                             <StatusBadge status={invoice.status} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+        )}
+
+        {canViewEquipment && (
+          <TabsContent value="equipment" className="space-y-4">
+            {rentals.length === 0 ? (
+              <EmptyState icon={MapPin} title="No equipment rentals yet" />
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Equipment</TableHead>
+                      <TableHead>Site</TableHead>
+                      <TableHead>Start</TableHead>
+                      <TableHead>Return</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Outstanding</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rentals.map((rental) => {
+                      const total = calculateRentalTotal(rental.charges.map((c) => c.amount.toString()));
+                      const outstanding = calculateOutstanding(total, rental.payments.map((p) => p.amount.toString()));
+                      return (
+                        <TableRow key={rental.id}>
+                          <TableCell className="font-medium">
+                            <Link href={`/rentals/${rental.id}`} className="hover:underline">
+                              {rental.equipment.name}
+                            </Link>
+                          </TableCell>
+                          <TableCell>{rental.site?.name ?? "—"}</TableCell>
+                          <TableCell>{formatDate(rental.startDate)}</TableCell>
+                          <TableCell>{formatDate(rental.actualReturnDate ?? rental.expectedEndDate)}</TableCell>
+                          <TableCell>{formatMoney(total.toNumber())}</TableCell>
+                          <TableCell className={outstanding.toNumber() > 0 ? "text-warning-foreground font-medium" : undefined}>
+                            {formatMoney(outstanding.toNumber())}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={rental.status} />
                           </TableCell>
                         </TableRow>
                       );

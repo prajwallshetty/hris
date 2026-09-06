@@ -7,6 +7,9 @@ import {
   clientScopeWhere,
   siteScopeWhere,
   assignmentScopeWhere,
+  vehicleScopeWhere,
+  equipmentScopeWhere,
+  equipmentRentalScopeWhere,
   can,
   type SessionUser,
 } from "@/server/rbac";
@@ -21,6 +24,29 @@ export async function getDashboardCounts(user: SessionUser) {
   ]);
 
   return { totalWorkers, activeWorkers, totalClients, totalSites, activeAssignments };
+}
+
+// Fleet KPIs — drillable to /vehicles, /equipment, /rentals (§4/§20).
+export async function getFleetCounts(user: SessionUser) {
+  const [totalVehicles, vehiclesDeployed, totalEquipment, equipmentRented, activeRentals] = await Promise.all([
+    can(user, "view", "vehicle")
+      ? db.vehicle.count({ where: { deletedAt: null, ...vehicleScopeWhere(user) } })
+      : Promise.resolve(0),
+    can(user, "view", "vehicle")
+      ? db.vehicle.count({ where: { deletedAt: null, status: "ASSIGNED", ...vehicleScopeWhere(user) } })
+      : Promise.resolve(0),
+    can(user, "view", "equipment")
+      ? db.equipment.count({ where: { deletedAt: null, ...equipmentScopeWhere(user) } })
+      : Promise.resolve(0),
+    can(user, "view", "equipment")
+      ? db.equipment.count({ where: { deletedAt: null, status: "RENTED", ...equipmentScopeWhere(user) } })
+      : Promise.resolve(0),
+    can(user, "view", "equipmentRental")
+      ? db.equipmentRental.count({ where: { status: { in: ["ACTIVE", "EXTENDED"] }, ...equipmentRentalScopeWhere(user) } })
+      : Promise.resolve(0),
+  ]);
+
+  return { totalVehicles, vehiclesDeployed, totalEquipment, equipmentRented, activeRentals };
 }
 
 const WORKER_STATUS_ORDER: WorkerStatus[] = [

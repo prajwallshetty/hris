@@ -1,16 +1,19 @@
 import {
   Banknote,
   Building2,
+  Car,
   CircleCheck,
   Clock,
   ClipboardList,
   HandCoins,
   MapPin,
   Receipt,
+  Timer,
   TrendingUp,
   UserCheck,
   Users,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,6 +32,7 @@ import {
   getClientProfitabilitySummary,
   getDashboardCounts,
   getFinanceKpis,
+  getFleetCounts,
   getRecentAuditLog,
   getWorkersByClient,
   getWorkersByStatus,
@@ -48,7 +52,12 @@ function greeting() {
 }
 
 const APPROVAL_TITLES = new Set(["Timesheet pending review", "Payroll pending approval", "Leave approval pending", "Commission payable"]);
-const OVERDUE_TITLES = new Set(["Client payment overdue", "Salary due"]);
+const OVERDUE_TITLES = new Set([
+  "Client payment overdue",
+  "Salary due",
+  "Rental return overdue",
+  "Rental payment due",
+]);
 
 export default async function DashboardPage() {
   const [session, user] = await Promise.all([auth(), getSessionUser()]);
@@ -60,16 +69,19 @@ export default async function DashboardPage() {
   const showPayrollKpi = can(user, "view", "workerPayroll") || can(user, "view", "employeePayroll");
   const showCommissionKpi = can(user, "view", "commission");
   const showExpenseKpi = can(user, "view", "expense");
+  const showFleetKpis = can(user, "view", "vehicle") || can(user, "view", "equipment");
 
-  const [counts, workersByStatus, workersByClient, profitability, financeKpis, auditLog, notifications] = await Promise.all([
-    getDashboardCounts(user),
-    getWorkersByStatus(user),
-    getWorkersByClient(user),
-    showFinancials ? getClientProfitabilitySummary(user) : Promise.resolve([]),
-    showTimesheetKpi || showPayrollKpi || showCommissionKpi || showExpenseKpi ? getFinanceKpis() : Promise.resolve(null),
-    showAuditLog ? getRecentAuditLog(8) : Promise.resolve([]),
-    getNotifications(user),
-  ]);
+  const [counts, workersByStatus, workersByClient, profitability, financeKpis, fleetCounts, auditLog, notifications] =
+    await Promise.all([
+      getDashboardCounts(user),
+      getWorkersByStatus(user),
+      getWorkersByClient(user),
+      showFinancials ? getClientProfitabilitySummary(user) : Promise.resolve([]),
+      showTimesheetKpi || showPayrollKpi || showCommissionKpi || showExpenseKpi ? getFinanceKpis() : Promise.resolve(null),
+      showFleetKpis ? getFleetCounts(user) : Promise.resolve(null),
+      showAuditLog ? getRecentAuditLog(8) : Promise.resolve([]),
+      getNotifications(user),
+    ]);
 
   const pendingApprovals = notifications.filter((n) => APPROVAL_TITLES.has(n.title));
   const overduePayments = notifications.filter((n) => OVERDUE_TITLES.has(n.title));
@@ -116,6 +128,26 @@ export default async function DashboardPage() {
             <KpiCard href="/coordinators" label="Commission" value={formatMoney(financeKpis.totalCommission)} icon={HandCoins} />
           )}
           {showExpenseKpi && <KpiCard href="/expenses" label="Expenses" value={formatMoney(financeKpis.totalExpenses)} icon={Receipt} />}
+        </div>
+      )}
+
+      {fleetCounts && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <KpiCard href="/vehicles" label="Vehicles" value={fleetCounts.totalVehicles.toLocaleString()} icon={Car} />
+          <KpiCard
+            href="/vehicles?status=ASSIGNED"
+            label="Vehicles Deployed"
+            value={fleetCounts.vehiclesDeployed.toLocaleString()}
+            icon={Car}
+          />
+          <KpiCard href="/equipment" label="Equipment" value={fleetCounts.totalEquipment.toLocaleString()} icon={Wrench} />
+          <KpiCard
+            href="/equipment?status=RENTED"
+            label="Equipment Rented"
+            value={fleetCounts.equipmentRented.toLocaleString()}
+            icon={Wrench}
+          />
+          <KpiCard href="/rentals" label="Active Rentals" value={fleetCounts.activeRentals.toLocaleString()} icon={Timer} />
         </div>
       )}
 

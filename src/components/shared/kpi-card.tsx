@@ -50,7 +50,7 @@ export function KpiCard({
       <CardContent className="flex items-start justify-between gap-3 px-4">
         <div className="min-w-0">
           <p className="text-muted-foreground text-xs font-medium">{label}</p>
-          <p className="mt-1 truncate text-xl font-semibold tabular-nums">{value}</p>
+          <p className="mt-1 truncate text-2xl font-semibold tabular-nums">{value}</p>
           {(trend ?? description) && (
             <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
               {trend && TrendIcon && (

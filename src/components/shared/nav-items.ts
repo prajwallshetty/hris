@@ -12,8 +12,12 @@ import {
   Receipt,
   BarChart3,
   UserCog,
+  UsersRound,
   History,
   Settings,
+  Car,
+  Wrench,
+  Timer,
 } from "lucide-react";
 
 export type NavItem = {
@@ -112,6 +116,24 @@ export const NAV_GROUPS: NavGroup[] = [
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
       },
       {
+        href: "/vehicles",
+        label: "Vehicles",
+        icon: Car,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
+      },
+      {
+        href: "/equipment",
+        label: "Equipment",
+        icon: Wrench,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
+      },
+      {
+        href: "/rentals",
+        label: "Rentals",
+        icon: Timer,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "COORDINATOR"],
+      },
+      {
         href: "/expenses",
         label: "Expenses",
         icon: Receipt,
@@ -133,6 +155,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Administration",
     items: [
+      {
+        href: "/users",
+        label: "Users",
+        icon: UsersRound,
+        roles: ["SUPER_ADMIN"],
+      },
       {
         href: "/audit-log",
         label: "Audit Log",

@@ -5,9 +5,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-border-strong: var(--border-strong);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -82,36 +85,40 @@
 }
 
 :root {
-  /* A restrained slate-neutral ground with a single deep-indigo brand
-     accent, reserved for primary actions/selected states/links (§35) —
-     not a rainbow of module colors. */
-  --background: oklch(0.995 0.002 260);
-  --foreground: oklch(0.205 0.015 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.205 0.015 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.205 0.015 260);
-  --primary: oklch(0.437 0.19 266);
-  --primary-foreground: oklch(0.985 0.005 260);
-  --secondary: oklch(0.965 0.006 260);
-  --secondary-foreground: oklch(0.28 0.02 260);
-  --muted: oklch(0.965 0.006 260);
-  --muted-foreground: oklch(0.51 0.02 260);
-  --accent: oklch(0.955 0.014 266);
-  --accent-foreground: oklch(0.34 0.05 266);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.912 0.006 260);
-  --input: oklch(0.912 0.006 260);
-  --ring: oklch(0.6 0.1 266);
+  /* Premium enterprise palette — a restrained neutral ground with a single
+     deep-indigo brand accent, reserved for primary actions/selected
+     states/links (§35) — not a rainbow of module colors. Exact values
+     from the design spec, not derived/approximated. */
+  --background: #f8fafc;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --primary: #1f4ed8;
+  --primary-hover: #1b44be;
+  --primary-active: #173ca8;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f6f8;
+  --secondary-foreground: #111827;
+  --muted: #f4f6f8;
+  --muted-foreground: #6b7280;
+  --accent: #eef4ff;
+  --accent-foreground: #1f4ed8;
+  --destructive: #b42318;
+  --border: #e5e7eb;
+  --border-strong: #d7dce2;
+  --input: #d7dce2;
+  --ring: #1f4ed8;
 
-  /* Semantic status colors — the dataviz skill's validated, CVD-safe status
-     palette (distinct from the categorical chart palette below, so a
-     status color never impersonates a series). */
-  --success: #0ca30c;
+  /* Semantic status colors — text-first (bg is an alpha tint of the same
+     value, e.g. bg-success/15), so every soft badge/button background
+     derives from one value per status instead of a second hardcoded hex. */
+  --success: #15803d;
   --success-foreground: #ffffff;
-  --warning: #fab219;
-  --warning-foreground: #92400e;
-  --info: #2a78d6;
+  --warning: #b45309;
+  --warning-foreground: #b45309;
+  --info: #2563eb;
   --info-foreground: #ffffff;
 
   /* Categorical chart palette — the skill's validated default order
@@ -123,14 +130,14 @@
   --chart-5: #eda100;
 
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0.003 260);
-  --sidebar-foreground: oklch(0.28 0.02 260);
-  --sidebar-primary: oklch(0.437 0.19 266);
-  --sidebar-primary-foreground: oklch(0.985 0.005 260);
-  --sidebar-accent: oklch(0.955 0.014 266);
-  --sidebar-accent-foreground: oklch(0.34 0.05 266);
-  --sidebar-border: oklch(0.93 0.006 260);
-  --sidebar-ring: oklch(0.6 0.1 266);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #1f4ed8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef4ff;
+  --sidebar-accent-foreground: #1f4ed8;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #1f4ed8;
 }
 
 @layer base {

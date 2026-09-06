@@ -1,6 +1,13 @@
 import { db } from "@/lib/db";
 import { calculateOutstanding } from "@/server/calc";
+import { calculateRentalTotal } from "@/server/calc/rental";
 import { can, clientScopeWhere, workerScopeWhere, type SessionUser } from "@/server/rbac";
+import {
+  listUpcomingEquipmentDocumentExpiries,
+  listUpcomingEquipmentMaintenance,
+  listOverdueRentals,
+} from "@/server/queries/equipment";
+import { listUpcomingVehicleDocumentExpiries, listUpcomingVehicleMaintenance } from "@/server/queries/vehicles";
 
 export type NotificationItem = {
   id: string;
@@ -217,6 +224,121 @@ export async function getNotifications(user: SessionUser): Promise<NotificationI
         href: `/coordinators/${user.coordinatorId}`,
         date: new Date(),
       });
+    }
+  }
+
+  if (can(user, "view", "vehicleMaintenance")) {
+    const { documents: vehicleDocs, vehicles: vehicleExpiries } = await listUpcomingVehicleDocumentExpiries(EXPIRY_WINDOW_DAYS);
+    for (const doc of vehicleDocs) {
+      const expired = doc.expiryDate! < new Date();
+      items.push({
+        id: `vehicle-doc-${doc.id}`,
+        severity: expired ? "critical" : "warning",
+        title: expired ? "Vehicle document expired" : "Vehicle document expiring soon",
+        message: `${doc.vehicle.plateNumber}'s ${doc.documentType.toLowerCase()} document ${expired ? "expired" : "expires"} on ${doc.expiryDate!.toLocaleDateString("en-GB")}.`,
+        href: `/vehicles/${doc.vehicleId}`,
+        date: doc.expiryDate!,
+      });
+    }
+    for (const vehicle of vehicleExpiries) {
+      const fields: [Date | null, string][] = [
+        [vehicle.registrationExpiry, "Registration"],
+        [vehicle.insuranceExpiry, "Insurance"],
+        [vehicle.inspectionExpiry, "Inspection"],
+      ];
+      for (const [expiry, label] of fields) {
+        if (!expiry || expiry > soon) continue;
+        const expired = expiry < new Date();
+        items.push({
+          id: `vehicle-${label}-${vehicle.id}`,
+          severity: expired ? "critical" : "warning",
+          title: expired ? `${label} expired` : `${label} expiring soon`,
+          message: `${vehicle.plateNumber}'s ${label.toLowerCase()} ${expired ? "expired" : "expires"} on ${expiry.toLocaleDateString("en-GB")}.`,
+          href: `/vehicles/${vehicle.id}`,
+          date: expiry,
+        });
+      }
+    }
+
+    const dueMaintenance = await listUpcomingVehicleMaintenance(EXPIRY_WINDOW_DAYS);
+    for (const m of dueMaintenance) {
+      items.push({
+        id: `vehicle-maintenance-${m.id}`,
+        severity: m.nextServiceDate! < new Date() ? "critical" : "warning",
+        title: "Vehicle maintenance due",
+        message: `${m.vehicle.plateNumber} is due for ${m.maintenanceType} on ${m.nextServiceDate!.toLocaleDateString("en-GB")}.`,
+        href: `/vehicles/${m.vehicleId}`,
+        date: m.nextServiceDate!,
+      });
+    }
+  }
+
+  if (can(user, "view", "equipmentMaintenance")) {
+    const equipmentDocs = await listUpcomingEquipmentDocumentExpiries(EXPIRY_WINDOW_DAYS);
+    for (const doc of equipmentDocs) {
+      const expired = doc.expiryDate! < new Date();
+      items.push({
+        id: `equipment-doc-${doc.id}`,
+        severity: expired ? "critical" : "warning",
+        title: expired ? "Equipment document expired" : "Equipment document expiring soon",
+        message: `${doc.equipment.name}'s ${doc.documentType.toLowerCase()} document ${expired ? "expired" : "expires"} on ${doc.expiryDate!.toLocaleDateString("en-GB")}.`,
+        href: `/equipment/${doc.equipmentId}`,
+        date: doc.expiryDate!,
+      });
+    }
+
+    const dueMaintenance = await listUpcomingEquipmentMaintenance(EXPIRY_WINDOW_DAYS);
+    for (const m of dueMaintenance) {
+      items.push({
+        id: `equipment-maintenance-${m.id}`,
+        severity: m.nextServiceDate! < new Date() ? "critical" : "warning",
+        title: "Equipment maintenance due",
+        message: `${m.equipment.name} is due for ${m.maintenanceType} on ${m.nextServiceDate!.toLocaleDateString("en-GB")}.`,
+        href: `/equipment/${m.equipmentId}`,
+        date: m.nextServiceDate!,
+      });
+    }
+  }
+
+  if (can(user, "view", "equipmentRental")) {
+    const overdueRentals = (await listOverdueRentals()).filter((rental) => {
+      if (user.role === "COORDINATOR") return rental.coordinatorId === user.coordinatorId;
+      if (user.role === "CLIENT") return rental.clientId === user.clientId;
+      return true;
+    });
+    for (const rental of overdueRentals) {
+      items.push({
+        id: `rental-overdue-${rental.id}`,
+        severity: "critical",
+        title: "Rental return overdue",
+        message: `${rental.equipment.name} rented to ${rental.client.companyName} was due back on ${rental.expectedEndDate!.toLocaleDateString("en-GB")}.`,
+        href: `/rentals/${rental.id}`,
+        date: rental.expectedEndDate!,
+      });
+    }
+
+    const returnedRentals = await db.equipmentRental.findMany({
+      where: {
+        status: "RETURNED",
+        ...(user.role === "COORDINATOR" ? { coordinatorId: user.coordinatorId ?? "__none__" } : {}),
+        ...(user.role === "CLIENT" ? { clientId: user.clientId ?? "__none__" } : {}),
+      },
+      include: { charges: true, payments: true, equipment: true, client: true },
+      take: 30,
+    });
+    for (const rental of returnedRentals) {
+      const total = calculateRentalTotal(rental.charges.map((c) => c.amount.toString()));
+      const outstanding = calculateOutstanding(total, rental.payments.map((p) => p.amount.toString()));
+      if (outstanding.gt(0)) {
+        items.push({
+          id: `rental-payment-due-${rental.id}`,
+          severity: "warning",
+          title: "Rental payment due",
+          message: `${rental.client.companyName} has SAR ${outstanding.toFixed(2)} outstanding for the ${rental.equipment.name} rental.`,
+          href: `/rentals/${rental.id}`,
+          date: rental.updatedAt,
+        });
+      }
     }
   }
 

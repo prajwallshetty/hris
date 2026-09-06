@@ -5,7 +5,10 @@ import {
   can,
   clientScopeWhere,
   coordinatorScopeWhere,
+  equipmentRentalScopeWhere,
+  equipmentScopeWhere,
   invoiceScopeWhere,
+  vehicleScopeWhere,
   workerScopeWhere,
 } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
@@ -126,6 +129,90 @@ export async function globalSearch(query: string): Promise<SearchResultGroup[]> 
       groups.push({
         label: "Employees",
         items: employees.map((e) => ({ id: e.id, label: e.fullName, href: `/employees/${e.id}` })),
+      });
+    }
+  }
+
+  if (can(user, "view", "vehicle")) {
+    const vehicles = await db.vehicle.findMany({
+      where: {
+        deletedAt: null,
+        ...vehicleScopeWhere(user),
+        OR: [
+          { plateNumber: { contains: q, mode: "insensitive" } },
+          { vin: { contains: q, mode: "insensitive" } },
+          { make: { contains: q, mode: "insensitive" } },
+          { model: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, plateNumber: true, make: true, model: true },
+      take: LIMIT,
+    });
+    if (vehicles.length > 0) {
+      groups.push({
+        label: "Vehicles",
+        items: vehicles.map((v) => ({
+          id: v.id,
+          label: v.plateNumber,
+          sublabel: `${v.make} ${v.model}`,
+          href: `/vehicles/${v.id}`,
+        })),
+      });
+    }
+  }
+
+  if (can(user, "view", "equipment")) {
+    const equipment = await db.equipment.findMany({
+      where: {
+        deletedAt: null,
+        ...equipmentScopeWhere(user),
+        OR: [
+          { serialNumber: { contains: q, mode: "insensitive" } },
+          { name: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, name: true, serialNumber: true },
+      take: LIMIT,
+    });
+    if (equipment.length > 0) {
+      groups.push({
+        label: "Equipment",
+        items: equipment.map((e) => ({
+          id: e.id,
+          label: e.name,
+          sublabel: e.serialNumber,
+          href: `/equipment/${e.id}`,
+        })),
+      });
+    }
+  }
+
+  if (can(user, "view", "equipmentRental")) {
+    const rentalMatch = Number(q);
+    const rentals = await db.equipmentRental.findMany({
+      where: {
+        ...equipmentRentalScopeWhere(user),
+        ...(Number.isInteger(rentalMatch)
+          ? { sequenceNo: rentalMatch }
+          : {
+              OR: [
+                { equipment: { name: { contains: q, mode: "insensitive" } } },
+                { client: { companyName: { contains: q, mode: "insensitive" } } },
+              ],
+            }),
+      },
+      select: { id: true, sequenceNo: true, equipment: { select: { name: true } }, client: { select: { companyName: true } } },
+      take: LIMIT,
+    });
+    if (rentals.length > 0) {
+      groups.push({
+        label: "Rentals",
+        items: rentals.map((r) => ({
+          id: r.id,
+          label: `Rental #${r.sequenceNo} — ${r.equipment.name}`,
+          sublabel: r.client.companyName,
+          href: `/rentals/${r.id}`,
+        })),
       });
     }
   }

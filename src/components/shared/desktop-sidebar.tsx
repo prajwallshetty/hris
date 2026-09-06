@@ -26,7 +26,7 @@ export function DesktopSidebar({ role }: { role: Role }) {
   return (
     <aside
       className={cn(
-        "bg-background hidden shrink-0 flex-col border-r transition-[width] duration-150 md:flex",
+        "bg-sidebar hidden shrink-0 flex-col border-r transition-[width] duration-150 md:flex",
         collapsed ? "w-16" : "w-64",
         !mounted && "duration-0",
       )}

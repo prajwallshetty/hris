@@ -39,7 +39,11 @@ export type Resource =
   | "vehicle"
   | "vehicleAssignment"
   | "vehicleExpense"
-  | "vehicleMaintenance";
+  | "vehicleMaintenance"
+  | "equipment"
+  | "equipmentRental"
+  | "rentalPayment"
+  | "equipmentMaintenance";
 
 export type Action = "view" | "create" | "update" | "archive";
 
@@ -85,6 +89,10 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     vehicleAssignment: FULL,
     vehicleExpense: FULL,
     vehicleMaintenance: FULL,
+    equipment: FULL,
+    equipmentRental: FULL,
+    rentalPayment: FULL,
+    equipmentMaintenance: FULL,
   },
   // Operational administration: everything SUPER_ADMIN has except user
   // account management, which stays reserved for SUPER_ADMIN.
@@ -120,6 +128,10 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     vehicleAssignment: FULL,
     vehicleExpense: FULL,
     vehicleMaintenance: FULL,
+    equipment: FULL,
+    equipmentRental: FULL,
+    rentalPayment: FULL,
+    equipmentMaintenance: FULL,
   },
   // Workers, internal employees, leave, attendance (§21).
   HR: {
@@ -142,6 +154,8 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     employeePayroll: VIEW,
     vehicle: VIEW,
     vehicleAssignment: VIEW,
+    equipment: VIEW,
+    equipmentRental: VIEW,
   },
   // Payroll, payments, invoices, expenses (§21).
   ACCOUNTS: {
@@ -169,6 +183,10 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     vehicleAssignment: VIEW,
     vehicleExpense: FULL,
     vehicleMaintenance: VIEW,
+    equipment: VIEW,
+    equipmentRental: VIEW,
+    rentalPayment: FULL,
+    equipmentMaintenance: VIEW,
   },
   // Reports and approvals — broad view, no master-data editing (§21).
   MANAGER: {
@@ -194,6 +212,10 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     vehicleAssignment: VIEW,
     vehicleExpense: VIEW,
     vehicleMaintenance: VIEW,
+    equipment: VIEW,
+    equipmentRental: VIEW,
+    rentalPayment: VIEW,
+    equipmentMaintenance: VIEW,
   },
   // Scoped to their own workers/clients — see scope helpers below.
   COORDINATOR: {
@@ -212,6 +234,12 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     vehicleAssignment: ["view", "create", "update"],
     vehicleExpense: ["view", "create"],
     vehicleMaintenance: VIEW,
+    // The coordinator also runs equipment rentals end-to-end for their own
+    // clients, but payment collection stays with ACCOUNTS/ADMIN.
+    equipment: VIEW,
+    equipmentRental: ["view", "create", "update"],
+    rentalPayment: VIEW,
+    equipmentMaintenance: VIEW,
   },
   // Scoped to their own client record — see scope helpers below.
   CLIENT: {
@@ -225,6 +253,8 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     // (§21: "Client users must only see their own vehicles/equipment/rentals").
     vehicle: VIEW,
     vehicleAssignment: VIEW,
+    equipment: VIEW,
+    equipmentRental: VIEW,
   },
   // No cross-worker/cross-employee access yet — self-service (own profile,
   // own payslips) lands with the Internal Employee HR phase, once a User
@@ -358,6 +388,28 @@ export function vehicleAssignmentScopeWhere(user: SessionUser): Prisma.VehicleAs
 }
 
 export function vehicleExpenseScopeWhere(user: SessionUser): Prisma.VehicleExpenseWhereInput | undefined {
+  if (user.role === "COORDINATOR") {
+    return { coordinatorId: user.coordinatorId ?? "__none__" };
+  }
+  if (user.role === "CLIENT") {
+    return { clientId: user.clientId ?? "__none__" };
+  }
+  return undefined;
+}
+
+// Equipment has no direct client column — a CLIENT sees only equipment
+// currently out on one of their own active/extended rentals.
+export function equipmentScopeWhere(user: SessionUser): Prisma.EquipmentWhereInput | undefined {
+  if (user.role === "COORDINATOR") {
+    return { coordinatorId: user.coordinatorId ?? "__none__" };
+  }
+  if (user.role === "CLIENT") {
+    return { rentals: { some: { clientId: user.clientId ?? "__none__", status: { in: ["ACTIVE", "EXTENDED"] } } } };
+  }
+  return undefined;
+}
+
+export function equipmentRentalScopeWhere(user: SessionUser): Prisma.EquipmentRentalWhereInput | undefined {
   if (user.role === "COORDINATOR") {
     return { coordinatorId: user.coordinatorId ?? "__none__" };
   }

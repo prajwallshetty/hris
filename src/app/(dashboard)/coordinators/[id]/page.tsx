@@ -4,13 +4,14 @@ import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
-import { PageHeader } from "@/components/shared/page-header";
+import { RecordAvatarInitials, RecordHeader } from "@/components/shared/record-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatEquipmentCode, formatVehicleCode } from "@/lib/codes";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
+import { formatRelativeTime } from "@/lib/relative-time";
 import { can } from "@/server/rbac";
 import { listAllClientsForSelect } from "@/server/queries/clients";
 import {
@@ -74,18 +75,27 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
     tone: auditActionTone(entry.action),
   }));
 
+  const lastEdited = activity[0]?.createdAt ?? coordinator.updatedAt;
+
   return (
     <div className="space-y-6">
-      <PageHeader
+      <RecordHeader
         breadcrumbs={[
           { label: "Home", href: "/dashboard" },
           { label: "Operations" },
           { label: "Coordinators", href: "/coordinators" },
           { label: coordinator.name },
         ]}
+        avatar={<RecordAvatarInitials name={coordinator.name} />}
         title={coordinator.name}
-        description={coordinator.email ?? coordinator.phone ?? undefined}
-        actions={<StatusBadge status={coordinator.status} />}
+        badges={<StatusBadge status={coordinator.status} />}
+        meta={
+          <>
+            {(coordinator.email ?? coordinator.phone) && <span>{coordinator.email ?? coordinator.phone}</span>}
+            {(coordinator.email ?? coordinator.phone) && <span aria-hidden>·</span>}
+            <span>Edited {formatRelativeTime(lastEdited)}</span>
+          </>
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

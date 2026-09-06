@@ -64,6 +64,16 @@ const STATUS_TONES: Record<string, Tone> = {
   SCHEDULED: "neutral",
   IN_PROGRESS: "info",
   COMPLETED: "success",
+
+  // Equipment / rental lifecycle and charge types
+  RENTED: "success",
+  RESERVED: "info",
+  EXTENDED: "warning",
+  CLOSED: "neutral",
+  RENTAL: "neutral",
+  DAMAGE: "destructive",
+  MISSING_ITEM: "destructive",
+  LATE_FEE: "warning",
 };
 
 function toLabel(status: string) {

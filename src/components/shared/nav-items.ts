@@ -16,6 +16,8 @@ import {
   History,
   Settings,
   Car,
+  Wrench,
+  Timer,
 } from "lucide-react";
 
 export type NavItem = {
@@ -118,6 +120,18 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Vehicles",
         icon: Car,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
+      },
+      {
+        href: "/equipment",
+        label: "Equipment",
+        icon: Wrench,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
+      },
+      {
+        href: "/rentals",
+        label: "Rentals",
+        icon: Timer,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "COORDINATOR"],
       },
       {
         href: "/expenses",

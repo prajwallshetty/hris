@@ -673,7 +673,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     );
                     return (
                       <TableRow key={advance.id}>
-                        <TableCell>{formatDate(advance.dateGiven)}</TableCell>
+                        <TableCell>
+                          <Link href={`/workers/${worker.id}/advances/${advance.id}`} className="font-medium hover:underline">
+                            {formatDate(advance.dateGiven)}
+                          </Link>
+                        </TableCell>
                         <TableCell>{formatMoney(advance.amount)}</TableCell>
                         <TableCell>{formatMoney(repaid)}</TableCell>
                         <TableCell className="font-medium">{formatMoney(remaining.toNumber())}</TableCell>
@@ -721,7 +725,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     );
                     return (
                       <TableRow key={loan.id}>
-                        <TableCell>{formatDate(loan.dateGiven)}</TableCell>
+                        <TableCell>
+                          <Link href={`/workers/${worker.id}/loans/${loan.id}`} className="font-medium hover:underline">
+                            {formatDate(loan.dateGiven)}
+                          </Link>
+                        </TableCell>
                         <TableCell>{formatMoney(loan.principalAmount)}</TableCell>
                         <TableCell>{formatMoney(repaid)}</TableCell>
                         <TableCell className="font-medium">{formatMoney(remaining.toNumber())}</TableCell>

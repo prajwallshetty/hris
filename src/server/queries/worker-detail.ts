@@ -47,6 +47,24 @@ export async function listWorkerLoans(workerId: string) {
   });
 }
 
+export async function getLoanDetail(user: SessionUser, loanId: string) {
+  assertCan(user, "view", "loan");
+  const loan = await db.loan.findUnique({
+    where: { id: loanId },
+    include: { worker: true, repayments: { orderBy: { date: "asc" } } },
+  });
+  return loan;
+}
+
+export async function getAdvanceDetail(user: SessionUser, advanceId: string) {
+  assertCan(user, "view", "advance");
+  const advance = await db.advance.findUnique({
+    where: { id: advanceId },
+    include: { worker: true, repayments: { orderBy: { date: "asc" } } },
+  });
+  return advance;
+}
+
 /** One payment's full receipt data — the payroll's remaining balance is
  * computed the same way createWorkerPayment computed it, never re-derived
  * differently (§ single calculation engine). */

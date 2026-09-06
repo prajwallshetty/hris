@@ -30,6 +30,7 @@ import {
   listWorkerPayrollHistory,
 } from "@/server/queries/worker-detail";
 import { listVehicleAssignmentsForWorker } from "@/server/queries/vehicles";
+import { listWorkerRecurringCharges, summarizeRecurringCharge } from "@/server/queries/recurring-charges";
 import { getSessionUser } from "@/server/session";
 
 import { AssignmentFormDialog } from "../../assignments/assignment-form";
@@ -42,6 +43,7 @@ import { LoanDialog } from "./loan-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { PaymentHistoryTable, type PaymentHistoryRow } from "./payment-history-table";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
+import { RecurringChargeDialog } from "./recurring-charge-dialog";
 
 function formatDate(date: Date | null) {
   if (!date) return "—";
@@ -69,18 +71,22 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canManageAdvances = can(user, "create", "advance");
   const canManageLoans = can(user, "create", "loan");
   const canManagePayments = can(user, "create", "workerPayment");
+  const canViewRecurringCharges = can(user, "view", "recurringCharge");
+  const canManageRecurringCharges = can(user, "create", "recurringCharge");
   const canViewActivity = can(user, "view", "auditLog");
 
-  const [clients, payrollHistory, leave, advances, loans, payments, vehicleAssignments, activity] = await Promise.all([
-    canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
-    listWorkerPayrollHistory(worker.id),
-    listWorkerLeave(worker.id),
-    listWorkerAdvances(worker.id),
-    listWorkerLoans(worker.id),
-    listWorkerPayments(worker.id),
-    listVehicleAssignmentsForWorker(worker.id),
-    canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
-  ]);
+  const [clients, payrollHistory, leave, advances, loans, payments, vehicleAssignments, recurringCharges, activity] =
+    await Promise.all([
+      canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
+      listWorkerPayrollHistory(worker.id),
+      listWorkerLeave(worker.id),
+      listWorkerAdvances(worker.id),
+      listWorkerLoans(worker.id),
+      listWorkerPayments(worker.id),
+      listVehicleAssignmentsForWorker(worker.id),
+      canViewRecurringCharges ? listWorkerRecurringCharges(user, worker.id) : Promise.resolve([]),
+      canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
+    ]);
 
   const activityItems: TimelineItem[] = activity.map((entry) => ({
     id: entry.id,
@@ -297,6 +303,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payments">Payment History</TabsTrigger>
           <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
+          {canViewRecurringCharges && <TabsTrigger value="recurring-charges">Housing &amp; Charges</TabsTrigger>}
           {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
@@ -799,6 +806,62 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
         </TabsContent>
+
+        {canViewRecurringCharges && (
+          <TabsContent value="recurring-charges" className="space-y-4">
+            {canManageRecurringCharges && (
+              <div className="flex justify-end">
+                <RecurringChargeDialog workerId={worker.id} />
+              </div>
+            )}
+            {recurringCharges.length === 0 ? (
+              <EmptyState icon={ClipboardList} title="No recurring charges set up" description="Track rent, housing, or other periodic worker deductions here." />
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Rate</TableHead>
+                      <TableHead>Frequency</TableHead>
+                      <TableHead>Paid</TableHead>
+                      <TableHead>Outstanding</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recurringCharges.map((charge) => {
+                      const summary = summarizeRecurringCharge(charge);
+                      return (
+                        <TableRow key={charge.id}>
+                          <TableCell>
+                            <Link
+                              href={`/workers/${worker.id}/recurring-charges/${charge.id}`}
+                              className="font-medium hover:underline"
+                            >
+                              {charge.description || charge.category}
+                            </Link>
+                          </TableCell>
+                          <TableCell>{charge.category}</TableCell>
+                          <TableCell>{formatMoney(charge.amount)}</TableCell>
+                          <TableCell>{charge.frequency.replaceAll("_", " ")}</TableCell>
+                          <TableCell>{formatMoney(summary.paid)}</TableCell>
+                          <TableCell className={summary.outstanding > 0 ? "text-warning-foreground font-medium" : undefined}>
+                            {formatMoney(summary.outstanding)}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={charge.status} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+        )}
 
         {canViewActivity && (
           <TabsContent value="activity">

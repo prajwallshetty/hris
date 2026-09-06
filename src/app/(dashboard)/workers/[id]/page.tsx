@@ -38,6 +38,8 @@ import { LeaveRequestDialog } from "./leave-request-dialog";
 import { LoanDialog } from "./loan-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
+import { ReceiptModal } from "@/components/finance/receipt-modal";
+import { SendReceiptDialog } from "@/components/finance/send-receipt-dialog";
 
 function formatDate(date: Date | null) {
   if (!date) return "—";
@@ -600,7 +602,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         <TabsContent value="payments" className="space-y-4">
           {canManagePayments && (
             <div className="flex justify-end">
-              <PaymentDialog workerId={worker.id} />
+              <PaymentDialog
+                workerId={worker.id}
+                workerName={worker.fullName}
+                workerMobile={worker.mobile ?? undefined}
+              />
             </div>
           )}
           {payments.length === 0 ? (
@@ -610,25 +616,53 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Receipt #</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Method</TableHead>
                     <TableHead>Payroll Period</TableHead>
                     <TableHead>Reference</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{formatDate(payment.date)}</TableCell>
-                      <TableCell>{payment.paymentType}</TableCell>
-                      <TableCell className="font-medium">{formatMoney(payment.amount)}</TableCell>
-                      <TableCell>{payment.method.replaceAll("_", " ")}</TableCell>
-                      <TableCell>{payment.workerPayroll?.payrollPeriod.name ?? "—"}</TableCell>
-                      <TableCell>{payment.referenceNumber ?? "—"}</TableCell>
-                    </TableRow>
-                  ))}
+                  {payments.map((payment) => {
+                    const rNum = payment.receiptNumber || `RCP-${payment.id.slice(-6).toUpperCase()}`;
+                    return (
+                      <TableRow key={payment.id}>
+                        <TableCell className="font-mono text-xs font-semibold text-primary">
+                          {rNum}
+                        </TableCell>
+                        <TableCell>{formatDate(payment.date)}</TableCell>
+                        <TableCell>{payment.paymentType}</TableCell>
+                        <TableCell className="font-medium">{formatMoney(payment.amount)}</TableCell>
+                        <TableCell>{payment.method.replaceAll("_", " ")}</TableCell>
+                        <TableCell>{payment.workerPayroll?.payrollPeriod.name ?? "—"}</TableCell>
+                        <TableCell>{payment.referenceNumber ?? "—"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <ReceiptModal
+                              paymentId={payment.id}
+                              receiptNumber={rNum}
+                              recipientName={worker.fullName}
+                              mobileNumber={worker.mobile ?? undefined}
+                              amount={Number(payment.amount)}
+                              payrollPeriodName={payment.workerPayroll?.payrollPeriod.name ?? "Payroll"}
+                            />
+                            <SendReceiptDialog
+                              paymentId={payment.id}
+                              receiptNumber={rNum}
+                              recipientName={worker.fullName}
+                              mobileNumber={worker.mobile ?? undefined}
+                              amount={Number(payment.amount)}
+                              payrollPeriodName={payment.workerPayroll?.payrollPeriod.name ?? "Payroll"}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

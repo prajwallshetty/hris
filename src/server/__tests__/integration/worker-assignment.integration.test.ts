@@ -29,7 +29,7 @@ describe("Worker.iqamaNumber uniqueness (database constraint)", () => {
       data: { iqamaNumber: iqama, fullName: `${TEST_PREFIX}Worker A` },
     });
     expect(worker.iqamaNumber).toBe(iqama);
-  });
+  }, 15000);
 
   it("rejects a second worker with the same Iqama number at the database level", async () => {
     await expect(

@@ -105,3 +105,46 @@ export async function endAssignment(id: string, endDate?: string): Promise<Actio
     return actionError(error);
   }
 }
+
+export async function bulkEndAssignments(ids: string[], endDate?: string): Promise<ActionResult<{ count: number }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "assignment");
+
+    if (!ids.length) {
+      return actionError("No assignments selected.");
+    }
+
+    const endDt = endDate ? new Date(endDate) : new Date();
+
+    const count = await db.$transaction(async (tx) => {
+      let endedCount = 0;
+      for (const id of ids) {
+        const before = await tx.assignment.findUnique({ where: { id } });
+        if (!before || before.status === "ENDED") continue;
+
+        await tx.assignment.update({
+          where: { id },
+          data: { status: "ENDED", endDate: endDt },
+        });
+
+        await logAudit({
+          userId: user.id,
+          action: "end_assignment",
+          entityType: "Assignment",
+          entityId: id,
+          previousValue: before,
+          newValue: { status: "ENDED", endDate: endDt },
+        });
+        endedCount++;
+      }
+      return endedCount;
+    });
+
+    revalidatePath("/assignments");
+    return ok({ count });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { generateUniqueReceiptNumber } from "@/lib/receipt-number";
 import {
   advanceFormSchema,
   loanFormSchema,
@@ -74,15 +75,20 @@ export async function createLoan(input: LoanFormInput): Promise<ActionResult<{ i
 // Every payment lands in the ledger (§13); when it's tied to a payroll row,
 // the row's status is derived from Net Payable minus the payment ledger —
 // never a manually-typed "paid" field (§13/§17).
-export async function createWorkerPayment(input: WorkerPaymentFormInput): Promise<ActionResult<{ id: string }>> {
+export async function createWorkerPayment(
+  input: WorkerPaymentFormInput,
+): Promise<ActionResult<{ id: string; receiptNumber: string }>> {
   try {
     const user = await getSessionUser();
     assertCan(user, "create", "workerPayment");
     const data = workerPaymentFormSchema.parse(input);
 
+    const receiptNumber = await generateUniqueReceiptNumber(new Date(data.date).getFullYear());
+
     const payment = await db.$transaction(async (tx) => {
       const created = await tx.workerPayment.create({
         data: {
+          receiptNumber,
           workerId: data.workerId || null,
           workerPayrollId: data.workerPayrollId || null,
           employeeId: data.employeeId || null,
@@ -134,7 +140,7 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
     revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
     if (data.workerPayrollId) revalidatePath(`/payroll/worker/${data.workerPayrollId}`);
     if (data.employeePayrollId) revalidatePath(`/payroll/employee/${data.employeePayrollId}`);
-    return ok({ id: payment.id });
+    return ok({ id: payment.id, receiptNumber: payment.receiptNumber ?? receiptNumber });
   } catch (error) {
     return actionError(error);
   }

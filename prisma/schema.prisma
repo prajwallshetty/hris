@@ -928,6 +928,7 @@ model SalaryAdjustment {
 // of a direct status flip.
 model WorkerPayment {
   id              String         @id @default(cuid())
+  receiptNumber   String?        @unique
   workerId        String?
   worker          Worker?        @relation(fields: [workerId], references: [id], onDelete: Restrict)
   workerPayrollId String?
@@ -954,6 +955,7 @@ model WorkerPayment {
   @@index([workerPayrollId])
   @@index([employeeId])
   @@index([employeePayrollId])
+  @@index([receiptNumber])
 }
 
 model ClientPayment {

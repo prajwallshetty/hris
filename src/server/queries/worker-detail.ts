@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { calculateOutstanding } from "@/server/calc";
+import { assertCan, type SessionUser } from "@/server/rbac";
 
 export async function listWorkerPayrollHistory(workerId: string) {
   return db.workerPayroll.findMany({
@@ -43,4 +45,29 @@ export async function listWorkerLoans(workerId: string) {
     include: { repayments: { orderBy: { date: "asc" } } },
     orderBy: { dateGiven: "desc" },
   });
+}
+
+/** One payment's full receipt data — the payroll's remaining balance is
+ * computed the same way createWorkerPayment computed it, never re-derived
+ * differently (§ single calculation engine). */
+export async function getWorkerPaymentReceipt(user: SessionUser, workerId: string, paymentId: string) {
+  assertCan(user, "view", "workerPayment");
+
+  const payment = await db.workerPayment.findFirst({
+    where: { id: paymentId, workerId },
+    include: {
+      worker: true,
+      workerPayroll: { include: { payrollPeriod: true, payments: true } },
+    },
+  });
+  if (!payment) return null;
+
+  const outstanding = payment.workerPayroll
+    ? calculateOutstanding(
+        payment.workerPayroll.netPayable.toString(),
+        payment.workerPayroll.payments.map((p) => p.amount.toString()),
+      ).toNumber()
+    : null;
+
+  return { payment, outstanding };
 }

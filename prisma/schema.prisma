@@ -928,6 +928,10 @@ model SalaryAdjustment {
 // of a direct status flip.
 model WorkerPayment {
   id              String         @id @default(cuid())
+  // Human-readable receipt number (RCP-000001) — same sequence-column
+  // pattern as Worker/Invoice/Vehicle (§ codes.ts), not a second stored
+  // "receipt number" field to keep in sync.
+  sequenceNo      Int            @unique @default(autoincrement())
   workerId        String?
   worker          Worker?        @relation(fields: [workerId], references: [id], onDelete: Restrict)
   workerPayrollId String?

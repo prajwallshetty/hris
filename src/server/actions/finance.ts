@@ -11,6 +11,7 @@ import {
   type LoanFormInput,
   type WorkerPaymentFormInput,
 } from "@/lib/validation/finance";
+import { formatReceiptNumber } from "@/lib/codes";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { calculateOutstanding } from "@/server/calc";
@@ -74,13 +75,22 @@ export async function createLoan(input: LoanFormInput): Promise<ActionResult<{ i
 // Every payment lands in the ledger (§13); when it's tied to a payroll row,
 // the row's status is derived from Net Payable minus the payment ledger —
 // never a manually-typed "paid" field (§13/§17).
-export async function createWorkerPayment(input: WorkerPaymentFormInput): Promise<ActionResult<{ id: string }>> {
+export type WorkerPaymentReceipt = {
+  id: string;
+  receiptNumber: string;
+  amount: number;
+  /** Remaining balance on the linked payroll after this payment — null when
+   * this payment isn't tied to a specific payroll (advance/loan/other). */
+  outstanding: number | null;
+};
+
+export async function createWorkerPayment(input: WorkerPaymentFormInput): Promise<ActionResult<WorkerPaymentReceipt>> {
   try {
     const user = await getSessionUser();
     assertCan(user, "create", "workerPayment");
     const data = workerPaymentFormSchema.parse(input);
 
-    const payment = await db.$transaction(async (tx) => {
+    const { payment, outstanding } = await db.$transaction(async (tx) => {
       const created = await tx.workerPayment.create({
         data: {
           workerId: data.workerId || null,
@@ -97,18 +107,21 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
         },
       });
 
+      let outstanding: number | null = null;
+
       if (data.workerPayrollId) {
         const payroll = await tx.workerPayroll.findUniqueOrThrow({
           where: { id: data.workerPayrollId },
           include: { payments: true },
         });
-        const outstanding = calculateOutstanding(
+        const remaining = calculateOutstanding(
           payroll.netPayable.toString(),
           payroll.payments.map((p) => p.amount.toString()),
         );
+        outstanding = remaining.toNumber();
         await tx.workerPayroll.update({
           where: { id: data.workerPayrollId },
-          data: { status: outstanding.lte(0) ? "PAID" : "PARTIALLY_PAID" },
+          data: { status: remaining.lte(0) ? "PAID" : "PARTIALLY_PAID" },
         });
       }
 
@@ -117,24 +130,30 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
           where: { id: data.employeePayrollId },
           include: { payments: true },
         });
-        const outstanding = calculateOutstanding(
+        const remaining = calculateOutstanding(
           payroll.netPayable.toString(),
           payroll.payments.map((p) => p.amount.toString()),
         );
+        outstanding = remaining.toNumber();
         await tx.employeePayroll.update({
           where: { id: data.employeePayrollId },
-          data: { status: outstanding.lte(0) ? "PAID" : "PARTIALLY_PAID" },
+          data: { status: remaining.lte(0) ? "PAID" : "PARTIALLY_PAID" },
         });
       }
 
-      return created;
+      return { payment: created, outstanding };
     });
 
     await logAudit({ userId: user.id, action: "create", entityType: "WorkerPayment", entityId: payment.id, newValue: data });
     revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
     if (data.workerPayrollId) revalidatePath(`/payroll/worker/${data.workerPayrollId}`);
     if (data.employeePayrollId) revalidatePath(`/payroll/employee/${data.employeePayrollId}`);
-    return ok({ id: payment.id });
+    return ok({
+      id: payment.id,
+      receiptNumber: formatReceiptNumber(payment.sequenceNo),
+      amount: Number(payment.amount),
+      outstanding,
+    });
   } catch (error) {
     return actionError(error);
   }

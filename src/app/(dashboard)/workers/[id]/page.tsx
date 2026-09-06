@@ -40,6 +40,7 @@ import { LeaveDecisionButtons } from "./leave-decision-buttons";
 import { LeaveRequestDialog } from "./leave-request-dialog";
 import { LoanDialog } from "./loan-dialog";
 import { PaymentDialog } from "./payment-dialog";
+import { PaymentHistoryTable, type PaymentHistoryRow } from "./payment-history-table";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
 
 function formatDate(date: Date | null) {
@@ -118,6 +119,40 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
     .reduce((sum, b) => sum + (Number(b.entitledDays) - Number(b.usedDays)), 0);
   const currentVehicleAssignment = vehicleAssignments.find((a) => a.status === "ACTIVE");
   const lastEdited = activity[0]?.createdAt ?? worker.updatedAt;
+
+  // Running balance per linked payroll — grouped from the same `payments`
+  // rows already loaded, cumulative sum ascending by date, never a second
+  // query or a separately-maintained ledger balance.
+  const paymentsByPayroll = new Map<string, typeof payments>();
+  for (const p of payments) {
+    if (!p.workerPayrollId) continue;
+    const group = paymentsByPayroll.get(p.workerPayrollId) ?? [];
+    group.push(p);
+    paymentsByPayroll.set(p.workerPayrollId, group);
+  }
+  for (const group of paymentsByPayroll.values()) {
+    group.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }
+  const paymentHistoryRows: PaymentHistoryRow[] = payments.map((p) => {
+    let balance: number | null = null;
+    if (p.workerPayrollId && p.workerPayroll) {
+      const group = paymentsByPayroll.get(p.workerPayrollId)!;
+      const idx = group.findIndex((g) => g.id === p.id);
+      const cumulative = group.slice(0, idx + 1).reduce((sum, g) => sum + Number(g.amount), 0);
+      balance = Number(p.workerPayroll.netPayable) - cumulative;
+    }
+    return {
+      id: p.id,
+      date: p.date,
+      paymentType: p.paymentType,
+      amount: Number(p.amount),
+      method: p.method,
+      payrollPeriodName: p.workerPayroll?.payrollPeriod.name ?? null,
+      payrollId: p.workerPayrollId,
+      referenceNumber: p.referenceNumber,
+      balance,
+    };
+  });
 
   const paymentChartData = payments
     .slice(0, 10)
@@ -260,7 +295,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="payments">Payment History</TabsTrigger>
           <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
           {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
@@ -710,36 +745,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               <PaymentDialog workerId={worker.id} />
             </div>
           )}
-          {payments.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No payments recorded" />
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Payroll Period</TableHead>
-                    <TableHead>Reference</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{formatDate(payment.date)}</TableCell>
-                      <TableCell>{payment.paymentType}</TableCell>
-                      <TableCell className="font-medium">{formatMoney(payment.amount)}</TableCell>
-                      <TableCell>{payment.method.replaceAll("_", " ")}</TableCell>
-                      <TableCell>{payment.workerPayroll?.payrollPeriod.name ?? "—"}</TableCell>
-                      <TableCell>{payment.referenceNumber ?? "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <PaymentHistoryTable workerId={worker.id} rows={paymentHistoryRows} />
         </TabsContent>
 
         <TabsContent value="vehicles" className="space-y-4">

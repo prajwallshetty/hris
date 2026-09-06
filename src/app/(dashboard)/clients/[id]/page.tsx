@@ -320,12 +320,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         {canViewFinancials && (
           <TabsContent value="billing" className="space-y-4">
             {financials && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-8">
                 <KpiCard label="Revenue" value={formatMoney(financials.revenue)} />
                 <KpiCard label="Invoiced" value={formatMoney(financials.totalInvoiced)} />
                 <KpiCard label="Paid" value={formatMoney(financials.totalPaid)} />
                 <KpiCard label="Outstanding" value={formatMoney(financials.outstanding)} />
                 <KpiCard label="Worker Cost" value={formatMoney(financials.workerCost)} />
+                <KpiCard label="Vehicle Cost" value={formatMoney(financials.vehicleExpenseTotal)} />
+                <KpiCard label="Equipment Cost" value={formatMoney(financials.equipmentRentalCost)} />
                 <KpiCard label="Profitability" value={formatMoney(financials.profit)} />
               </div>
             )}

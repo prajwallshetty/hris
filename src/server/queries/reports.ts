@@ -2,7 +2,7 @@ import type { Role } from "@prisma/client";
 import { Decimal } from "decimal.js";
 
 import { db } from "@/lib/db";
-import { calculateOutstanding, calculateRepayableBalance } from "@/server/calc";
+import { calculateOutstanding, calculateProfitability, calculateRepayableBalance } from "@/server/calc";
 import { assertCan, can, coordinatorScopeWhere, assignmentScopeWhere, ForbiddenError, type SessionUser } from "@/server/rbac";
 
 /** §31 Workforce report: active headcount per client/site. */
@@ -157,15 +157,18 @@ export function canViewFinanceOverview(user: SessionUser) {
 export async function getFinanceOverviewReport(user: SessionUser) {
   if (!canViewFinanceOverview(user)) throw new ForbiddenError();
 
-  const [invoices, expenses, workerPayrolls, employeePayrolls, commissions, advances, loans] = await Promise.all([
-    db.invoice.findMany({ where: { status: { not: "CANCELLED" } }, include: { payments: true } }),
-    db.expense.aggregate({ where: { deletedAt: null }, _sum: { amount: true } }),
-    db.workerPayroll.findMany({ include: { payments: true } }),
-    db.employeePayroll.findMany({ include: { payments: true } }),
-    db.commission.aggregate({ _sum: { amount: true } }),
-    db.advance.findMany({ where: { status: "ACTIVE" }, include: { repayments: true } }),
-    db.loan.findMany({ where: { status: "ACTIVE" }, include: { repayments: true } }),
-  ]);
+  const [invoices, expenses, workerPayrolls, employeePayrolls, commissions, advances, loans, vehicleExpenses, rentalCharges] =
+    await Promise.all([
+      db.invoice.findMany({ where: { status: { not: "CANCELLED" } }, include: { payments: true } }),
+      db.expense.aggregate({ where: { deletedAt: null }, _sum: { amount: true } }),
+      db.workerPayroll.findMany({ include: { payments: true } }),
+      db.employeePayroll.findMany({ include: { payments: true } }),
+      db.commission.aggregate({ _sum: { amount: true } }),
+      db.advance.findMany({ where: { status: "ACTIVE" }, include: { repayments: true } }),
+      db.loan.findMany({ where: { status: "ACTIVE" }, include: { repayments: true } }),
+      db.vehicleExpense.aggregate({ where: { deletedAt: null }, _sum: { amount: true } }),
+      db.rentalCharge.aggregate({ _sum: { amount: true } }),
+    ]);
 
   const revenue = invoices.reduce((sum, inv) => sum + Number(inv.subtotal), 0);
   const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
@@ -191,14 +194,31 @@ export async function getFinanceOverviewReport(user: SessionUser) {
     0,
   );
 
+  const workerCost = workerPayrolls.reduce((sum, p) => sum + Number(p.grossPay), 0);
+  const expenseTotal = Number(expenses._sum.amount ?? 0);
+  const commissionTotal = Number(commissions._sum.amount ?? 0);
+  const vehicleExpenseTotal = Number(vehicleExpenses._sum.amount ?? 0);
+  const equipmentRentalCost = Number(rentalCharges._sum.amount ?? 0);
+  const profit = calculateProfitability({
+    revenue,
+    workerCost,
+    expenses: expenseTotal,
+    commission: commissionTotal,
+    vehicleExpenses: vehicleExpenseTotal,
+    equipmentRentalCost,
+  }).toNumber();
+
   return {
     revenue,
-    expenses: Number(expenses._sum.amount ?? 0),
-    commission: Number(commissions._sum.amount ?? 0),
+    expenses: expenseTotal,
+    commission: commissionTotal,
     receivables,
     payables,
     advancesOutstanding,
     loansOutstanding,
-    workerCost: workerPayrolls.reduce((sum, p) => sum + Number(p.grossPay), 0),
+    workerCost,
+    vehicleExpenseTotal,
+    equipmentRentalCost,
+    profit,
   };
 }

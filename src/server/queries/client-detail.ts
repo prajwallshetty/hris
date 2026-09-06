@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { calculateAssignmentMargin, calculateOutstanding, calculateProfitability } from "@/server/calc";
+import { getEquipmentRentalCostForClient } from "@/server/queries/equipment";
+import { getVehicleExpenseTotalForClient } from "@/server/queries/vehicles";
 
 export async function listClientContacts(clientId: string) {
   return db.clientContact.findMany({ where: { clientId }, orderBy: [{ isPrimary: "desc" }, { name: "asc" }] });
@@ -32,11 +34,13 @@ export async function listClientInvoices(clientId: string) {
  * expenses and coordinator commission on this client's sales.
  */
 export async function getClientFinancials(clientId: string) {
-  const [invoices, assignments, expenses, sales] = await Promise.all([
+  const [invoices, assignments, expenses, sales, vehicleExpenseTotal, equipmentRentalCost] = await Promise.all([
     db.invoice.findMany({ where: { clientId }, include: { payments: true } }),
     db.assignment.findMany({ where: { clientId }, select: { workerId: true, startDate: true, endDate: true } }),
     db.expense.findMany({ where: { clientId, deletedAt: null } }),
     db.sale.findMany({ where: { clientId }, include: { commissions: true } }),
+    getVehicleExpenseTotalForClient(clientId),
+    getEquipmentRentalCostForClient(clientId),
   ]);
 
   const revenue = invoices.reduce((sum, inv) => sum + Number(inv.subtotal), 0);
@@ -71,7 +75,14 @@ export async function getClientFinancials(clientId: string) {
   );
 
   const margin = calculateAssignmentMargin(revenue, workerCost);
-  const profit = calculateProfitability({ revenue, workerCost, expenses: expenseTotal, commission: commissionTotal });
+  const profit = calculateProfitability({
+    revenue,
+    workerCost,
+    expenses: expenseTotal,
+    commission: commissionTotal,
+    vehicleExpenses: vehicleExpenseTotal.toString(),
+    equipmentRentalCost: equipmentRentalCost.toString(),
+  });
 
   return {
     invoiceCount: invoices.length,
@@ -82,6 +93,8 @@ export async function getClientFinancials(clientId: string) {
     workerCost,
     expenseTotal,
     commissionTotal,
+    vehicleExpenseTotal: Number(vehicleExpenseTotal),
+    equipmentRentalCost: Number(equipmentRentalCost),
     margin: margin.toNumber(),
     profit: profit.toNumber(),
   };

@@ -203,8 +203,11 @@ export default async function ReportsPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               <KpiCard label="Revenue" value={formatMoney(finance.revenue)} />
               <KpiCard label="Worker Cost" value={formatMoney(finance.workerCost)} />
+              <KpiCard label="Vehicle Cost" value={formatMoney(finance.vehicleExpenseTotal)} />
+              <KpiCard label="Equipment Cost" value={formatMoney(finance.equipmentRentalCost)} />
               <KpiCard label="Expenses" value={formatMoney(finance.expenses)} />
               <KpiCard label="Commission" value={formatMoney(finance.commission)} />
+              <KpiCard label="Profit" value={formatMoney(finance.profit)} />
               <KpiCard label="Receivables (from clients)" value={formatMoney(finance.receivables)} />
               <KpiCard label="Payables (to workers/employees)" value={formatMoney(finance.payables)} />
               <KpiCard label="Advances Outstanding" value={formatMoney(finance.advancesOutstanding)} />

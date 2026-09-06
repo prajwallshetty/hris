@@ -196,6 +196,17 @@ export async function listUpcomingEquipmentDocumentExpiries(daysAhead = 30) {
   });
 }
 
+// Sum of every charge across a client's rentals — the cost side of the
+// profitability formula (§4/§20). Never cached, always derived on read,
+// same discipline as getVehicleExpenseTotal.
+export async function getEquipmentRentalCostForClient(clientId: string) {
+  const result = await db.rentalCharge.aggregate({
+    where: { rental: { clientId } },
+    _sum: { amount: true },
+  });
+  return result._sum.amount ?? 0;
+}
+
 export async function listOverdueRentals() {
   const now = new Date();
   return db.equipmentRental.findMany({

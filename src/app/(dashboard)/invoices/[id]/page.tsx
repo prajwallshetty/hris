@@ -1,5 +1,6 @@
-import { Ban, CheckCircle2, Send } from "lucide-react";
+import { Ban, CheckCircle2, Printer, Send } from "lucide-react";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { PageHeader } from "@/components/shared/page-header";
@@ -65,6 +66,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         actions={
           <>
             <StatusBadge status={invoice.status} />
+            <Link href={`/invoices/${invoice.id}/document`}>
+              <Button variant="outline">
+                <Printer className="size-4" />
+                View / Print Invoice
+              </Button>
+            </Link>
             {canUpdate && invoice.status === "DRAFT" && (
               <>
                 <ConfirmActionButton

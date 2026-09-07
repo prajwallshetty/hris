@@ -111,6 +111,65 @@ export async function getClientProfitabilitySummary(user: SessionUser) {
   return results.filter((r) => r.revenue > 0 || r.workerCost > 0);
 }
 
+const TREND_MONTH_FORMAT = new Intl.DateTimeFormat("en-GB", { month: "short", year: "2-digit" });
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Monthly revenue-vs-worker-cost trend for the dashboard's primary chart
+// (§ redesign reference "Consolidated budget" chart) — bucketed in JS from
+// the same Invoice/WorkerPayroll rows the rest of the app already reads,
+// scoped exactly like every other client/worker query. Real data only: a
+// month with nothing billed or paid still appears, at zero.
+export async function getRevenueCostTrend(user: SessionUser, monthsBack = 12) {
+  const now = new Date();
+  const rangeStart = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1), 1);
+
+  const [invoices, payrolls] = await Promise.all([
+    can(user, "view", "invoice")
+      ? db.invoice.findMany({
+          where: {
+            billingPeriodStart: { gte: rangeStart },
+            status: { not: "CANCELLED" },
+            client: { ...clientScopeWhere(user) },
+          },
+          select: { subtotal: true, billingPeriodStart: true },
+        })
+      : Promise.resolve([]),
+    can(user, "view", "workerPayroll")
+      ? db.workerPayroll.findMany({
+          where: {
+            payrollPeriod: { periodStart: { gte: rangeStart } },
+            worker: { ...workerScopeWhere(user) },
+          },
+          select: { grossPay: true, payrollPeriod: { select: { periodStart: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const buckets = new Map<string, { label: string; date: Date; revenue: number; workerCost: number }>();
+  for (let i = 0; i < monthsBack; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1 - i), 1);
+    buckets.set(monthKey(date), { label: TREND_MONTH_FORMAT.format(date), date, revenue: 0, workerCost: 0 });
+  }
+
+  for (const inv of invoices) {
+    const bucket = buckets.get(monthKey(inv.billingPeriodStart));
+    if (bucket) bucket.revenue += Number(inv.subtotal);
+  }
+  for (const p of payrolls) {
+    const bucket = buckets.get(monthKey(p.payrollPeriod.periodStart));
+    if (bucket) bucket.workerCost += Number(p.grossPay);
+  }
+
+  return Array.from(buckets.values()).map(({ label, revenue, workerCost }) => ({
+    month: label,
+    revenue,
+    workerCost,
+  }));
+}
+
 // Company-wide finance KPIs for the dashboard — same underlying tables as
 // the Payroll/Timesheets/Coordinators/Expenses pages, just summed (§30/§45:
 // one calculation, shown consistently everywhere).

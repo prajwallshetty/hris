@@ -2,10 +2,12 @@ import { ArchiveRestore, Archive, ClipboardList, LogOut, Pencil, Plus } from "lu
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { WorkerHoursChart } from "@/components/shared/charts/worker-hours-chart";
+import { WorkerPaymentHistoryChart } from "@/components/shared/charts/worker-payment-history-chart";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
-import { PageHeader } from "@/components/shared/page-header";
+import { RecordAvatarInitials, RecordHeader } from "@/components/shared/record-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
+import { formatRelativeTime } from "@/lib/relative-time";
 import { calculateRepayableBalance } from "@/server/calc";
 import { can } from "@/server/rbac";
 import { archiveWorker, demobilizeWorker, reactivateWorker } from "@/server/actions/workers";
@@ -26,7 +29,9 @@ import {
   listWorkerPayments,
   listWorkerPayrollHistory,
 } from "@/server/queries/worker-detail";
+import { getWorkerLedger } from "@/server/queries/worker-ledger";
 import { listVehicleAssignmentsForWorker } from "@/server/queries/vehicles";
+import { listWorkerRecurringCharges, summarizeRecurringCharge } from "@/server/queries/recurring-charges";
 import { getSessionUser } from "@/server/session";
 
 import { AssignmentFormDialog } from "../../assignments/assignment-form";
@@ -35,9 +40,12 @@ import { DocumentActions } from "./document-actions";
 import { DocumentDialog } from "./document-dialog";
 import { LeaveDecisionButtons } from "./leave-decision-buttons";
 import { LeaveRequestDialog } from "./leave-request-dialog";
+import { LedgerTable, type LedgerRow } from "./ledger-table";
 import { LoanDialog } from "./loan-dialog";
 import { PaymentDialog } from "./payment-dialog";
+import { PaymentHistoryTable, type PaymentHistoryRow } from "./payment-history-table";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
+import { RecurringChargeDialog } from "./recurring-charge-dialog";
 import { ReceiptModal } from "@/components/finance/receipt-modal";
 import { SendReceiptDialog } from "@/components/finance/send-receipt-dialog";
 
@@ -67,18 +75,26 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canManageAdvances = can(user, "create", "advance");
   const canManageLoans = can(user, "create", "loan");
   const canManagePayments = can(user, "create", "workerPayment");
+  const canViewRecurringCharges = can(user, "view", "recurringCharge");
+  const canManageRecurringCharges = can(user, "create", "recurringCharge");
   const canViewActivity = can(user, "view", "auditLog");
+  const canViewLedger = can(user, "view", "workerPayment");
 
-  const [clients, payrollHistory, leave, advances, loans, payments, vehicleAssignments, activity] = await Promise.all([
-    canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
-    listWorkerPayrollHistory(worker.id),
-    listWorkerLeave(worker.id),
-    listWorkerAdvances(worker.id),
-    listWorkerLoans(worker.id),
-    listWorkerPayments(worker.id),
-    listVehicleAssignmentsForWorker(worker.id),
-    canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
-  ]);
+  const [clients, payrollHistory, leave, advances, loans, payments, vehicleAssignments, recurringCharges, activity, ledgerEntries] =
+    await Promise.all([
+      canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
+      listWorkerPayrollHistory(worker.id),
+      listWorkerLeave(worker.id),
+      listWorkerAdvances(worker.id),
+      listWorkerLoans(worker.id),
+      listWorkerPayments(worker.id),
+      listVehicleAssignmentsForWorker(worker.id),
+      canViewRecurringCharges ? listWorkerRecurringCharges(user, worker.id) : Promise.resolve([]),
+      canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
+      canViewLedger ? getWorkerLedger(user, worker.id) : Promise.resolve([]),
+    ]);
+
+  const ledgerRows: LedgerRow[] = ledgerEntries.map((e) => ({ ...e, date: e.date.toISOString() }));
 
   const activityItems: TimelineItem[] = activity.map((entry) => ({
     id: entry.id,
@@ -98,20 +114,113 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
     : 0;
   const latestPayrollOutstanding = latestPayroll ? Number(latestPayroll.netPayable) - latestPayrollPaid : 0;
 
+  // §Worker 360 overview — active loan/advance balances, leave balance, and
+  // current vehicle, all derived from the same rows the dedicated tabs use
+  // (never a separate/duplicated calculation).
+  const activeLoan = loans.find((l) => l.status === "ACTIVE");
+  const activeLoanRemaining = activeLoan
+    ? calculateRepayableBalance(activeLoan.principalAmount.toString(), activeLoan.repayments.map((r) => r.amount.toString()))
+    : null;
+  const activeAdvances = advances.filter((a) => a.status === "ACTIVE");
+  const advanceBalance = activeAdvances.reduce(
+    (sum, a) =>
+      sum + calculateRepayableBalance(a.amount.toString(), a.repayments.map((r) => r.amount.toString())).toNumber(),
+    0,
+  );
+  const currentYear = new Date().getFullYear();
+  const leaveBalanceRemaining = leave.balances
+    .filter((b) => b.year === currentYear)
+    .reduce((sum, b) => sum + (Number(b.entitledDays) - Number(b.usedDays)), 0);
+  const currentVehicleAssignment = vehicleAssignments.find((a) => a.status === "ACTIVE");
+  const lastEdited = activity[0]?.createdAt ?? worker.updatedAt;
+
+  // Running balance per linked payroll — grouped from the same `payments`
+  // rows already loaded, cumulative sum ascending by date, never a second
+  // query or a separately-maintained ledger balance.
+  const paymentsByPayroll = new Map<string, typeof payments>();
+  for (const p of payments) {
+    if (!p.workerPayrollId) continue;
+    const group = paymentsByPayroll.get(p.workerPayrollId) ?? [];
+    group.push(p);
+    paymentsByPayroll.set(p.workerPayrollId, group);
+  }
+  for (const group of paymentsByPayroll.values()) {
+    group.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }
+  const paymentHistoryRows: PaymentHistoryRow[] = payments.map((p) => {
+    let balance: number | null = null;
+    if (p.workerPayrollId && p.workerPayroll) {
+      const group = paymentsByPayroll.get(p.workerPayrollId)!;
+      const idx = group.findIndex((g) => g.id === p.id);
+      const cumulative = group.slice(0, idx + 1).reduce((sum, g) => sum + Number(g.amount), 0);
+      balance = Number(p.workerPayroll.netPayable) - cumulative;
+    }
+    return {
+      id: p.id,
+      date: p.date,
+      paymentType: p.paymentType,
+      amount: Number(p.amount),
+      method: p.method,
+      payrollPeriodName: p.workerPayroll?.payrollPeriod.name ?? null,
+      payrollId: p.workerPayrollId,
+      referenceNumber: p.referenceNumber,
+      balance,
+    };
+  });
+
+  const paymentChartData = payments
+    .slice(0, 10)
+    .reverse()
+    .map((p) => ({ date: formatDate(p.date), amount: Number(p.amount) }));
+  const hoursChartData = payrollHistory
+    .slice(0, 8)
+    .reverse()
+    .map((p) => ({
+      period: p.payrollPeriod.name,
+      regularHours: Number(p.regularHours),
+      overtimeHours: Number(p.overtimeHours),
+    }));
+
   return (
     <div className="space-y-6">
-      <PageHeader
+      <RecordHeader
         breadcrumbs={[
           { label: "Home", href: "/dashboard" },
           { label: "Workforce" },
           { label: "Workers", href: "/workers" },
           { label: worker.fullName },
         ]}
+        avatar={<RecordAvatarInitials name={worker.fullName} />}
         title={worker.fullName}
-        description={`Iqama: ${worker.iqamaNumber}`}
+        badges={<StatusBadge status={worker.status} />}
+        meta={
+          <>
+            <span>Iqama: {worker.iqamaNumber}</span>
+            {worker.coordinator && (
+              <>
+                <span aria-hidden>·</span>
+                <span>Coordinator: {worker.coordinator.name}</span>
+              </>
+            )}
+            <span aria-hidden>·</span>
+            <span>Edited {formatRelativeTime(lastEdited)}</span>
+          </>
+        }
+        indicators={[
+          {
+            label: "Outstanding",
+            value: formatMoney(latestPayrollOutstanding),
+            tone: latestPayrollOutstanding > 0 ? "warning" : "success",
+          },
+          {
+            label: "Loan Remaining",
+            value: activeLoan ? formatMoney(activeLoanRemaining!.toNumber()) : "None",
+            tone: activeLoan ? "info" : "neutral",
+          },
+          { label: "Leave Balance", value: `${leaveBalanceRemaining.toFixed(1)}d`, tone: "neutral" },
+        ]}
         actions={
           <>
-            <StatusBadge status={worker.status} />
             {canEdit && (
               <Button
                 variant="outline"
@@ -191,22 +300,69 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         )}
       </div>
 
-      <Tabs defaultValue="profile">
+      <Tabs defaultValue="overview">
         <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="assignments">Assignment History</TabsTrigger>
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="payments">Payment History</TabsTrigger>
+          {canViewLedger && <TabsTrigger value="ledger">Ledger</TabsTrigger>}
           <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
+          {canViewRecurringCharges && <TabsTrigger value="recurring-charges">Housing &amp; Charges</TabsTrigger>}
           {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-4">
+        <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Snapshot</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <Detail
+                  label="Current Assignment"
+                  value={currentAssignment ? `${currentAssignment.client.companyName} / ${currentAssignment.site.name}` : "Unassigned"}
+                />
+                <Detail
+                  label="Current Vehicle"
+                  value={currentVehicleAssignment ? currentVehicleAssignment.vehicle.plateNumber : "None"}
+                />
+                <Detail label="Active Loan" value={activeLoan ? formatMoney(activeLoan.principalAmount) : "None"} />
+                <Detail label="Loan Remaining" value={activeLoan ? formatMoney(activeLoanRemaining!.toNumber()) : "—"} />
+                <Detail label="Advance Balance" value={formatMoney(advanceBalance)} />
+                <Detail label="Leave Balance" value={`${leaveBalanceRemaining.toFixed(1)} days (${currentYear})`} />
+                <Detail label="Iqama Expiry" value={formatDate(worker.iqamaExpiryDate)} />
+                <Detail label="Passport Expiry" value={formatDate(worker.passportExpiryDate)} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Payment History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {paymentChartData.length === 0 ? (
+                  <p className="text-muted-foreground py-10 text-center text-sm">No payments recorded yet.</p>
+                ) : (
+                  <WorkerPaymentHistoryChart data={paymentChartData} />
+                )}
+              </CardContent>
+            </Card>
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base">Hours Worked</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {hoursChartData.length === 0 ? (
+                  <p className="text-muted-foreground py-10 text-center text-sm">No payroll history yet.</p>
+                ) : (
+                  <WorkerHoursChart data={hoursChartData} />
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Identity</CardTitle>
@@ -533,7 +689,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     );
                     return (
                       <TableRow key={advance.id}>
-                        <TableCell>{formatDate(advance.dateGiven)}</TableCell>
+                        <TableCell>
+                          <Link href={`/workers/${worker.id}/advances/${advance.id}`} className="font-medium hover:underline">
+                            {formatDate(advance.dateGiven)}
+                          </Link>
+                        </TableCell>
                         <TableCell>{formatMoney(advance.amount)}</TableCell>
                         <TableCell>{formatMoney(repaid)}</TableCell>
                         <TableCell className="font-medium">{formatMoney(remaining.toNumber())}</TableCell>
@@ -581,7 +741,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     );
                     return (
                       <TableRow key={loan.id}>
-                        <TableCell>{formatDate(loan.dateGiven)}</TableCell>
+                        <TableCell>
+                          <Link href={`/workers/${worker.id}/loans/${loan.id}`} className="font-medium hover:underline">
+                            {formatDate(loan.dateGiven)}
+                          </Link>
+                        </TableCell>
                         <TableCell>{formatMoney(loan.principalAmount)}</TableCell>
                         <TableCell>{formatMoney(repaid)}</TableCell>
                         <TableCell className="font-medium">{formatMoney(remaining.toNumber())}</TableCell>
@@ -609,65 +773,14 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               />
             </div>
           )}
-          {payments.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No payments recorded" />
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Receipt #</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Payroll Period</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((payment) => {
-                    const rNum = payment.receiptNumber || `RCP-${payment.id.slice(-6).toUpperCase()}`;
-                    return (
-                      <TableRow key={payment.id}>
-                        <TableCell className="font-mono text-xs font-semibold text-primary">
-                          {rNum}
-                        </TableCell>
-                        <TableCell>{formatDate(payment.date)}</TableCell>
-                        <TableCell>{payment.paymentType}</TableCell>
-                        <TableCell className="font-medium">{formatMoney(payment.amount)}</TableCell>
-                        <TableCell>{payment.method.replaceAll("_", " ")}</TableCell>
-                        <TableCell>{payment.workerPayroll?.payrollPeriod.name ?? "—"}</TableCell>
-                        <TableCell>{payment.referenceNumber ?? "—"}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <ReceiptModal
-                              paymentId={payment.id}
-                              receiptNumber={rNum}
-                              recipientName={worker.fullName}
-                              mobileNumber={worker.mobile ?? undefined}
-                              amount={Number(payment.amount)}
-                              payrollPeriodName={payment.workerPayroll?.payrollPeriod.name ?? "Payroll"}
-                            />
-                            <SendReceiptDialog
-                              paymentId={payment.id}
-                              receiptNumber={rNum}
-                              recipientName={worker.fullName}
-                              mobileNumber={worker.mobile ?? undefined}
-                              amount={Number(payment.amount)}
-                              payrollPeriodName={payment.workerPayroll?.payrollPeriod.name ?? "Payroll"}
-                            />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <PaymentHistoryTable workerId={worker.id} rows={paymentHistoryRows} />
         </TabsContent>
+
+        {canViewLedger && (
+          <TabsContent value="ledger" className="space-y-4">
+            <LedgerTable workerId={worker.id} rows={ledgerRows} />
+          </TabsContent>
+        )}
 
         <TabsContent value="vehicles" className="space-y-4">
           {vehicleAssignments.length === 0 ? (
@@ -712,6 +825,62 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
         </TabsContent>
+
+        {canViewRecurringCharges && (
+          <TabsContent value="recurring-charges" className="space-y-4">
+            {canManageRecurringCharges && (
+              <div className="flex justify-end">
+                <RecurringChargeDialog workerId={worker.id} />
+              </div>
+            )}
+            {recurringCharges.length === 0 ? (
+              <EmptyState icon={ClipboardList} title="No recurring charges set up" description="Track rent, housing, or other periodic worker deductions here." />
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Rate</TableHead>
+                      <TableHead>Frequency</TableHead>
+                      <TableHead>Paid</TableHead>
+                      <TableHead>Outstanding</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recurringCharges.map((charge) => {
+                      const summary = summarizeRecurringCharge(charge);
+                      return (
+                        <TableRow key={charge.id}>
+                          <TableCell>
+                            <Link
+                              href={`/workers/${worker.id}/recurring-charges/${charge.id}`}
+                              className="font-medium hover:underline"
+                            >
+                              {charge.description || charge.category}
+                            </Link>
+                          </TableCell>
+                          <TableCell>{charge.category}</TableCell>
+                          <TableCell>{formatMoney(charge.amount)}</TableCell>
+                          <TableCell>{charge.frequency.replaceAll("_", " ")}</TableCell>
+                          <TableCell>{formatMoney(summary.paid)}</TableCell>
+                          <TableCell className={summary.outstanding > 0 ? "text-warning-foreground font-medium" : undefined}>
+                            {formatMoney(summary.outstanding)}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={charge.status} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+        )}
 
         {canViewActivity && (
           <TabsContent value="activity">

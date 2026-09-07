@@ -27,6 +27,10 @@ export function formatRentalCode(sequenceNo: number): string {
   return `RNT-${String(sequenceNo).padStart(5, "0")}`;
 }
 
+export function formatReceiptNumber(sequenceNo: number): string {
+  return `RCP-${String(sequenceNo).padStart(6, "0")}`;
+}
+
 export function parseWorkerCodeSearch(term: string): number | null {
   const match = term.trim().match(/^w?-?0*(\d+)$/i);
   return match ? Number(match[1]) : null;

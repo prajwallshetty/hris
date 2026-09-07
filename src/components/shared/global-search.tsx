@@ -24,7 +24,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   Employees: UserSquare2,
 };
 
-export function GlobalSearch() {
+export function GlobalSearch({ collapsed = false }: { collapsed?: boolean }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [groups, setGroups] = useState<SearchResultGroup[]>([]);
@@ -61,11 +61,21 @@ export function GlobalSearch() {
 
   return (
     <>
-      <Button variant="outline" size="sm" className="text-muted-foreground gap-2" onClick={() => setOpen(true)}>
-        <Search className="size-4" />
-        <span className="hidden sm:inline">Search…</span>
-        <kbd className="bg-muted ml-2 hidden rounded px-1.5 py-0.5 text-xs sm:inline">⌘K</kbd>
-      </Button>
+      {collapsed ? (
+        <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Search">
+          <Search className="size-4.5" />
+        </Button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="border-input bg-secondary/60 text-muted-foreground hover:bg-secondary flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
+        >
+          <Search className="size-4 shrink-0" />
+          <span className="flex-1 text-left">Search…</span>
+          <kbd className="bg-background text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 text-[11px]">⌘K</kbd>
+        </button>
+      )}
       <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Search workers, clients, sites, invoices, and more">
         <CommandInput placeholder="Search workers, Iqama, clients, sites, invoices…" value={query} onValueChange={setQuery} />
         <CommandList>

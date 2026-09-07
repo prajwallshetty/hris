@@ -1,10 +1,10 @@
-import { FileText, MapPin, Pencil, Plus, Users } from "lucide-react";
+import { Building2, FileText, MapPin, Pencil, Plus, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
-import { PageHeader } from "@/components/shared/page-header";
+import { RecordAvatarIcon, RecordHeader } from "@/components/shared/record-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
+import { formatRelativeTime } from "@/lib/relative-time";
 import { calculateOutstanding } from "@/server/calc/finance";
 import { calculateRentalTotal } from "@/server/calc/rental";
 import { can } from "@/server/rbac";
@@ -82,15 +83,24 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     tone: auditActionTone(entry.action),
   }));
 
+  const lastEdited = activity[0]?.createdAt ?? client.updatedAt;
+
   return (
     <div className="space-y-6">
-      <PageHeader
+      <RecordHeader
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Clients", href: "/clients" }, { label: client.companyName }]}
+        avatar={<RecordAvatarIcon icon={Building2} />}
         title={client.companyName}
-        description={client.contactPerson || undefined}
+        badges={<StatusBadge status={client.status} />}
+        meta={
+          <>
+            {client.contactPerson && <span>{client.contactPerson}</span>}
+            {client.contactPerson && <span aria-hidden>·</span>}
+            <span>Edited {formatRelativeTime(lastEdited)}</span>
+          </>
+        }
         actions={
           <>
-            <StatusBadge status={client.status} />
             {canEdit && (
               <ClientFormDialog
                 clientId={client.id}

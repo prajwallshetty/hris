@@ -481,6 +481,7 @@ model Worker {
   salaryAdjustments  SalaryAdjustment[]
   vehicleAssignments VehicleAssignment[]
   vehicleExpenses    VehicleExpense[]
+  recurringCharges   WorkerRecurringCharge[]
 
   @@index([status])
   @@index([coordinatorId])
@@ -928,6 +929,7 @@ model SalaryAdjustment {
 // of a direct status flip.
 model WorkerPayment {
   id              String         @id @default(cuid())
+  sequenceNo      Int            @unique @default(autoincrement())
   receiptNumber   String?        @unique
   workerId        String?
   worker          Worker?        @relation(fields: [workerId], references: [id], onDelete: Restrict)
@@ -1055,6 +1057,82 @@ model LoanRepayment {
   createdAt DateTime @default(now())
 
   @@index([loanId])
+}
+
+// ---------------------------------------------------------------------------
+// Recurring worker charges — rent/housing/other configurable periodic
+// deductions (§ recurring charges). Kept as a general `category` +
+// free-text `description` (rather than a "Rent" model) so future recurring
+// deduction types don't need a new table each time. Deductions are recorded
+// directly (like VehicleExpense/EquipmentPayment), not gated behind the
+// payroll run — "Paid"/"Outstanding" are always derived from the deduction
+// ledger, never a stored running total.
+// ---------------------------------------------------------------------------
+
+enum RecurringChargeCategory {
+  HOUSING
+  TRANSPORT
+  MEAL
+  UTILITY
+  OTHER
+}
+
+enum BillingFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+  ONE_TIME
+}
+
+enum RecurringChargeStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model WorkerRecurringCharge {
+  id       String @id @default(cuid())
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  category    RecurringChargeCategory @default(OTHER)
+  description String?
+  amount      Decimal                 @db.Decimal(14, 2)
+  frequency   BillingFrequency        @default(MONTHLY)
+
+  startDate DateTime
+  endDate   DateTime?
+
+  depositAmount Decimal? @db.Decimal(14, 2)
+  depositPaid   Boolean  @default(false)
+
+  status      RecurringChargeStatus @default(ACTIVE)
+  notes       String?               @db.Text
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deductions WorkerRecurringChargeDeduction[]
+
+  @@index([workerId])
+  @@index([status])
+}
+
+model WorkerRecurringChargeDeduction {
+  id       String                @id @default(cuid())
+  chargeId String
+  charge   WorkerRecurringCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  amount Decimal  @db.Decimal(14, 2)
+  date   DateTime @default(now())
+  notes  String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([chargeId])
 }
 
 model Expense {

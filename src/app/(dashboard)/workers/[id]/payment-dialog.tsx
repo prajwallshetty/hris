@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Download, Loader2, Printer, Send } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -28,7 +30,11 @@ import {
   type WorkerPaymentFormInput,
   type WorkerPaymentFormValues,
 } from "@/lib/validation/finance";
-import { createWorkerPayment } from "@/server/actions/finance";
+import { createWorkerPayment, type WorkerPaymentReceipt } from "@/server/actions/finance";
+
+function formatMoney(value: number) {
+  return `SAR ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+}
 
 export function PaymentDialog({
   workerId,
@@ -48,11 +54,7 @@ export function PaymentDialog({
   trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = useState(false);
-  const [successPayment, setSuccessPayment] = useState<{
-    id: string;
-    receiptNumber: string;
-    amount: number;
-  } | null>(null);
+  const [receipt, setReceipt] = useState<WorkerPaymentReceipt | null>(null);
 
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
@@ -79,11 +81,7 @@ export function PaymentDialog({
     const result = await createWorkerPayment(values);
     if (result.success) {
       toast.success("Payment recorded successfully.");
-      setSuccessPayment({
-        id: result.data.id,
-        receiptNumber: result.data.receiptNumber,
-        amount: values.amount,
-      });
+      setReceipt(result.data);
       form.reset(defaults);
       router.refresh();
     } else {
@@ -91,34 +89,56 @@ export function PaymentDialog({
     }
   }
 
-  function handleClose() {
+  function handleDone() {
     setOpen(false);
-    setSuccessPayment(null);
+    setReceipt(null);
   }
 
   return (
-    <Dialog open={open} onOpenChange={(val) => {
-      setOpen(val);
-      if (!val) setSuccessPayment(null);
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setReceipt(null);
+          form.reset(defaults);
+        }
+      }}
+    >
       <DialogTrigger render={trigger ?? <Button size="sm">Record Payment</Button>} />
       <DialogContent className="max-w-md">
-        {successPayment ? (
-          <div className="py-2 space-y-4 text-center">
-            <div className="mx-auto size-12 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="size-8" />
-            </div>
+        {receipt ? (
+          <div className="py-2 space-y-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle2 className="text-success size-5" />
+                Payment Successful
+              </DialogTitle>
+              <DialogDescription>The payment has been recorded and the balance updated.</DialogDescription>
+            </DialogHeader>
 
-            <div>
-              <DialogTitle className="text-xl font-bold">Payment Confirmed</DialogTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Receipt <strong>{successPayment.receiptNumber}</strong> created for SAR {successPayment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}.
-              </p>
+            <div className="space-y-2 rounded-lg border p-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Receipt Number</span>
+                <span className="font-mono font-semibold">{receipt.receiptNumber}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Amount Paid</span>
+                <span className="font-semibold">{formatMoney(receipt.amount)}</span>
+              </div>
+              {receipt.outstanding !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Remaining Balance</span>
+                  <span className={receipt.outstanding > 0 ? "text-warning-foreground font-medium" : "text-success font-medium"}>
+                    {formatMoney(receipt.outstanding)}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-2 pt-2">
               <a
-                href={`/api/payments/${successPayment.id}/receipt?download=1`}
+                href={`/api/payments/${receipt.id}/receipt?download=1`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full"
@@ -130,19 +150,23 @@ export function PaymentDialog({
               </a>
 
               <SendReceiptDialog
-                paymentId={successPayment.id}
-                receiptNumber={successPayment.receiptNumber}
+                paymentId={receipt.id}
+                receiptNumber={receipt.receiptNumber}
                 recipientName={workerName || "Worker"}
                 mobileNumber={workerMobile}
-                amount={successPayment.amount}
+                amount={receipt.amount}
                 payrollPeriodName="Salary Payment"
               />
             </div>
 
-            <DialogFooter className="sm:justify-center pt-2">
-              <Button variant="ghost" onClick={handleClose}>
-                Done
-              </Button>
+            <DialogFooter className="sm:justify-between pt-2">
+              {workerId && (
+                <Button
+                  variant="outline"
+                  render={<Link href={`/workers/${workerId}/payments/${receipt.id}/receipt`}>View Details</Link>}
+                />
+              )}
+              <Button onClick={handleDone}>Done</Button>
             </DialogFooter>
           </div>
         ) : (

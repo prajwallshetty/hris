@@ -61,6 +61,24 @@ function buildData(data: WorkerFormInput, designationId: string | null) {
   };
 }
 
+// Live availability check for the creation wizard's Identity step — lets
+// the user know a Iqama is already taken before they fill out the rest of
+// the form. The DB unique constraint (surfaced via isDuplicateIqama in
+// createWorker) remains the actual source of truth against a race.
+export async function checkIqamaAvailability(iqamaNumber: string): Promise<ActionResult<{ available: boolean }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "create", "worker");
+    if (!/^\d{10}$/.test(iqamaNumber.trim())) {
+      return ok({ available: false });
+    }
+    const existing = await db.worker.findUnique({ where: { iqamaNumber: iqamaNumber.trim() }, select: { id: true } });
+    return ok({ available: !existing });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function createWorker(input: WorkerFormInput): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();

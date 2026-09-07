@@ -43,7 +43,8 @@ export type Resource =
   | "equipment"
   | "equipmentRental"
   | "rentalPayment"
-  | "equipmentMaintenance";
+  | "equipmentMaintenance"
+  | "recurringCharge";
 
 export type Action = "view" | "create" | "update" | "archive";
 
@@ -80,6 +81,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     clientPayment: FULL,
     advance: FULL,
     loan: FULL,
+    recurringCharge: FULL,
     expense: FULL,
     invoice: FULL,
     sale: FULL,
@@ -119,6 +121,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     clientPayment: FULL,
     advance: FULL,
     loan: FULL,
+    recurringCharge: FULL,
     expense: FULL,
     invoice: FULL,
     sale: FULL,
@@ -175,6 +178,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
     clientPayment: FULL,
     advance: FULL,
     loan: FULL,
+    recurringCharge: FULL,
     expense: FULL,
     invoice: FULL,
     commission: VIEW,

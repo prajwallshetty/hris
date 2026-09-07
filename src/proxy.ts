@@ -10,6 +10,12 @@ const { auth } = NextAuth(authConfig);
 
 export default auth;
 
+// `/branding` (and any other static file under /public — logo, icons,
+// fonts) must never require auth: unauthenticated pages like /login render
+// the logo too, and this middleware would otherwise redirect that asset
+// request to /login itself (§ branding bugfix).
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|branding|favicon.ico|login|.*\\.(?:png|jpg|jpeg|svg|webp|ico|gif)$).*)",
+  ],
 };

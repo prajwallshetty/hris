@@ -74,11 +74,16 @@ export async function getWorkerPaymentReceipt(user: SessionUser, workerId: strin
   const payment = await db.workerPayment.findFirst({
     where: { id: paymentId, workerId },
     include: {
-      worker: true,
-      workerPayroll: { include: { payrollPeriod: true, payments: true } },
+      worker: { include: { designation: true } },
+      workerPayroll: { include: { payrollPeriod: true, payments: true, items: true } },
     },
   });
   if (!payment) return null;
+
+  const currentAssignment = await db.assignment.findFirst({
+    where: { workerId, status: "ACTIVE" },
+    include: { client: true, site: true },
+  });
 
   const outstanding = payment.workerPayroll
     ? calculateOutstanding(
@@ -87,5 +92,5 @@ export async function getWorkerPaymentReceipt(user: SessionUser, workerId: strin
       ).toNumber()
     : null;
 
-  return { payment, outstanding };
+  return { payment, outstanding, currentAssignment };
 }

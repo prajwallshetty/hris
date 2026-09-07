@@ -1,10 +1,11 @@
 "use client";
 
 import type { Role } from "@prisma/client";
-import { Building2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { GlobalSearch } from "@/components/shared/global-search";
+import { Logo } from "@/components/shared/logo";
 import { SidebarNav } from "@/components/shared/sidebar-nav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,10 +46,7 @@ export function DesktopSidebar({
       )}
     >
       <div className={cn("flex h-14 items-center gap-2 border-b px-4", collapsed && "justify-center px-2")}>
-        <div className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-md">
-          <Building2 className="size-4" />
-        </div>
-        {!collapsed && <span className="truncate font-semibold">Manpower HRIS</span>}
+        <Logo size={collapsed ? "collapsed" : "sidebar"} />
       </div>
 
       <div className={cn("border-b p-3", collapsed && "flex justify-center px-2")}>

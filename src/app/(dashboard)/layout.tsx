@@ -1,10 +1,11 @@
-import { Building2, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { auth } from "@/auth";
 import { DesktopSidebar } from "@/components/shared/desktop-sidebar";
 import { GlobalSearch } from "@/components/shared/global-search";
+import { Logo } from "@/components/shared/logo";
 import { NotificationsBell } from "@/components/shared/notifications-bell";
 import { QuickCreateMenu } from "@/components/shared/quick-create-menu";
 import { SidebarNav } from "@/components/shared/sidebar-nav";
@@ -39,10 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <SheetTitle>Navigation</SheetTitle>
               </SheetHeader>
               <div className="flex h-14 items-center gap-2 border-b px-4">
-                <div className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
-                  <Building2 className="size-4" />
-                </div>
-                <span className="font-semibold">Manpower HRIS</span>
+                <Logo size="sidebar" />
               </div>
               <div className="border-b p-3">
                 <GlobalSearch />
@@ -57,8 +55,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </SheetContent>
           </Sheet>
 
-          <Link href="/dashboard" className="font-semibold md:hidden">
-            Manpower HRIS
+          <Link href="/dashboard" className="md:hidden">
+            <Logo size="sidebar" />
           </Link>
 
           <QuickCreateMenu role={role} />

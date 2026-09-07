@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { Coins, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -34,7 +34,7 @@ type ClientTree = {
   projects: { id: string; name: string; sites: { id: string; name: string }[] }[];
 };
 
-type WorkerOption = { id: string; fullName: string; iqamaNumber: string };
+type WorkerOption = { id: string; fullName: string; iqamaNumber: string; hourlyRate?: number | null };
 type Coordinator = { id: string; name: string };
 
 export function AssignmentFormDialog({
@@ -61,9 +61,10 @@ export function AssignmentFormDialog({
       projectId: "",
       siteId: "",
       designation: "",
-      workerHourlyRate: 0,
-      clientBillingRate: 0,
+      workerHourlyRate: 15,
+      clientBillingRate: 21,
       startDate: new Date().toISOString().slice(0, 10),
+      endDate: "",
       coordinatorId: "",
       notes: "",
     },
@@ -71,6 +72,11 @@ export function AssignmentFormDialog({
 
   const selectedClientId = form.watch("clientId");
   const selectedProjectId = form.watch("projectId");
+  const workerRate = Number(form.watch("workerHourlyRate") || 0);
+  const clientRate = Number(form.watch("clientBillingRate") || 0);
+
+  const marginSar = clientRate - workerRate;
+  const marginPct = workerRate > 0 ? (marginSar / workerRate) * 100 : 0;
 
   const projects = useMemo(
     () => clients.find((c) => c.id === selectedClientId)?.projects ?? [],
@@ -84,7 +90,7 @@ export function AssignmentFormDialog({
   async function onSubmit(values: AssignmentFormInput) {
     const result = await createAssignment(values);
     if (result.success) {
-      toast.success("Assignment created.");
+      toast.success("Worker assignment created successfully.");
       setOpen(false);
       form.reset();
       router.refresh();
@@ -98,158 +104,206 @@ export function AssignmentFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Assignment</DialogTitle>
           <DialogDescription>
-            Deploy a worker to a client site. Starting this assignment ends any current active
-            assignment for the worker.
+            Deploy worker to client site. If the worker is currently assigned to another site, starting
+            this deployment will automatically end the previous assignment while preserving full history.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FieldGroup className="grid grid-cols-1 gap-4">
-            {workers && (
-              <Field>
-                <FieldLabel>Worker *</FieldLabel>
-                <Select value={form.watch("workerId")} onValueChange={(v) => form.setValue("workerId", v ?? "")}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select worker" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workers.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.fullName} — {w.iqamaNumber}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.workerId && <FieldError>{errors.workerId.message}</FieldError>}
-              </Field>
-            )}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FieldGroup className="space-y-4">
+            {/* Step 1: Worker & Location */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1">
+                1. Deployment & Site Selection
+              </h4>
+              <div className="grid grid-cols-1 gap-4">
+                {workers && (
+                  <Field>
+                    <FieldLabel>Worker *</FieldLabel>
+                    <Select
+                      value={form.watch("workerId")}
+                      onValueChange={(v) => {
+                        const val = v ?? "";
+                        form.setValue("workerId", val);
+                        const selectedWorker = workers.find((w) => w.id === val);
+                        if (selectedWorker?.hourlyRate) {
+                          form.setValue("workerHourlyRate", Number(selectedWorker.hourlyRate));
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select worker" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workers.map((w) => (
+                          <SelectItem key={w.id} value={w.id}>
+                            {w.fullName} — {w.iqamaNumber}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.workerId && <FieldError>{errors.workerId.message}</FieldError>}
+                  </Field>
+                )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Field>
-                <FieldLabel>Client *</FieldLabel>
-                <Select
-                  value={form.watch("clientId")}
-                  onValueChange={(v) => {
-                    form.setValue("clientId", v ?? "");
-                    form.setValue("projectId", "");
-                    form.setValue("siteId", "");
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.companyName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.clientId && <FieldError>{errors.clientId.message}</FieldError>}
-              </Field>
-              <Field>
-                <FieldLabel>Project *</FieldLabel>
-                <Select
-                  value={form.watch("projectId")}
-                  onValueChange={(v) => {
-                    form.setValue("projectId", v ?? "");
-                    form.setValue("siteId", "");
-                  }}
-                  disabled={!selectedClientId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.projectId && <FieldError>{errors.projectId.message}</FieldError>}
-              </Field>
-              <Field>
-                <FieldLabel>Site *</FieldLabel>
-                <Select
-                  value={form.watch("siteId")}
-                  onValueChange={(v) => form.setValue("siteId", v ?? "")}
-                  disabled={!selectedProjectId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sites.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.siteId && <FieldError>{errors.siteId.message}</FieldError>}
-              </Field>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Field>
+                    <FieldLabel>Client *</FieldLabel>
+                    <Select
+                      value={form.watch("clientId")}
+                      onValueChange={(v) => {
+                        form.setValue("clientId", v ?? "");
+                        form.setValue("projectId", "");
+                        form.setValue("siteId", "");
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.companyName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.clientId && <FieldError>{errors.clientId.message}</FieldError>}
+                  </Field>
+                  <Field>
+                    <FieldLabel>Project *</FieldLabel>
+                    <Select
+                      value={form.watch("projectId")}
+                      onValueChange={(v) => {
+                        form.setValue("projectId", v ?? "");
+                        form.setValue("siteId", "");
+                      }}
+                      disabled={!selectedClientId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.projectId && <FieldError>{errors.projectId.message}</FieldError>}
+                  </Field>
+                  <Field>
+                    <FieldLabel>Site *</FieldLabel>
+                    <Select
+                      value={form.watch("siteId")}
+                      onValueChange={(v) => form.setValue("siteId", v ?? "")}
+                      disabled={!selectedProjectId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Site" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sites.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.siteId && <FieldError>{errors.siteId.message}</FieldError>}
+                  </Field>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="workerHourlyRate">Worker Hourly Rate (SAR) *</FieldLabel>
-                <Input
-                  id="workerHourlyRate"
-                  type="number"
-                  step="0.01"
-                  {...form.register("workerHourlyRate")}
-                />
-                {errors.workerHourlyRate && <FieldError>{errors.workerHourlyRate.message}</FieldError>}
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="clientBillingRate">Client Billing Rate (SAR) *</FieldLabel>
-                <Input
-                  id="clientBillingRate"
-                  type="number"
-                  step="0.01"
-                  {...form.register("clientBillingRate")}
-                />
-                {errors.clientBillingRate && <FieldError>{errors.clientBillingRate.message}</FieldError>}
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="designation">Designation at Site</FieldLabel>
-                <Input id="designation" {...form.register("designation")} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="startDate">Start Date *</FieldLabel>
-                <Input id="startDate" type="date" {...form.register("startDate")} />
-                {errors.startDate && <FieldError>{errors.startDate.message}</FieldError>}
-              </Field>
-              <Field className="sm:col-span-2">
-                <FieldLabel>Coordinator</FieldLabel>
-                <Select
-                  value={form.watch("coordinatorId") || "NONE"}
-                  onValueChange={(v) => form.setValue("coordinatorId", v === "NONE" ? "" : (v ?? ""))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NONE">None</SelectItem>
-                    {coordinators.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field className="sm:col-span-2">
-                <FieldLabel htmlFor="notes">Notes</FieldLabel>
-                <Textarea id="notes" rows={2} {...form.register("notes")} />
-              </Field>
+            {/* Step 2: Commercial Rates & Margin */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1">
+                2. Rates & Financial Agreement
+              </h4>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="workerHourlyRate">Worker Hourly Rate (SAR) *</FieldLabel>
+                  <Input
+                    id="workerHourlyRate"
+                    type="number"
+                    step="0.01"
+                    {...form.register("workerHourlyRate")}
+                  />
+                  {errors.workerHourlyRate && <FieldError>{errors.workerHourlyRate.message}</FieldError>}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="clientBillingRate">Client Billing Rate (SAR) *</FieldLabel>
+                  <Input
+                    id="clientBillingRate"
+                    type="number"
+                    step="0.01"
+                    {...form.register("clientBillingRate")}
+                  />
+                  {errors.clientBillingRate && <FieldError>{errors.clientBillingRate.message}</FieldError>}
+                </Field>
+
+                {/* Margin Preview Banner */}
+                <div className="sm:col-span-2 p-3 rounded-lg border bg-muted/30 flex items-center justify-between text-xs">
+                  <span className="font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Coins className="size-3.5 text-success" /> Project Margin Calculation:
+                  </span>
+                  <span className="tabular-nums font-semibold text-foreground">
+                    SAR {marginSar.toFixed(2)}/hr ({marginPct >= 0 ? "+" : ""}{marginPct.toFixed(1)}% markup)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3: Dates & Coordinator */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1">
+                3. Deployment Schedule & Coordinator
+              </h4>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="startDate">Start Date *</FieldLabel>
+                  <Input id="startDate" type="date" {...form.register("startDate")} />
+                  {errors.startDate && <FieldError>{errors.startDate.message}</FieldError>}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="endDate">End Date (Optional)</FieldLabel>
+                  <Input id="endDate" type="date" {...form.register("endDate")} />
+                  {errors.endDate && <FieldError>{errors.endDate.message}</FieldError>}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="designation">Designation at Site</FieldLabel>
+                  <Input id="designation" placeholder="e.g. Senior Electrician" {...form.register("designation")} />
+                </Field>
+                <Field>
+                  <FieldLabel>Site Coordinator</FieldLabel>
+                  <Select
+                    value={form.watch("coordinatorId") || "NONE"}
+                    onValueChange={(v) => form.setValue("coordinatorId", v === "NONE" ? "" : (v ?? ""))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">None</SelectItem>
+                      {coordinators.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="notes">Notes / Special Terms</FieldLabel>
+                  <Textarea id="notes" rows={2} placeholder="Any specific requirements or contract terms..." {...form.register("notes")} />
+                </Field>
+              </div>
             </div>
           </FieldGroup>
 
@@ -259,7 +313,7 @@ export function AssignmentFormDialog({
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              Create Assignment
+              Save & Deploy Worker
             </Button>
           </DialogFooter>
         </form>
@@ -267,3 +321,4 @@ export function AssignmentFormDialog({
     </Dialog>
   );
 }
+

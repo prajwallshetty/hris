@@ -46,6 +46,8 @@ import { PaymentDialog } from "./payment-dialog";
 import { PaymentHistoryTable, type PaymentHistoryRow } from "./payment-history-table";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
 import { RecurringChargeDialog } from "./recurring-charge-dialog";
+import { ReceiptModal } from "@/components/finance/receipt-modal";
+import { SendReceiptDialog } from "@/components/finance/send-receipt-dialog";
 
 function formatDate(date: Date | null) {
   if (!date) return "—";
@@ -764,7 +766,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         <TabsContent value="payments" className="space-y-4">
           {canManagePayments && (
             <div className="flex justify-end">
-              <PaymentDialog workerId={worker.id} />
+              <PaymentDialog
+                workerId={worker.id}
+                workerName={worker.fullName}
+                workerMobile={worker.mobile ?? undefined}
+              />
             </div>
           )}
           <PaymentHistoryTable workerId={worker.id} rows={paymentHistoryRows} />

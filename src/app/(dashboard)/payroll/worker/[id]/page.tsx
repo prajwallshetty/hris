@@ -20,6 +20,8 @@ import { getSessionUser } from "@/server/session";
 
 import { PaymentDialog } from "../../../workers/[id]/payment-dialog";
 import { PayrollAdjustmentDialog, RepaymentDialog } from "./payroll-actions";
+import { ReceiptModal } from "@/components/finance/receipt-modal";
+import { SendReceiptDialog } from "@/components/finance/send-receipt-dialog";
 
 function formatMoney(value: unknown) {
   return `SAR ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -194,6 +196,8 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
             <PaymentDialog
               workerId={payroll.workerId}
               workerPayrollId={payroll.id}
+              workerName={payroll.worker.fullName}
+              workerMobile={payroll.worker.mobile ?? undefined}
               trigger={<Button size="sm">Record Payment</Button>}
             />
           )}
@@ -205,21 +209,49 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Receipt #</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
                   <TableHead>Reference</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payroll.payments.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{formatDate(p.date)}</TableCell>
-                    <TableCell className="font-medium">{formatMoney(p.amount)}</TableCell>
-                    <TableCell>{p.method.replaceAll("_", " ")}</TableCell>
-                    <TableCell>{p.referenceNumber ?? "—"}</TableCell>
-                  </TableRow>
-                ))}
+                {payroll.payments.map((p) => {
+                  const rNum = p.receiptNumber || `RCP-${p.id.slice(-6).toUpperCase()}`;
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-mono text-xs font-semibold text-primary">
+                        {rNum}
+                      </TableCell>
+                      <TableCell>{formatDate(p.date)}</TableCell>
+                      <TableCell className="font-medium">{formatMoney(p.amount)}</TableCell>
+                      <TableCell>{p.method.replaceAll("_", " ")}</TableCell>
+                      <TableCell>{p.referenceNumber ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <ReceiptModal
+                            paymentId={p.id}
+                            receiptNumber={rNum}
+                            recipientName={payroll.worker.fullName}
+                            mobileNumber={payroll.worker.mobile ?? undefined}
+                            amount={Number(p.amount)}
+                            payrollPeriodName={payroll.payrollPeriod.name}
+                          />
+                          <SendReceiptDialog
+                            paymentId={p.id}
+                            receiptNumber={rNum}
+                            recipientName={payroll.worker.fullName}
+                            mobileNumber={payroll.worker.mobile ?? undefined}
+                            amount={Number(p.amount)}
+                            payrollPeriodName={payroll.payrollPeriod.name}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

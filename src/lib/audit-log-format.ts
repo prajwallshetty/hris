@@ -10,6 +10,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   assign_vehicle: "Vehicle assigned",
   return_vehicle: "Vehicle returned",
   import: "Imported",
+  download_receipt: "Receipt downloaded",
 };
 
 const ACTION_TONES: Record<AuditAction, TimelineTone> = {
@@ -21,6 +22,7 @@ const ACTION_TONES: Record<AuditAction, TimelineTone> = {
   assign_vehicle: "success",
   return_vehicle: "info",
   import: "info",
+  download_receipt: "info",
 };
 
 /** Shared formatting for AuditLog.action across every entity's Activity tab/section. */

@@ -34,7 +34,10 @@ export async function listWorkerAdvances(workerId: string) {
 export async function listWorkerPayments(workerId: string) {
   return db.workerPayment.findMany({
     where: { workerId },
-    include: { workerPayroll: { include: { payrollPeriod: true } } },
+    include: {
+      worker: { select: { fullName: true, mobile: true } },
+      workerPayroll: { include: { payrollPeriod: true } },
+    },
     orderBy: { date: "desc" },
   });
 }

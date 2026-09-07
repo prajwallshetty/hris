@@ -29,6 +29,7 @@ import {
   listWorkerPayments,
   listWorkerPayrollHistory,
 } from "@/server/queries/worker-detail";
+import { getWorkerLedger } from "@/server/queries/worker-ledger";
 import { listVehicleAssignmentsForWorker } from "@/server/queries/vehicles";
 import { listWorkerRecurringCharges, summarizeRecurringCharge } from "@/server/queries/recurring-charges";
 import { getSessionUser } from "@/server/session";
@@ -39,6 +40,7 @@ import { DocumentActions } from "./document-actions";
 import { DocumentDialog } from "./document-dialog";
 import { LeaveDecisionButtons } from "./leave-decision-buttons";
 import { LeaveRequestDialog } from "./leave-request-dialog";
+import { LedgerTable, type LedgerRow } from "./ledger-table";
 import { LoanDialog } from "./loan-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { PaymentHistoryTable, type PaymentHistoryRow } from "./payment-history-table";
@@ -74,8 +76,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canViewRecurringCharges = can(user, "view", "recurringCharge");
   const canManageRecurringCharges = can(user, "create", "recurringCharge");
   const canViewActivity = can(user, "view", "auditLog");
+  const canViewLedger = can(user, "view", "workerPayment");
 
-  const [clients, payrollHistory, leave, advances, loans, payments, vehicleAssignments, recurringCharges, activity] =
+  const [clients, payrollHistory, leave, advances, loans, payments, vehicleAssignments, recurringCharges, activity, ledgerEntries] =
     await Promise.all([
       canCreateAssignment ? listClientHierarchyForSelect() : Promise.resolve([]),
       listWorkerPayrollHistory(worker.id),
@@ -86,7 +89,10 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
       listVehicleAssignmentsForWorker(worker.id),
       canViewRecurringCharges ? listWorkerRecurringCharges(user, worker.id) : Promise.resolve([]),
       canViewActivity ? getEntityAuditLog("Worker", worker.id) : Promise.resolve([]),
+      canViewLedger ? getWorkerLedger(user, worker.id) : Promise.resolve([]),
     ]);
+
+  const ledgerRows: LedgerRow[] = ledgerEntries.map((e) => ({ ...e, date: e.date.toISOString() }));
 
   const activityItems: TimelineItem[] = activity.map((entry) => ({
     id: entry.id,
@@ -302,6 +308,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="payments">Payment History</TabsTrigger>
+          {canViewLedger && <TabsTrigger value="ledger">Ledger</TabsTrigger>}
           <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
           {canViewRecurringCharges && <TabsTrigger value="recurring-charges">Housing &amp; Charges</TabsTrigger>}
           {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
@@ -762,6 +769,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           )}
           <PaymentHistoryTable workerId={worker.id} rows={paymentHistoryRows} />
         </TabsContent>
+
+        {canViewLedger && (
+          <TabsContent value="ledger" className="space-y-4">
+            <LedgerTable workerId={worker.id} rows={ledgerRows} />
+          </TabsContent>
+        )}
 
         <TabsContent value="vehicles" className="space-y-4">
           {vehicleAssignments.length === 0 ? (

@@ -46,7 +46,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { bulkEndAssignments, endAssignment } from "@/server/actions/assignments";
-import type { AssignmentSortField } from "@/server/queries/assignments";
+import type { AssignmentSortField, getAssignmentDetail, listAssignments } from "@/server/queries/assignments";
 
 import { AssignmentDetailDrawer } from "./assignment-detail-drawer";
 import { AssignmentFormDialog } from "./assignment-form";
@@ -60,34 +60,11 @@ type ClientTree = {
 type WorkerOption = { id: string; fullName: string; iqamaNumber: string; hourlyRate?: number | null };
 type CoordinatorOption = { id: string; name: string };
 
-type AssignmentRecord = {
-  id: string;
-  workerId: string;
-  clientId: string;
-  projectId: string;
-  siteId: string;
-  designation: string | null;
-  workerHourlyRate: unknown;
-  clientBillingRate: unknown;
-  startDate: Date;
-  endDate: Date | null;
-  status: "ACTIVE" | "ENDED";
-  notes: string | null;
-  createdAt: Date;
-  worker: {
-    id: string;
-    fullName: string;
-    iqamaNumber: string;
-    sequenceNo: number;
-    status: string;
-    designation: { title: string } | null;
-  };
-  client: { id: string; companyName: string };
-  project: { id: string; name: string };
-  site: { id: string; name: string };
-  coordinator: { id: string; name: string } | null;
-  createdBy: { id: string; name: string; email: string } | null;
-};
+// Derived directly from the query's actual return shape (not hand-typed)
+// so this view can never silently drift out of sync with what the server
+// component passes down.
+type AssignmentRecord = Awaited<ReturnType<typeof listAssignments>>["assignments"][number];
+type AssignmentDetail = Awaited<ReturnType<typeof getAssignmentDetail>>;
 
 type AssignmentStats = {
   total: number;
@@ -130,7 +107,7 @@ export function AssignmentsClientView({
   workers: WorkerOption[];
   canCreate: boolean;
   canEnd: boolean;
-  detailData: any;
+  detailData: AssignmentDetail;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -101,18 +101,10 @@ export async function GET(
       align-items: center;
       gap: 12px;
     }
-    .brand-icon {
-      width: 44px;
+    .brand-logo img {
       height: 44px;
-      background: linear-gradient(135deg, #0f172a 0%, #3b82f6 100%);
-      color: white;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 20px;
-      letter-spacing: -1px;
+      width: auto;
+      display: block;
     }
     .company-title {
       font-size: 20px;
@@ -315,9 +307,8 @@ export async function GET(
 
     <div class="header-bar">
       <div class="brand-logo">
-        <div class="brand-icon">GB</div>
+        <img src="/branding/expand-arabia-logo.png" alt="Expand Arabia" />
         <div>
-          <div class="company-title">GrowthBridge HRIS</div>
           <div class="company-sub">Saudi Manpower & Employee Management</div>
         </div>
       </div>
@@ -507,12 +498,12 @@ export async function GET(
         <div style="height: 40px;"></div>
         <div class="signature-line"></div>
         <div class="signature-title">Authorized Signatory & Stamp</div>
-        <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">GrowthBridge Finance Dept.</div>
+        <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">Expand Arabia Finance Dept.</div>
       </div>
     </div>
 
     <div class="footer-note">
-      This is a computer-generated salary receipt issued by GrowthBridge HRIS System.<br>
+      This is a computer-generated salary receipt issued by Expand Arabia HRIS.<br>
       System Transaction ID: ${receipt.paymentId} | Generated on ${new Date().toLocaleString()}
     </div>
   </div>

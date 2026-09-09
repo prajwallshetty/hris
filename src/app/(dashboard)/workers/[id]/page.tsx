@@ -46,8 +46,6 @@ import { PaymentDialog } from "./payment-dialog";
 import { PaymentHistoryTable, type PaymentHistoryRow } from "./payment-history-table";
 import { PayrollCalculationDialog } from "./payroll-calculation-dialog";
 import { RecurringChargeDialog } from "./recurring-charge-dialog";
-import { ReceiptModal } from "@/components/finance/receipt-modal";
-import { SendReceiptDialog } from "@/components/finance/send-receipt-dialog";
 
 function formatDate(date: Date | null) {
   if (!date) return "—";
@@ -773,7 +771,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               />
             </div>
           )}
-          <PaymentHistoryTable workerId={worker.id} rows={paymentHistoryRows} />
+          <PaymentHistoryTable workerId={worker.id} workerName={worker.fullName} workerMobile={worker.mobile} rows={paymentHistoryRows} />
         </TabsContent>
 
         {canViewLedger && (

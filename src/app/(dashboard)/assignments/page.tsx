@@ -57,7 +57,7 @@ export default async function AssignmentsPage({
 
   return (
     <AssignmentsClientView
-      assignments={assignments as any}
+      assignments={assignments}
       total={total}
       page={page}
       pageSize={pageSize}

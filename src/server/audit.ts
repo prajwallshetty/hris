@@ -8,7 +8,8 @@ export type AuditAction =
   | "end_assignment"
   | "assign_vehicle"
   | "return_vehicle"
-  | "import";
+  | "import"
+  | "download_receipt";
 
 // Single write path for the audit trail (§25). Every mutating server action
 // calls this after a successful write so the log stays complete without

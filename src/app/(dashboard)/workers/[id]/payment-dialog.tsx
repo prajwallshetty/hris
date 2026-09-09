@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Download, Loader2, Printer, Send } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { SendReceiptDialog } from "@/components/finance/send-receipt-dialog";
 import {
   PAYMENT_METHODS,
   WORKER_PAYMENT_TYPES,
@@ -40,16 +41,21 @@ export function PaymentDialog({
   workerPayrollId,
   employeeId,
   employeePayrollId,
+  workerName,
+  workerMobile,
   trigger,
 }: {
   workerId?: string;
   workerPayrollId?: string;
   employeeId?: string;
   employeePayrollId?: string;
+  workerName?: string;
+  workerMobile?: string;
   trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = useState(false);
   const [receipt, setReceipt] = useState<WorkerPaymentReceipt | null>(null);
+
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const defaults: WorkerPaymentFormValues = {
@@ -64,6 +70,7 @@ export function PaymentDialog({
     date: today,
     remarks: "",
   };
+
   const form = useForm<WorkerPaymentFormValues, unknown, WorkerPaymentFormInput>({
     resolver: zodResolver(workerPaymentFormSchema),
     defaultValues: defaults,
@@ -73,7 +80,9 @@ export function PaymentDialog({
   async function onSubmit(values: WorkerPaymentFormInput) {
     const result = await createWorkerPayment(values);
     if (result.success) {
+      toast.success("Payment recorded successfully.");
       setReceipt(result.data);
+      form.reset(defaults);
       router.refresh();
     } else {
       toast.error(result.error);
@@ -83,7 +92,6 @@ export function PaymentDialog({
   function handleDone() {
     setOpen(false);
     setReceipt(null);
-    form.reset(defaults);
   }
 
   return (
@@ -98,9 +106,9 @@ export function PaymentDialog({
       }}
     >
       <DialogTrigger render={trigger ?? <Button size="sm">Record Payment</Button>} />
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         {receipt ? (
-          <>
+          <div className="py-2 space-y-4">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle2 className="text-success size-5" />
@@ -108,6 +116,7 @@ export function PaymentDialog({
               </DialogTitle>
               <DialogDescription>The payment has been recorded and the balance updated.</DialogDescription>
             </DialogHeader>
+
             <div className="space-y-2 rounded-lg border p-4 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Receipt Number</span>
@@ -126,16 +135,40 @@ export function PaymentDialog({
                 </div>
               )}
             </div>
-            <DialogFooter>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <a
+                href={`/api/payments/${receipt.id}/receipt?download=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full"
+              >
+                <Button className="w-full gap-2">
+                  <Printer className="size-4" />
+                  Download Receipt (PDF)
+                </Button>
+              </a>
+
+              <SendReceiptDialog
+                paymentId={receipt.id}
+                receiptNumber={receipt.receiptNumber}
+                recipientName={workerName || "Worker"}
+                mobileNumber={workerMobile}
+                amount={receipt.amount}
+                payrollPeriodName="Salary Payment"
+              />
+            </div>
+
+            <DialogFooter className="sm:justify-between pt-2">
               {workerId && (
                 <Button
                   variant="outline"
-                  render={<Link href={`/workers/${workerId}/payments/${receipt.id}/receipt`}>View Receipt</Link>}
+                  render={<Link href={`/workers/${workerId}/payments/${receipt.id}/receipt`}>View Details</Link>}
                 />
               )}
               <Button onClick={handleDone}>Done</Button>
             </DialogFooter>
-          </>
+          </div>
         ) : (
           <>
             <DialogHeader>
@@ -219,3 +252,4 @@ export function PaymentDialog({
     </Dialog>
   );
 }
+

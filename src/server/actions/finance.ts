@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { generateUniqueReceiptNumber } from "@/lib/receipt-number";
 import {
   advanceFormSchema,
   loanFormSchema,
@@ -90,9 +91,12 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
     assertCan(user, "create", "workerPayment");
     const data = workerPaymentFormSchema.parse(input);
 
+    const receiptNumber = await generateUniqueReceiptNumber(new Date(data.date).getFullYear());
+
     const { payment, outstanding } = await db.$transaction(async (tx) => {
       const created = await tx.workerPayment.create({
         data: {
+          receiptNumber,
           workerId: data.workerId || null,
           workerPayrollId: data.workerPayrollId || null,
           employeeId: data.employeeId || null,
@@ -148,9 +152,12 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
     revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
     if (data.workerPayrollId) revalidatePath(`/payroll/worker/${data.workerPayrollId}`);
     if (data.employeePayrollId) revalidatePath(`/payroll/employee/${data.employeePayrollId}`);
+
+    const finalReceiptNumber = payment.receiptNumber ?? receiptNumber ?? formatReceiptNumber(payment.sequenceNo);
+
     return ok({
       id: payment.id,
-      receiptNumber: formatReceiptNumber(payment.sequenceNo),
+      receiptNumber: finalReceiptNumber,
       amount: Number(payment.amount),
       outstanding,
     });

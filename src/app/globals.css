@@ -47,6 +47,14 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
+  /* Expand Arabia brand accent (teal/green, sampled from the logo mark) —
+     a second interactive color reserved for positive trend highlights,
+     the primary chart series, and small callouts, kept distinct from the
+     semantic --success token so "on-brand" and "succeeded" never collide. */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+
   /* Layered light-surface system (page → surface → card → elevated) — a
      shared vocabulary for the component library, not a new palette. Surface
      mirrors --card (content blocks); surface-elevated mirrors --popover and
@@ -85,31 +93,38 @@
 }
 
 :root {
-  /* Premium enterprise palette — a restrained neutral ground with a single
-     deep-indigo brand accent, reserved for primary actions/selected
-     states/links (§35) — not a rainbow of module colors. Exact values
-     from the design spec, not derived/approximated. */
-  --background: #f8fafc;
-  --foreground: #111827;
+  /* Expand Arabia brand palette — navy (#003189) and teal (#00c295) are
+     sampled directly from the logo mark (see § branding), not approximated,
+     laid over the same restrained neutral ground as before: a single brand
+     color for primary actions/selected states/links (§35), not a rainbow of
+     module colors. */
+  --background: #f7f8fa;
+  --foreground: #0b1220;
   --card: #ffffff;
-  --card-foreground: #111827;
+  --card-foreground: #0b1220;
   --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #1f4ed8;
-  --primary-hover: #1b44be;
-  --primary-active: #173ca8;
+  --popover-foreground: #0b1220;
+  --primary: #003189;
+  --primary-hover: #00266b;
+  --primary-active: #001d54;
   --primary-foreground: #ffffff;
-  --secondary: #f4f6f8;
-  --secondary-foreground: #111827;
-  --muted: #f4f6f8;
-  --muted-foreground: #6b7280;
-  --accent: #eef4ff;
-  --accent-foreground: #1f4ed8;
+  --secondary: #f2f4f7;
+  --secondary-foreground: #0b1220;
+  --muted: #f2f4f7;
+  --muted-foreground: #64748b;
+  --accent: #eaf1fb;
+  --accent-foreground: #003189;
   --destructive: #b42318;
-  --border: #e5e7eb;
-  --border-strong: #d7dce2;
-  --input: #d7dce2;
-  --ring: #1f4ed8;
+  --border: #e5e8ec;
+  --border-strong: #d6dbe2;
+  --input: #d6dbe2;
+  --ring: #003189;
+
+  /* Brand accent — the logo's teal/green, reserved for positive trend
+     highlights, the primary chart series, and small on-brand callouts. */
+  --brand: #00c295;
+  --brand-foreground: #ffffff;
+  --brand-soft: #e6faf3;
 
   /* Semantic status colors — text-first (bg is an alpha tint of the same
      value, e.g. bg-success/15), so every soft badge/button background
@@ -121,23 +136,24 @@
   --info: #2563eb;
   --info-foreground: #ffffff;
 
-  /* Categorical chart palette — the skill's validated default order
-     (blue/orange/aqua/green), fixed order, never cycled arbitrarily. */
-  --chart-1: #2a78d6;
-  --chart-2: #eb6834;
-  --chart-3: #1baf7a;
-  --chart-4: #008300;
+  /* Categorical chart palette — brand teal/navy lead (the two-series
+     revenue-vs-cost dashboard chart), then a fixed rotation for anything
+     wider, never cycled arbitrarily. */
+  --chart-1: #00c295;
+  --chart-2: #003189;
+  --chart-3: #eb6834;
+  --chart-4: #6b5bd2;
   --chart-5: #eda100;
 
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #111827;
-  --sidebar-primary: #1f4ed8;
+  --sidebar-foreground: #0b1220;
+  --sidebar-primary: #003189;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eef4ff;
-  --sidebar-accent-foreground: #1f4ed8;
-  --sidebar-border: #e5e7eb;
-  --sidebar-ring: #1f4ed8;
+  --sidebar-accent: #eaf1fb;
+  --sidebar-accent-foreground: #003189;
+  --sidebar-border: #e5e8ec;
+  --sidebar-ring: #003189;
 }
 
 @layer base {

@@ -3,7 +3,10 @@
 import { Decimal } from "decimal.js";
 import { revalidatePath } from "next/cache";
 
+import type { InvoiceStatus } from "@prisma/client";
+
 import { db } from "@/lib/db";
+import { toCsv } from "@/lib/csv";
 import {
   clientPaymentFormSchema,
   generateInvoiceFormSchema,
@@ -18,7 +21,7 @@ import { calculateOutstanding } from "@/server/calc";
 import { buildInvoiceDraft, type BillableHoursRow } from "@/server/invoicing/build-invoice-draft";
 import { assertCan } from "@/server/rbac";
 import { getActiveBillingRule } from "@/server/queries/settings";
-import { findExistingInvoiceForExactPeriod, listApprovedHoursForClientPeriod } from "@/server/queries/invoices";
+import { findExistingInvoiceForExactPeriod, listApprovedHoursForClientPeriod, listInvoices } from "@/server/queries/invoices";
 import { getSessionUser } from "@/server/session";
 
 /**
@@ -165,6 +168,35 @@ export async function cancelInvoice(id: string): Promise<ActionResult<{ id: stri
 
 // Every client payment lands in the ledger; Outstanding is always Invoice
 // Total minus the payment ledger, never a manually typed amount (§23).
+// Ignores pagination so a filtered CSV export always reflects every
+// matching row, not just the current page (§14 — filtered download must
+// reflect exactly what's filtered).
+export async function exportInvoicesCsv(status?: InvoiceStatus | "ALL"): Promise<ActionResult<{ csv: string }>> {
+  try {
+    const user = await getSessionUser();
+    const { invoices } = await listInvoices(user, { status: status ?? "ALL", page: 1, pageSize: 100000 });
+    const csv = toCsv(
+      ["Invoice #", "Client", "Billing Period Start", "Billing Period End", "Total", "Paid", "Due Date", "Status"],
+      invoices.map((inv) => {
+        const paid = inv.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        return [
+          inv.sequenceNo,
+          inv.client.companyName,
+          inv.billingPeriodStart?.toISOString().slice(0, 10) ?? "",
+          inv.billingPeriodEnd?.toISOString().slice(0, 10) ?? "",
+          Number(inv.totalAmount).toFixed(2),
+          paid.toFixed(2),
+          inv.dueDate?.toISOString().slice(0, 10) ?? "",
+          inv.status,
+        ];
+      }),
+    );
+    return ok({ csv });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function createClientPayment(input: ClientPaymentFormInput): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();

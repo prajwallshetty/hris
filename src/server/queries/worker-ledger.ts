@@ -36,7 +36,8 @@ export type WorkerLedgerType =
   | "DEDUCTION"
   | "CORRECTION"
   | "RECURRING_CHARGE"
-  | "FINAL_SETTLEMENT";
+  | "FINAL_SETTLEMENT"
+  | "VOIDED_PAYMENT";
 
 export type WorkerLedgerEntry = {
   id: string;
@@ -133,6 +134,28 @@ export async function getWorkerLedger(user: SessionUser, workerId: string): Prom
       siteId: null,
       siteName: null,
     });
+
+    // Voiding never deletes the original debit above (full audit trail) —
+    // it adds a compensating credit at the void date instead, so the
+    // running balance is correct from that point forward without ever
+    // rewriting the historical payment entry (§ never overwrite history).
+    if (p.voidedAt) {
+      entries.push({
+        id: `payment-void-${p.id}`,
+        date: p.voidedAt,
+        type: "VOIDED_PAYMENT",
+        description: `Payment voided${p.voidReason ? ` — ${p.voidReason}` : ""}`,
+        debit: 0,
+        credit: Number(p.amount),
+        reference: p.referenceNumber,
+        payrollPeriodId: p.workerPayrollId,
+        payrollPeriodName: p.workerPayroll?.payrollPeriod.name ?? null,
+        clientId: null,
+        clientName: null,
+        siteId: null,
+        siteName: null,
+      });
+    }
   }
 
   for (const a of advances) {

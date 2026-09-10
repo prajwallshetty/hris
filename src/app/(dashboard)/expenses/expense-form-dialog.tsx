@@ -26,7 +26,7 @@ import {
   type ExpenseFormInput,
   type ExpenseFormValues,
 } from "@/lib/validation/expense";
-import { createExpense } from "@/server/actions/expenses";
+import { createExpense, updateExpense } from "@/server/actions/expenses";
 
 type ClientTree = { id: string; companyName: string; projects: { id: string; name: string; sites: { id: string; name: string }[] }[] };
 type WorkerOption = { id: string; fullName: string };
@@ -36,15 +36,27 @@ export function ExpenseFormDialog({
   clients,
   workers,
   coordinators,
+  expenseId,
+  defaultValues,
+  trigger,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   clients: ClientTree[];
   workers: WorkerOption[];
   coordinators: Coordinator[];
+  expenseId?: string;
+  defaultValues?: ExpenseFormValues;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
-  const defaults: ExpenseFormValues = {
+  const defaults: ExpenseFormValues = defaultValues ?? {
     category: "OTHER",
     amount: 0,
     date: today,
@@ -64,11 +76,11 @@ export function ExpenseFormDialog({
   const sites = useMemo(() => clients.find((c) => c.id === clientId)?.projects.flatMap((p) => p.sites) ?? [], [clients, clientId]);
 
   async function onSubmit(values: ExpenseFormInput) {
-    const result = await createExpense(values);
+    const result = expenseId ? await updateExpense(expenseId, values) : await createExpense(values);
     if (result.success) {
-      toast.success("Expense recorded.");
+      toast.success(expenseId ? "Expense updated." : "Expense recorded.");
       setOpen(false);
-      form.reset(defaults);
+      if (!expenseId) form.reset(defaults);
       router.refresh();
     } else {
       toast.error(result.error);
@@ -77,17 +89,20 @@ export function ExpenseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button>
-            <Plus className="size-4" />
-            Add Expense
-          </Button>
-        }
-      />
+      {trigger && <DialogTrigger render={trigger} />}
+      {!trigger && !expenseId && (
+        <DialogTrigger
+          render={
+            <Button>
+              <Plus className="size-4" />
+              Add Expense
+            </Button>
+          }
+        />
+      )}
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Expense</DialogTitle>
+          <DialogTitle>{expenseId ? "Edit Expense" : "Add Expense"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -212,7 +227,7 @@ export function ExpenseFormDialog({
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              Add Expense
+              {expenseId ? "Save Changes" : "Add Expense"}
             </Button>
           </DialogFooter>
         </form>

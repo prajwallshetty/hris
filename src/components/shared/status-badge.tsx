@@ -52,6 +52,9 @@ const STATUS_TONES: Record<string, Tone> = {
   FULLY_REPAID: "success",
   WRITTEN_OFF: "destructive",
 
+  // Payments
+  VOIDED: "destructive",
+
   // Invoices
   ISSUED: "info",
   OVERDUE: "destructive",

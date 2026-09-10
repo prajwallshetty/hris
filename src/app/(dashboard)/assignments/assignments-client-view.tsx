@@ -829,6 +829,7 @@ export function AssignmentsClientView({
           }
         }}
         canEnd={canEnd}
+        coordinators={coordinators}
       />
     </div>
   );

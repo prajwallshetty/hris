@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { PageHeader } from "@/components/shared/page-header";
+import { SendDocumentDialog } from "@/components/shared/send-document-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,16 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 View / Print Invoice
               </Button>
             </Link>
+            {invoice.status !== "DRAFT" && invoice.status !== "CANCELLED" && (
+              <SendDocumentDialog
+                documentLabel={`Invoice #${invoice.sequenceNo}`}
+                documentUrl={`/invoices/${invoice.id}/document`}
+                recipientName={invoice.client.companyName}
+                mobileNumber={invoice.client.phone ?? undefined}
+                emailSubject={`Invoice #${invoice.sequenceNo} — ${invoice.client.companyName}`}
+                message={`Hello ${invoice.client.companyName}, please find your invoice #${invoice.sequenceNo} for ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(invoice.billingPeriodEnd)}. Total: ${formatMoney(invoice.totalAmount)}. Outstanding: ${formatMoney(outstanding)}.`}
+              />
+            )}
             {canUpdate && invoice.status === "DRAFT" && (
               <>
                 <ConfirmActionButton

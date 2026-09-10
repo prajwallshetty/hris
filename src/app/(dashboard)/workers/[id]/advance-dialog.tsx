@@ -20,13 +20,31 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { advanceFormSchema, type AdvanceFormInput, type AdvanceFormValues } from "@/lib/validation/finance";
-import { createAdvance } from "@/server/actions/finance";
+import { createAdvance, updateAdvance } from "@/server/actions/finance";
 
-export function AdvanceDialog({ workerId, employeeId }: { workerId?: string; employeeId?: string }) {
-  const [open, setOpen] = useState(false);
+export function AdvanceDialog({
+  workerId,
+  employeeId,
+  advanceId,
+  defaultValues,
+  trigger,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+}: {
+  workerId?: string;
+  employeeId?: string;
+  advanceId?: string;
+  defaultValues?: AdvanceFormValues;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
-  const defaults: AdvanceFormValues = {
+  const defaults: AdvanceFormValues = defaultValues ?? {
     workerId: workerId ?? "",
     employeeId: employeeId ?? "",
     amount: 0,
@@ -40,11 +58,11 @@ export function AdvanceDialog({ workerId, employeeId }: { workerId?: string; emp
   const { errors, isSubmitting } = form.formState;
 
   async function onSubmit(values: AdvanceFormInput) {
-    const result = await createAdvance(values);
+    const result = advanceId ? await updateAdvance(advanceId, values) : await createAdvance(values);
     if (result.success) {
-      toast.success("Advance recorded.");
+      toast.success(advanceId ? "Advance updated." : "Advance recorded.");
       setOpen(false);
-      form.reset(defaults);
+      if (!advanceId) form.reset(defaults);
       router.refresh();
     } else {
       toast.error(result.error);
@@ -53,10 +71,11 @@ export function AdvanceDialog({ workerId, employeeId }: { workerId?: string; emp
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm">Give Advance</Button>} />
+      {trigger && <DialogTrigger render={trigger} />}
+      {!trigger && !advanceId && <DialogTrigger render={<Button size="sm">Give Advance</Button>} />}
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Record Advance</DialogTitle>
+          <DialogTitle>{advanceId ? "Edit Advance" : "Record Advance"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FieldGroup>
@@ -81,7 +100,7 @@ export function AdvanceDialog({ workerId, employeeId }: { workerId?: string; emp
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              Record Advance
+              {advanceId ? "Save Changes" : "Record Advance"}
             </Button>
           </DialogFooter>
         </form>

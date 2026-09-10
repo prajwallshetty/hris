@@ -27,12 +27,20 @@ export function ClientFormDialog({
   trigger,
   clientId,
   defaultValues,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
-  trigger: React.ReactElement;
+  trigger?: React.ReactElement;
   clientId?: string;
   defaultValues?: Partial<ClientFormInput>;
+  /** Pass these to drive the dialog from outside (e.g. a "…" row menu) —
+   * omit them and the dialog manages its own open state via `trigger`. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const router = useRouter();
   const form = useForm<ClientFormInput>({
     resolver: zodResolver(clientFormSchema),
@@ -67,7 +75,7 @@ export function ClientFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{clientId ? "Edit Client" : "Add Client"}</DialogTitle>

@@ -24,6 +24,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { endAssignment } from "@/server/actions/assignments";
 
+import { EditAssignmentDialog } from "./edit-assignment-dialog";
+
 type AssignmentDetailData = {
   assignment: {
     id: string;
@@ -138,11 +140,13 @@ export function AssignmentDetailDrawer({
   open,
   onOpenChange,
   canEnd,
+  coordinators,
 }: {
   data: AssignmentDetailData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   canEnd: boolean;
+  coordinators: { id: string; name: string }[];
 }) {
   if (!data) return null;
 
@@ -176,19 +180,32 @@ export function AssignmentDetailDrawer({
             </div>
 
             {canEnd && assignment.status === "ACTIVE" && (
-              <ConfirmActionButton
-                trigger={
-                  <Button variant="outline" size="sm" className="shrink-0 text-destructive hover:bg-destructive/10">
-                    End Assignment
-                  </Button>
-                }
-                title="End this assignment?"
-                description={`${assignment.worker.fullName} will be marked as ended at ${assignment.site.name}.`}
-                confirmLabel="End Assignment"
-                variant="destructive"
-                action={endAssignment.bind(null, assignment.id, undefined)}
-                successMessage="Assignment ended successfully."
-              />
+              <div className="flex shrink-0 items-center gap-2">
+                <EditAssignmentDialog
+                  assignmentId={assignment.id}
+                  coordinators={coordinators}
+                  defaultValues={{
+                    designation: assignment.designation ?? "",
+                    workerHourlyRate: Number(assignment.workerHourlyRate),
+                    clientBillingRate: Number(assignment.clientBillingRate),
+                    coordinatorId: assignment.coordinator?.id ?? "",
+                    notes: assignment.notes ?? "",
+                  }}
+                />
+                <ConfirmActionButton
+                  trigger={
+                    <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10">
+                      End Assignment
+                    </Button>
+                  }
+                  title="End this assignment?"
+                  description={`${assignment.worker.fullName} will be marked as ended at ${assignment.site.name}.`}
+                  confirmLabel="End Assignment"
+                  variant="destructive"
+                  action={endAssignment.bind(null, assignment.id, undefined)}
+                  successMessage="Assignment ended successfully."
+                />
+              </div>
             )}
           </div>
 
@@ -378,7 +395,7 @@ export function AssignmentDetailDrawer({
             <TabsContent value="history" className="pt-2">
               <div className="rounded-lg border overflow-hidden">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="top-0">
                     <TableRow>
                       <TableHead className="text-xs">Client / Site</TableHead>
                       <TableHead className="text-xs">Start Date</TableHead>
@@ -421,7 +438,7 @@ export function AssignmentDetailDrawer({
               ) : (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="top-0">
                       <TableRow>
                         <TableHead className="text-xs">Date</TableHead>
                         <TableHead className="text-xs">Site</TableHead>
@@ -460,7 +477,7 @@ export function AssignmentDetailDrawer({
               ) : (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="top-0">
                       <TableRow>
                         <TableHead className="text-xs">Period</TableHead>
                         <TableHead className="text-xs text-right">Reg. Hours</TableHead>

@@ -2,12 +2,14 @@ import { Banknote } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { SelectFilter } from "@/components/shared/select-filter";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/server/rbac";
+import { exportPayrollPeriodsCsv } from "@/server/actions/payroll";
 import { listPayrollPeriods } from "@/server/queries/payroll";
 import { getSessionUser } from "@/server/session";
 
@@ -41,17 +43,24 @@ export default async function PayrollPage({
         actions={canCreate && <PayrollPeriodFormDialog />}
       />
 
-      <SelectFilter
-        paramKey="status"
-        placeholder="Status"
-        options={[
-          { label: "Draft", value: "DRAFT" },
-          { label: "Review", value: "REVIEW" },
-          { label: "Approved", value: "APPROVED" },
-          { label: "Paid", value: "PAID" },
-          { label: "Partially Paid", value: "PARTIALLY_PAID" },
-        ]}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <SelectFilter
+          paramKey="status"
+          placeholder="Status"
+          options={[
+            { label: "Draft", value: "DRAFT" },
+            { label: "Review", value: "REVIEW" },
+            { label: "Approved", value: "APPROVED" },
+            { label: "Paid", value: "PAID" },
+            { label: "Partially Paid", value: "PARTIALLY_PAID" },
+          ]}
+        />
+        <ExportCsvButton
+          action={exportPayrollPeriodsCsv.bind(null, (params.status as never) ?? "ALL")}
+          filename="payroll-periods.csv"
+          label="Export"
+        />
+      </div>
 
       {periods.length === 0 ? (
         <EmptyState

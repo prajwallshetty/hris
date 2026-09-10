@@ -1,10 +1,11 @@
 "use server";
 
 import { Decimal } from "decimal.js";
-import type { Prisma, PayrollItemType } from "@prisma/client";
+import type { Prisma, PayrollItemType, PayrollStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { toCsv } from "@/lib/csv";
 import {
   applyRepaymentFormSchema,
   generatePayrollFormSchema,
@@ -18,6 +19,7 @@ import {
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { calculateLeaveDeduction, calculateWorkerPayroll } from "@/server/calc";
+import { listPayrollPeriods } from "@/server/queries/payroll";
 import { buildWorkerPayrollDraft, type AssignmentHoursGroup } from "@/server/payroll/build-worker-payroll";
 import { assertCan } from "@/server/rbac";
 import { getActiveOvertimeRule, toOvertimeRuleConfig } from "@/server/queries/settings";
@@ -106,6 +108,29 @@ export async function createPayrollPeriod(input: PayrollPeriodFormInput): Promis
  * afterward during Review, since only a human should decide how much of an
  * advance balance to collect this period.
  */
+// Ignores pagination so a filtered CSV export always reflects every
+// matching row, not just the current page (§14 — filtered download must
+// reflect exactly what's filtered).
+export async function exportPayrollPeriodsCsv(status?: PayrollStatus | "ALL"): Promise<ActionResult<{ csv: string }>> {
+  try {
+    const user = await getSessionUser();
+    const { periods } = await listPayrollPeriods(user, { status: status ?? "ALL", page: 1, pageSize: 100000 });
+    const csv = toCsv(
+      ["Period", "Start", "End", "Workers", "Status"],
+      periods.map((p) => [
+        p.name,
+        p.periodStart.toISOString().slice(0, 10),
+        p.periodEnd.toISOString().slice(0, 10),
+        p._count.workerPayrolls,
+        p.status,
+      ]),
+    );
+    return ok({ csv });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function generateWorkerPayroll(
   input: GeneratePayrollFormInput,
 ): Promise<ActionResult<{ generated: number; skippedAlreadyGenerated: number }>> {

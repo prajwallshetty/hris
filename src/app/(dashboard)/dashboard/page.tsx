@@ -8,6 +8,7 @@ import {
   HandCoins,
   MapPin,
   Receipt,
+  CalendarClock,
   Timer,
   TrendingUp,
   UserCheck,
@@ -31,6 +32,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { auth } from "@/auth";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { formatWorkerCode } from "@/lib/codes";
+import { cn } from "@/lib/utils";
 import { can } from "@/server/rbac";
 import {
   getClientProfitabilitySummary,
@@ -94,6 +96,12 @@ export default async function DashboardPage() {
 
   const pendingApprovals = notifications.filter((n) => APPROVAL_TITLES.has(n.title));
   const overduePayments = notifications.filter((n) => OVERDUE_TITLES.has(n.title));
+  // Everything else notifications already computes — Iqama/passport/
+  // contract/vehicle-document/equipment-document expiries and vehicle/
+  // equipment maintenance due dates — surfaced as its own section instead
+  // of silently dropped, using the complement of the two named sets so a
+  // future notification type is never invisible-by-default.
+  const upcomingExpiries = notifications.filter((n) => !APPROVAL_TITLES.has(n.title) && !OVERDUE_TITLES.has(n.title));
 
   const totals = profitability.reduce(
     (acc, row) => ({
@@ -230,7 +238,7 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Pending Approvals</CardTitle>
@@ -269,6 +277,30 @@ export default async function DashboardPage() {
                     <Link href={item.href} className="hover:bg-muted/50 -mx-2 flex items-start justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
                       <span className="min-w-0">
                         <span className="text-destructive block font-medium">{item.title}</span>
+                        <span className="text-muted-foreground block truncate">{item.message}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Upcoming Expiries</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {upcomingExpiries.length === 0 ? (
+              <EmptyState icon={CalendarClock} title="Nothing expiring soon" description="Iqamas, passports, contracts, and fleet documents are all current." />
+            ) : (
+              <ul className="divide-y">
+                {upcomingExpiries.slice(0, 6).map((item) => (
+                  <li key={item.id}>
+                    <Link href={item.href} className="hover:bg-muted/50 -mx-2 flex items-start justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
+                      <span className="min-w-0">
+                        <span className={cn("block font-medium", item.severity === "critical" && "text-destructive")}>{item.title}</span>
                         <span className="text-muted-foreground block truncate">{item.message}</span>
                       </span>
                     </Link>

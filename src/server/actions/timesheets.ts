@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { toCsv } from "@/lib/csv";
 import {
   manualTimesheetItemFormSchema,
   timesheetItemDecisionSchema,
@@ -26,8 +27,69 @@ import {
   findWorkersByIqamas,
   getAssignedIqamasForSite,
   getExistingTimesheetKeys,
+  listTimesheetLog,
+  type TimesheetLogFilters,
 } from "@/server/queries/timesheets";
 import { getSessionUser } from "@/server/session";
+
+function formatDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+// Ignores pagination so a filtered CSV export always reflects every
+// matching entry, not just the current page (§14 — filtered download must
+// reflect exactly what's filtered). Same worker-rate/billing-rate/billing-
+// amount figures used everywhere else (assignment snapshot rates, hours ×
+// clientBillingRate — the same formula buildInvoiceDraft uses), not a
+// separately invented calculation.
+export async function exportTimesheetLogCsv(filters: TimesheetLogFilters): Promise<ActionResult<{ csv: string }>> {
+  try {
+    const user = await getSessionUser();
+    const { items } = await listTimesheetLog(user, { ...filters, page: 1, pageSize: 100000 });
+    const csv = toCsv(
+      [
+        "Date",
+        "Worker",
+        "Iqama",
+        "Client",
+        "Site",
+        "Coordinator",
+        "Regular Hours",
+        "OT Hours",
+        "Total Hours",
+        "Worker Rate",
+        "PU Rate",
+        "Billing Amount",
+        "Status",
+      ],
+      items.map((item) => {
+        const client = item.timesheet.site?.project.client.companyName ?? "";
+        const site = item.timesheet.site?.name ?? "";
+        const workerRate = item.assignment?.workerHourlyRate;
+        const puRate = item.assignment?.clientBillingRate;
+        const billingAmount = puRate ? Number(item.totalHours) * Number(puRate) : "";
+        return [
+          formatDateOnly(item.date),
+          item.worker.fullName,
+          item.iqamaNumber,
+          client,
+          site,
+          item.assignment?.coordinator?.name ?? "",
+          Number(item.regularHours).toFixed(2),
+          Number(item.overtimeHours).toFixed(2),
+          Number(item.totalHours).toFixed(2),
+          workerRate ? Number(workerRate).toFixed(2) : "",
+          puRate ? Number(puRate).toFixed(2) : "",
+          typeof billingAmount === "number" ? billingAmount.toFixed(2) : "",
+          item.status,
+        ];
+      }),
+    );
+    return ok({ csv });
+  } catch (error) {
+    return actionError(error);
+  }
+}
 
 function combineLocalTime(date: Date, time: string): Date {
   const [hours, minutes] = time.split(":").map(Number);

@@ -20,14 +20,17 @@ import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline } from "@/components/shared/timeline";
 import { ClientProfitabilityChart } from "@/components/shared/charts/client-profitability-chart";
 import { RevenueCostTrendCard } from "@/components/shared/charts/revenue-cost-trend-card";
 import { WorkersByClientChart } from "@/components/shared/charts/workers-by-client-chart";
 import { WorkersByStatusChart } from "@/components/shared/charts/workers-by-status-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { auth } from "@/auth";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
+import { formatWorkerCode } from "@/lib/codes";
 import { can } from "@/server/rbac";
 import {
   getClientProfitabilitySummary,
@@ -40,6 +43,7 @@ import {
   getWorkersByStatus,
 } from "@/server/queries/dashboard";
 import { getNotifications } from "@/server/queries/notifications";
+import { listWorkers } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
 
 function formatMoney(value: number) {
@@ -72,8 +76,9 @@ export default async function DashboardPage() {
   const showCommissionKpi = can(user, "view", "commission");
   const showExpenseKpi = can(user, "view", "expense");
   const showFleetKpis = can(user, "view", "vehicle") || can(user, "view", "equipment");
+  const showRecentWorkers = can(user, "view", "worker");
 
-  const [counts, workersByStatus, workersByClient, profitability, financeKpis, fleetCounts, trend, auditLog, notifications] =
+  const [counts, workersByStatus, workersByClient, profitability, financeKpis, fleetCounts, trend, auditLog, notifications, recentWorkers] =
     await Promise.all([
       getDashboardCounts(user),
       getWorkersByStatus(user),
@@ -84,6 +89,7 @@ export default async function DashboardPage() {
       showFinancials ? getRevenueCostTrend(user, 24) : Promise.resolve([]),
       showAuditLog ? getRecentAuditLog(8) : Promise.resolve([]),
       getNotifications(user),
+      showRecentWorkers ? listWorkers(user, { page: 1, pageSize: 6 }) : Promise.resolve(null),
     ]);
 
   const pendingApprovals = notifications.filter((n) => APPROVAL_TITLES.has(n.title));
@@ -99,71 +105,88 @@ export default async function DashboardPage() {
     { revenue: 0, workerCost: 0, outstanding: 0, profit: 0 },
   );
 
-  return (
-    <div className="space-y-6">
-      <PageHeader title={`${greeting()}, ${firstName}`} description="Here's what's happening across your workforce today." />
+  const todayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <KpiCard href="/workers" label="Total Workers" value={counts.totalWorkers.toLocaleString()} icon={Users} />
-        <KpiCard
-          href="/workers?status=ACTIVE"
-          label="Active Workers"
-          value={counts.activeWorkers.toLocaleString()}
-          icon={UserCheck}
-        />
-        <KpiCard href="/clients" label="Clients" value={counts.totalClients.toLocaleString()} icon={Building2} />
-        <KpiCard href="/clients" label="Sites" value={counts.totalSites.toLocaleString()} icon={MapPin} />
-        <KpiCard
-          href="/assignments?status=ACTIVE"
-          label="Active Assignments"
-          value={counts.activeAssignments.toLocaleString()}
-          icon={ClipboardList}
-        />
-      </div>
+  return (
+    <div className="space-y-7">
+      <PageHeader
+        title={`${greeting()}, ${firstName}`}
+        description={`Here's what's happening across your workforce — ${todayLabel}.`}
+      />
+
+      {showFinancials && trend.length > 0 && <RevenueCostTrendCard data={trend} />}
+
+      <section className="space-y-3">
+        <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Workforce</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <KpiCard href="/workers" label="Total Workers" value={counts.totalWorkers.toLocaleString()} icon={Users} />
+          <KpiCard
+            href="/workers?status=ACTIVE"
+            label="Active Workers"
+            value={counts.activeWorkers.toLocaleString()}
+            icon={UserCheck}
+          />
+          <KpiCard href="/clients" label="Clients" value={counts.totalClients.toLocaleString()} icon={Building2} />
+          <KpiCard href="/clients" label="Sites" value={counts.totalSites.toLocaleString()} icon={MapPin} />
+          <KpiCard
+            href="/assignments?status=ACTIVE"
+            label="Active Assignments"
+            value={counts.activeAssignments.toLocaleString()}
+            icon={ClipboardList}
+          />
+        </div>
+      </section>
 
       {financeKpis && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {showTimesheetKpi && (
-            <KpiCard href="/timesheets" label="Approved Hours" value={financeKpis.totalHours.toLocaleString(undefined, { maximumFractionDigits: 0 })} icon={Clock} />
-          )}
-          {showPayrollKpi && <KpiCard href="/payroll" label="Total Payroll" value={formatMoney(financeKpis.totalPayroll)} icon={Wallet} />}
-          {showCommissionKpi && (
-            <KpiCard href="/coordinators" label="Commission" value={formatMoney(financeKpis.totalCommission)} icon={HandCoins} />
-          )}
-          {showExpenseKpi && <KpiCard href="/expenses" label="Expenses" value={formatMoney(financeKpis.totalExpenses)} icon={Receipt} />}
-        </div>
-      )}
-
-      {fleetCounts && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <KpiCard href="/vehicles" label="Vehicles" value={fleetCounts.totalVehicles.toLocaleString()} icon={Car} />
-          <KpiCard
-            href="/vehicles?status=ASSIGNED"
-            label="Vehicles Deployed"
-            value={fleetCounts.vehiclesDeployed.toLocaleString()}
-            icon={Car}
-          />
-          <KpiCard href="/equipment" label="Equipment" value={fleetCounts.totalEquipment.toLocaleString()} icon={Wrench} />
-          <KpiCard
-            href="/equipment?status=RENTED"
-            label="Equipment Rented"
-            value={fleetCounts.equipmentRented.toLocaleString()}
-            icon={Wrench}
-          />
-          <KpiCard href="/rentals" label="Active Rentals" value={fleetCounts.activeRentals.toLocaleString()} icon={Timer} />
-        </div>
+        <section className="space-y-3">
+          <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Finance</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {showTimesheetKpi && (
+              <KpiCard href="/timesheets" label="Approved Hours" value={financeKpis.totalHours.toLocaleString(undefined, { maximumFractionDigits: 0 })} icon={Clock} />
+            )}
+            {showPayrollKpi && <KpiCard href="/payroll" label="Total Payroll" value={formatMoney(financeKpis.totalPayroll)} icon={Wallet} />}
+            {showCommissionKpi && (
+              <KpiCard href="/coordinators" label="Commission" value={formatMoney(financeKpis.totalCommission)} icon={HandCoins} />
+            )}
+            {showExpenseKpi && <KpiCard href="/expenses" label="Expenses" value={formatMoney(financeKpis.totalExpenses)} icon={Receipt} />}
+          </div>
+        </section>
       )}
 
       {showFinancials && profitability.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard href="/invoices" label="Revenue" value={formatMoney(totals.revenue)} icon={TrendingUp} />
-          <KpiCard href="/payroll" label="Worker Cost" value={formatMoney(totals.workerCost)} icon={Wallet} />
-          <KpiCard href="/invoices" label="Outstanding" value={formatMoney(totals.outstanding)} icon={Banknote} />
-          <KpiCard href="/clients" label="Profit" value={formatMoney(totals.profit)} icon={TrendingUp} />
-        </div>
+        <section className="space-y-3">
+          <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Profitability</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <KpiCard href="/invoices" label="Revenue" value={formatMoney(totals.revenue)} icon={TrendingUp} />
+            <KpiCard href="/payroll" label="Worker Cost" value={formatMoney(totals.workerCost)} icon={Wallet} />
+            <KpiCard href="/invoices" label="Outstanding" value={formatMoney(totals.outstanding)} icon={Banknote} />
+            <KpiCard href="/clients" label="Profit" value={formatMoney(totals.profit)} icon={TrendingUp} />
+          </div>
+        </section>
       )}
 
-      {showFinancials && trend.length > 0 && <RevenueCostTrendCard data={trend} />}
+      {fleetCounts && (
+        <section className="space-y-3">
+          <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Fleet</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <KpiCard href="/vehicles" label="Vehicles" value={fleetCounts.totalVehicles.toLocaleString()} icon={Car} />
+            <KpiCard
+              href="/vehicles?status=ASSIGNED"
+              label="Vehicles Deployed"
+              value={fleetCounts.vehiclesDeployed.toLocaleString()}
+              icon={Car}
+            />
+            <KpiCard href="/equipment" label="Equipment" value={fleetCounts.totalEquipment.toLocaleString()} icon={Wrench} />
+            <KpiCard
+              href="/equipment?status=RENTED"
+              label="Equipment Rented"
+              value={fleetCounts.equipmentRented.toLocaleString()}
+              icon={Wrench}
+            />
+            <KpiCard href="/rentals" label="Active Rentals" value={fleetCounts.activeRentals.toLocaleString()} icon={Timer} />
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
@@ -272,6 +295,59 @@ export default async function DashboardPage() {
               }))}
               emptyMessage="No activity yet"
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {recentWorkers && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">Recent Workers</CardTitle>
+            <Link href="/workers" className="text-primary text-xs font-medium hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {recentWorkers.workers.length === 0 ? (
+              <EmptyState icon={Users} title="No workers yet" description="Workers you add will show up here." />
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Worker</TableHead>
+                      <TableHead>Iqama</TableHead>
+                      <TableHead>Designation</TableHead>
+                      <TableHead>Client / Site</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentWorkers.workers.map((w) => {
+                      const assignment = w.assignments[0];
+                      return (
+                        <TableRow key={w.id}>
+                          <TableCell>
+                            <Link href={`/workers/${w.id}`} className="font-medium hover:underline">
+                              {w.fullName}
+                            </Link>
+                            <span className="text-muted-foreground ml-1.5 text-xs">{formatWorkerCode(w.sequenceNo)}</span>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{w.iqamaNumber}</TableCell>
+                          <TableCell className="text-muted-foreground">{w.designation?.title ?? "—"}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {assignment ? `${assignment.client.companyName} / ${assignment.site.name}` : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={w.status} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

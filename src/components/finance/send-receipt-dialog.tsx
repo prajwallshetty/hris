@@ -42,7 +42,7 @@ export function SendReceiptDialog({
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const receiptUrl = `${origin}/api/payments/${paymentId}/receipt`;
 
-  const messageText = `Hello ${recipientName},\n\nYour salary payment receipt (${receiptNumber}) of SAR ${amount.toLocaleString("en-US", { minimumFractionDigits: 2 })} for ${payrollPeriodName} has been processed successfully.\n\nView/Download Receipt:\n${receiptUrl}\n\nThank you,\nGrowthBridge HRIS`;
+  const messageText = `Hello ${recipientName},\n\nYour salary payment receipt (${receiptNumber}) of SAR ${amount.toLocaleString("en-US", { minimumFractionDigits: 2 })} for ${payrollPeriodName} has been processed successfully.\n\nView/Download Receipt:\n${receiptUrl}\n\nThank you,\nExpand Arabia HRIS`;
 
   // Format clean phone number for WhatsApp wa.me
   const cleanPhone = phone.replace(/[^0-9]/g, "");

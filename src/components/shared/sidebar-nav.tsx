@@ -21,11 +21,11 @@ export function SidebarNav({
   const groups = navGroupsForRole(role);
 
   return (
-    <nav className="flex flex-col gap-4">
+    <nav className="flex flex-col gap-3.5">
       {groups.map((group) => (
-        <div key={group.label} className="flex flex-col gap-1">
+        <div key={group.label} className="flex flex-col gap-0.5">
           {!collapsed && (
-            <p className="text-muted-foreground px-3 pb-1 text-[11px] font-semibold tracking-wide uppercase">
+            <p className="text-muted-foreground/80 px-3 pb-1 text-[10.5px] font-semibold tracking-wider uppercase">
               {group.label}
             </p>
           )}
@@ -38,7 +38,7 @@ export function SidebarNav({
                 onClick={onNavigate}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "relative flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
                   collapsed && "justify-center px-2",
                   isActive
                     ? "bg-accent text-primary before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"

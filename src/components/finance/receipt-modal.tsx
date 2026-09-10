@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, Printer, Send } from "lucide-react";
+import { FileText, Printer } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";

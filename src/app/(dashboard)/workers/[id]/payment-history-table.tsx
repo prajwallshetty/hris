@@ -4,6 +4,7 @@ import { Download, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { ReceiptModal } from "@/components/finance/receipt-modal";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +56,17 @@ function toCsv(rows: PaymentHistoryRow[]): string {
  * per linked payroll, CSV export, and a receipt link per transaction. All
  * client-side over the same rows the server already loaded — no extra
  * round trip for filtering. */
-export function PaymentHistoryTable({ workerId, rows }: { workerId: string; rows: PaymentHistoryRow[] }) {
+export function PaymentHistoryTable({
+  workerId,
+  workerName,
+  workerMobile,
+  rows,
+}: {
+  workerId: string;
+  workerName: string;
+  workerMobile?: string | null;
+  rows: PaymentHistoryRow[];
+}) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
 
@@ -148,11 +159,20 @@ export function PaymentHistoryTable({ workerId, rows }: { workerId: string; rows
                     {r.balance !== null ? formatMoney(r.balance) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      render={<Link href={`/workers/${workerId}/payments/${r.id}/receipt`}>View</Link>}
-                    />
+                    <div className="flex items-center justify-end gap-1">
+                      <ReceiptModal
+                        paymentId={r.id}
+                        recipientName={workerName}
+                        mobileNumber={workerMobile ?? undefined}
+                        amount={r.amount}
+                        payrollPeriodName={r.payrollPeriodName ?? "Direct Payment"}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        render={<Link href={`/workers/${workerId}/payments/${r.id}/receipt`}>View</Link>}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

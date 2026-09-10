@@ -950,6 +950,9 @@ model WorkerPayment {
 
   createdById  String?
   approvedById String?
+  voidedAt     DateTime?
+  voidReason   String?
+  voidedById   String?
 
   createdAt DateTime @default(now())
 
@@ -958,6 +961,7 @@ model WorkerPayment {
   @@index([employeeId])
   @@index([employeePayrollId])
   @@index([receiptNumber])
+  @@index([voidedAt])
 }
 
 model ClientPayment {

@@ -120,6 +120,56 @@ export async function createProject(input: ProjectFormInput): Promise<ActionResu
   }
 }
 
+export async function updateProject(id: string, input: ProjectFormInput): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "project");
+    const data = projectFormSchema.parse(input);
+
+    const before = await db.project.findUniqueOrThrow({ where: { id } });
+    const project = await db.project.update({ where: { id }, data: { name: data.name, status: data.status } });
+
+    await logAudit({
+      userId: user.id,
+      action: "update",
+      entityType: "Project",
+      entityId: project.id,
+      previousValue: before,
+      newValue: data,
+    });
+    revalidatePath(`/clients/${data.clientId}`);
+    return ok({ id: project.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function archiveProject(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "archive", "project");
+    const project = await db.project.update({ where: { id }, data: { deletedAt: new Date() } });
+    await logAudit({ userId: user.id, action: "archive", entityType: "Project", entityId: project.id });
+    revalidatePath(`/clients/${project.clientId}`);
+    return ok({ id: project.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function reactivateProject(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "project");
+    const project = await db.project.update({ where: { id }, data: { deletedAt: null } });
+    await logAudit({ userId: user.id, action: "reactivate", entityType: "Project", entityId: project.id });
+    revalidatePath(`/clients/${project.clientId}`);
+    return ok({ id: project.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function createSite(input: SiteFormInput): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();
@@ -133,6 +183,62 @@ export async function createSite(input: SiteFormInput): Promise<ActionResult<{ i
     const project = await db.project.findUniqueOrThrow({ where: { id: data.projectId } });
 
     await logAudit({ userId: user.id, action: "create", entityType: "Site", entityId: site.id, newValue: data });
+    revalidatePath(`/clients/${project.clientId}`);
+    return ok({ id: site.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateSite(id: string, input: SiteFormInput): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "site");
+    const data = siteFormSchema.parse(input);
+
+    const before = await db.site.findUniqueOrThrow({ where: { id } });
+    const site = await db.site.update({
+      where: { id },
+      data: { name: data.name, location: data.location || null, status: data.status },
+    });
+    const project = await db.project.findUniqueOrThrow({ where: { id: site.projectId } });
+
+    await logAudit({
+      userId: user.id,
+      action: "update",
+      entityType: "Site",
+      entityId: site.id,
+      previousValue: before,
+      newValue: data,
+    });
+    revalidatePath(`/clients/${project.clientId}`);
+    return ok({ id: site.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function archiveSite(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "archive", "site");
+    const site = await db.site.update({ where: { id }, data: { deletedAt: new Date() } });
+    const project = await db.project.findUniqueOrThrow({ where: { id: site.projectId } });
+    await logAudit({ userId: user.id, action: "archive", entityType: "Site", entityId: site.id });
+    revalidatePath(`/clients/${project.clientId}`);
+    return ok({ id: site.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function reactivateSite(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "site");
+    const site = await db.site.update({ where: { id }, data: { deletedAt: null } });
+    const project = await db.project.findUniqueOrThrow({ where: { id: site.projectId } });
+    await logAudit({ userId: user.id, action: "reactivate", entityType: "Site", entityId: site.id });
     revalidatePath(`/clients/${project.clientId}`);
     return ok({ id: site.id });
   } catch (error) {

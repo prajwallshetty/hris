@@ -29,11 +29,9 @@ export async function getClient(user: SessionUser, id: string) {
     where: { id, deletedAt: null, ...clientScopeWhere(user) },
     include: {
       projects: {
-        where: { deletedAt: null },
         orderBy: { name: "asc" },
         include: {
           sites: {
-            where: { deletedAt: null },
             orderBy: { name: "asc" },
             include: {
               _count: {

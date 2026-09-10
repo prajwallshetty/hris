@@ -20,13 +20,31 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { loanFormSchema, type LoanFormInput, type LoanFormValues } from "@/lib/validation/finance";
-import { createLoan } from "@/server/actions/finance";
+import { createLoan, updateLoan } from "@/server/actions/finance";
 
-export function LoanDialog({ workerId, employeeId }: { workerId?: string; employeeId?: string }) {
-  const [open, setOpen] = useState(false);
+export function LoanDialog({
+  workerId,
+  employeeId,
+  loanId,
+  defaultValues,
+  trigger,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+}: {
+  workerId?: string;
+  employeeId?: string;
+  loanId?: string;
+  defaultValues?: LoanFormValues;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
-  const defaults: LoanFormValues = {
+  const defaults: LoanFormValues = defaultValues ?? {
     workerId: workerId ?? "",
     employeeId: employeeId ?? "",
     principalAmount: 0,
@@ -40,11 +58,11 @@ export function LoanDialog({ workerId, employeeId }: { workerId?: string; employ
   const { errors, isSubmitting } = form.formState;
 
   async function onSubmit(values: LoanFormInput) {
-    const result = await createLoan(values);
+    const result = loanId ? await updateLoan(loanId, values) : await createLoan(values);
     if (result.success) {
-      toast.success("Loan recorded.");
+      toast.success(loanId ? "Loan updated." : "Loan recorded.");
       setOpen(false);
-      form.reset(defaults);
+      if (!loanId) form.reset(defaults);
       router.refresh();
     } else {
       toast.error(result.error);
@@ -53,10 +71,11 @@ export function LoanDialog({ workerId, employeeId }: { workerId?: string; employ
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm">Give Loan</Button>} />
+      {trigger && <DialogTrigger render={trigger} />}
+      {!trigger && !loanId && <DialogTrigger render={<Button size="sm">Give Loan</Button>} />}
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Record Loan</DialogTitle>
+          <DialogTitle>{loanId ? "Edit Loan" : "Record Loan"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FieldGroup>
@@ -91,7 +110,7 @@ export function LoanDialog({ workerId, employeeId }: { workerId?: string; employ
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              Record Loan
+              {loanId ? "Save Changes" : "Record Loan"}
             </Button>
           </DialogFooter>
         </form>

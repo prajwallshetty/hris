@@ -1,15 +1,21 @@
-import { Receipt } from "lucide-react";
+import { Pencil, Receipt, XCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { RecordAvatarInitials, RecordHeader } from "@/components/shared/record-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calculateRepayableBalance } from "@/server/calc";
+import { writeOffAdvance } from "@/server/actions/finance";
+import { can } from "@/server/rbac";
 import { getAdvanceDetail } from "@/server/queries/worker-detail";
 import { getSessionUser } from "@/server/session";
+
+import { AdvanceDialog } from "../../advance-dialog";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
@@ -32,6 +38,8 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
   ).toNumber();
   const amount = Number(advance.amount);
   const progressPct = amount > 0 ? Math.min(100, Math.round((paid / amount) * 100)) : 0;
+  const canEdit = can(user, "update", "advance") && advance.repayments.length === 0;
+  const canWriteOff = can(user, "update", "advance") && advance.status === "ACTIVE";
 
   return (
     <div className="space-y-6">
@@ -47,6 +55,45 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
         title={`Advance — ${advance.worker!.fullName}`}
         badges={<StatusBadge status={advance.status} />}
         meta={<span>Given {formatDate(advance.dateGiven)}{advance.reason ? ` · ${advance.reason}` : ""}</span>}
+        actions={
+          <>
+            {canEdit && (
+              <AdvanceDialog
+                workerId={advance.workerId ?? undefined}
+                advanceId={advance.id}
+                defaultValues={{
+                  workerId: advance.workerId ?? "",
+                  employeeId: "",
+                  amount: amount,
+                  dateGiven: advance.dateGiven.toISOString().slice(0, 10),
+                  reason: advance.reason ?? "",
+                }}
+                trigger={
+                  <Button variant="outline">
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                }
+              />
+            )}
+            {canWriteOff && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <XCircle className="size-4" />
+                    Write Off
+                  </Button>
+                }
+                title="Write off this advance?"
+                description={`The remaining ${formatMoney(remaining)} will no longer be recovered from payroll. This cannot be undone.`}
+                confirmLabel="Write Off"
+                variant="destructive"
+                action={writeOffAdvance.bind(null, advance.id)}
+                successMessage="Advance written off."
+              />
+            )}
+          </>
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

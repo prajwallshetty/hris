@@ -1,15 +1,21 @@
-import { Receipt } from "lucide-react";
+import { Pencil, Receipt, XCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { RecordAvatarInitials, RecordHeader } from "@/components/shared/record-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calculateRepayableBalance } from "@/server/calc";
+import { writeOffLoan } from "@/server/actions/finance";
+import { can } from "@/server/rbac";
 import { getLoanDetail } from "@/server/queries/worker-detail";
 import { getSessionUser } from "@/server/session";
+
+import { LoanDialog } from "../../loan-dialog";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
@@ -35,6 +41,8 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
   const installmentAmount = loan.installmentAmount ? Number(loan.installmentAmount) : null;
   const installmentsRemaining = installmentAmount && installmentAmount > 0 ? Math.ceil(remaining / installmentAmount) : null;
   const nextDeduction = loan.status === "ACTIVE" && installmentAmount ? formatMoney(Math.min(installmentAmount, remaining)) : "—";
+  const canEdit = can(user, "update", "loan") && loan.repayments.length === 0;
+  const canWriteOff = can(user, "update", "loan") && loan.status === "ACTIVE";
 
   return (
     <div className="space-y-6">
@@ -50,6 +58,47 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
         title={`Loan — ${loan.worker!.fullName}`}
         badges={<StatusBadge status={loan.status} />}
         meta={<span>Given {formatDate(loan.dateGiven)}{loan.reason ? ` · ${loan.reason}` : ""}</span>}
+        actions={
+          <>
+            {canEdit && (
+              <LoanDialog
+                workerId={loan.workerId ?? undefined}
+                loanId={loan.id}
+                defaultValues={{
+                  workerId: loan.workerId ?? "",
+                  employeeId: "",
+                  principalAmount: principal,
+                  dateGiven: loan.dateGiven.toISOString().slice(0, 10),
+                  installments: loan.installments ?? undefined,
+                  installmentAmount: installmentAmount ?? undefined,
+                  reason: loan.reason ?? "",
+                }}
+                trigger={
+                  <Button variant="outline">
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                }
+              />
+            )}
+            {canWriteOff && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <XCircle className="size-4" />
+                    Write Off
+                  </Button>
+                }
+                title="Write off this loan?"
+                description={`The remaining ${formatMoney(remaining)} will no longer be recovered from payroll. This cannot be undone.`}
+                confirmLabel="Write Off"
+                variant="destructive"
+                action={writeOffLoan.bind(null, loan.id)}
+                successMessage="Loan written off."
+              />
+            )}
+          </>
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -40,12 +40,12 @@ export function DesktopSidebar({
   return (
     <aside
       className={cn(
-        "bg-sidebar hidden shrink-0 flex-col border-r transition-[width] duration-150 md:flex",
+        "bg-sidebar sticky top-0 hidden h-svh shrink-0 flex-col border-r transition-[width] duration-150 md:flex",
         collapsed ? "w-16" : "w-64",
         !mounted && "duration-0",
       )}
     >
-      <div className={cn("flex h-14 items-center gap-2 border-b px-4", collapsed && "justify-center px-2")}>
+      <div className={cn("flex h-16 items-center gap-2 border-b px-4", collapsed && "justify-center px-2")}>
         <Logo size={collapsed ? "collapsed" : "sidebar"} />
       </div>
 

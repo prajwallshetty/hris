@@ -395,7 +395,7 @@ export function AssignmentDetailDrawer({
             <TabsContent value="history" className="pt-2">
               <div className="rounded-lg border overflow-hidden">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="top-0">
                     <TableRow>
                       <TableHead className="text-xs">Client / Site</TableHead>
                       <TableHead className="text-xs">Start Date</TableHead>
@@ -438,7 +438,7 @@ export function AssignmentDetailDrawer({
               ) : (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="top-0">
                       <TableRow>
                         <TableHead className="text-xs">Date</TableHead>
                         <TableHead className="text-xs">Site</TableHead>
@@ -477,7 +477,7 @@ export function AssignmentDetailDrawer({
               ) : (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="top-0">
                       <TableRow>
                         <TableHead className="text-xs">Period</TableHead>
                         <TableHead className="text-xs text-right">Reg. Hours</TableHead>

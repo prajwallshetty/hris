@@ -1,4 +1,4 @@
-import { ClipboardList, Plus, Upload } from "lucide-react";
+import { ClipboardList, ListFilter, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -47,24 +47,30 @@ export default async function TimesheetsPage({
         title="Timesheets"
         description="Login-sheet uploads and manual attendance, from upload through approval and locking."
         actions={
-          canCreate && (
-            <>
-              <ManualTimesheetEntryDialog
-                clients={clients}
-                workers={workers}
-                trigger={
-                  <Button variant="outline">
-                    <Plus className="size-4" />
-                    Manual Entry
-                  </Button>
-                }
-              />
-              <Button render={<Link href="/timesheets/upload" />}>
-                <Upload className="size-4" />
-                Upload Login Sheet
-              </Button>
-            </>
-          )
+          <>
+            <Button variant="outline" render={<Link href="/timesheets/log" />}>
+              <ListFilter className="size-4" />
+              View Log
+            </Button>
+            {canCreate && (
+              <>
+                <ManualTimesheetEntryDialog
+                  clients={clients}
+                  workers={workers}
+                  trigger={
+                    <Button variant="outline">
+                      <Plus className="size-4" />
+                      Manual Entry
+                    </Button>
+                  }
+                />
+                <Button render={<Link href="/timesheets/upload" />}>
+                  <Upload className="size-4" />
+                  Upload Login Sheet
+                </Button>
+              </>
+            )}
+          </>
         }
       />
 

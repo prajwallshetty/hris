@@ -7,7 +7,6 @@ export async function listEmployees(user: SessionUser, params: { search?: string
   const pageSize = params.pageSize ?? 25;
 
   const where = {
-    deletedAt: null,
     ...(params.search ? { fullName: { contains: params.search, mode: "insensitive" as const } } : {}),
   };
 
@@ -28,7 +27,7 @@ export async function listEmployees(user: SessionUser, params: { search?: string
 export async function getEmployee(user: SessionUser, id: string) {
   assertCan(user, "view", "employee");
   return db.internalEmployee.findFirst({
-    where: { id, deletedAt: null },
+    where: { id },
     include: { department: true, designation: true, coordinator: true },
   });
 }

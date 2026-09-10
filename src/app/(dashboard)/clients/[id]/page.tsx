@@ -1,4 +1,4 @@
-import { ArchiveRestore, Building2, FileText, MapPin, Pencil, Plus, Users } from "lucide-react";
+import { Archive, ArchiveRestore, Building2, FileText, MapPin, Pencil, Plus, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
@@ -17,7 +17,14 @@ import { formatRelativeTime } from "@/lib/relative-time";
 import { calculateOutstanding } from "@/server/calc/finance";
 import { calculateRentalTotal } from "@/server/calc/rental";
 import { can } from "@/server/rbac";
-import { archiveProject, archiveSite, reactivateProject, reactivateSite } from "@/server/actions/clients";
+import {
+  archiveClient,
+  archiveProject,
+  archiveSite,
+  reactivateClient,
+  reactivateProject,
+  reactivateSite,
+} from "@/server/actions/clients";
 import { getClient } from "@/server/queries/clients";
 import {
   getClientFinancials,
@@ -61,6 +68,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   if (!client) notFound();
 
   const canEdit = can(user, "update", "client");
+  const canArchive = can(user, "archive", "client");
   const canManageProjects = can(user, "create", "project");
   const canViewFinancials = can(user, "view", "invoice") || can(user, "view", "workerPayroll");
   const canGenerateInvoice = can(user, "create", "invoice");
@@ -93,7 +101,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Clients", href: "/clients" }, { label: client.companyName }]}
         avatar={<RecordAvatarIcon icon={Building2} />}
         title={client.companyName}
-        badges={<StatusBadge status={client.status} />}
+        badges={client.deletedAt ? <StatusBadge status="ARCHIVED" /> : <StatusBadge status={client.status} />}
         meta={
           <>
             {client.contactPerson && <span>{client.contactPerson}</span>}
@@ -111,7 +119,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 </Button>
               </Link>
             )}
-            {canEdit && (
+            {canEdit && !client.deletedAt && (
               <ClientFormDialog
                 clientId={client.id}
                 defaultValues={{
@@ -131,6 +139,37 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                     Edit
                   </Button>
                 }
+              />
+            )}
+            {canArchive && !client.deletedAt && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <Archive className="size-4" />
+                    Archive
+                  </Button>
+                }
+                title="Archive this client?"
+                description="They'll be hidden from active pickers but their projects, invoices, and history stay intact and recoverable."
+                confirmLabel="Archive"
+                variant="destructive"
+                action={archiveClient.bind(null, client.id)}
+                successMessage="Client archived."
+              />
+            )}
+            {canEdit && client.deletedAt && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <ArchiveRestore className="size-4" />
+                    Reactivate
+                  </Button>
+                }
+                title="Reactivate this client?"
+                description="They'll become available again in active pickers and lists."
+                confirmLabel="Reactivate"
+                action={reactivateClient.bind(null, client.id)}
+                successMessage="Client reactivated."
               />
             )}
           </>

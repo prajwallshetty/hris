@@ -102,6 +102,20 @@ export async function archiveClient(id: string): Promise<ActionResult<{ id: stri
   }
 }
 
+export async function reactivateClient(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "client");
+    const client = await db.client.update({ where: { id }, data: { deletedAt: null } });
+    await logAudit({ userId: user.id, action: "reactivate", entityType: "Client", entityId: client.id });
+    revalidatePath("/clients");
+    revalidatePath(`/clients/${id}`);
+    return ok({ id: client.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function createProject(input: ProjectFormInput): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();

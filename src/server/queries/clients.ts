@@ -7,7 +7,6 @@ export async function listClients(user: SessionUser, params: { search?: string }
   assertCan(user, "view", "client");
 
   const where: Prisma.ClientWhereInput = {
-    deletedAt: null,
     ...clientScopeWhere(user),
     ...(params.search
       ? { companyName: { contains: params.search, mode: "insensitive" } }
@@ -26,7 +25,7 @@ export async function listClients(user: SessionUser, params: { search?: string }
 export async function getClient(user: SessionUser, id: string) {
   assertCan(user, "view", "client");
   return db.client.findFirst({
-    where: { id, deletedAt: null, ...clientScopeWhere(user) },
+    where: { id, ...clientScopeWhere(user) },
     include: {
       projects: {
         orderBy: { name: "asc" },

@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <DesktopSidebar role={role} notifications={<NotificationsBell />} userMenu={<UserMenu name={name} email={email} role={role} />} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-background/95 sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b px-4 backdrop-blur md:justify-end">
+        <header className="bg-background/95 sticky top-0 z-10 flex h-16 items-center justify-between gap-2 border-b px-4 backdrop-blur md:justify-end">
           <Sheet>
             <SheetTrigger
               render={
@@ -39,7 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation</SheetTitle>
               </SheetHeader>
-              <div className="flex h-14 items-center gap-2 border-b px-4">
+              <div className="flex h-16 items-center gap-2 border-b px-4">
                 <Logo size="sidebar" />
               </div>
               <div className="border-b p-3">

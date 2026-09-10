@@ -8,10 +8,10 @@ const NATURAL_WIDTH = 1774;
 const NATURAL_HEIGHT = 887;
 
 const SIZES = {
-  sidebar: 28,
-  collapsed: 18,
-  login: 56,
-  document: 44,
+  sidebar: 36,
+  collapsed: 24,
+  login: 64,
+  document: 48,
 } as const;
 
 export type LogoSize = keyof typeof SIZES;

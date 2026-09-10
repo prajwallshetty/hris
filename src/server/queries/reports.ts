@@ -133,14 +133,16 @@ export async function getCoordinatorPerformanceReport(user: SessionUser) {
   return coordinators
     .map((c) => ({
       coordinator: c.name,
-      totalSales: c.sales.reduce((sum, s) => sum + Number(s.amount), 0),
-      commissionGenerated: c.commissions.reduce((sum, comm) => sum + Number(comm.amount), 0),
-      commissionPaid: c.commissions.filter((comm) => comm.status === "PAID").reduce((sum, comm) => sum + Number(comm.amount), 0),
+      totalSales: c.sales.reduce((sum: number, s: { amount: Decimal | number | string }) => sum + Number(s.amount), 0),
+      commissionGenerated: c.commissions.reduce((sum: number, comm: { amount: Decimal | number | string }) => sum + Number(comm.amount), 0),
+      commissionPaid: c.commissions
+        .filter((comm: { status: string }) => comm.status === "PAID")
+        .reduce((sum: number, comm: { amount: Decimal | number | string }) => sum + Number(comm.amount), 0),
       commissionOutstanding: c.commissions
-        .filter((comm) => comm.status !== "PAID")
-        .reduce((sum, comm) => sum + Number(comm.amount), 0),
+        .filter((comm: { status: string }) => comm.status !== "PAID")
+        .reduce((sum: number, comm: { amount: Decimal | number | string }) => sum + Number(comm.amount), 0),
     }))
-    .filter((r) => r.totalSales > 0 || r.commissionGenerated > 0);
+    .filter((r: { totalSales: number; commissionGenerated: number }) => r.totalSales > 0 || r.commissionGenerated > 0);
 }
 
 // Company-wide revenue/expense/payroll aggregates — never scoped to a single
@@ -170,31 +172,41 @@ export async function getFinanceOverviewReport(user: SessionUser) {
       db.rentalCharge.aggregate({ _sum: { amount: true } }),
     ]);
 
-  const revenue = invoices.reduce((sum, inv) => sum + Number(inv.subtotal), 0);
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
-  const totalClientPaid = invoices.reduce((sum, inv) => sum + inv.payments.reduce((s, p) => s + Number(p.amount), 0), 0);
+  const revenue = invoices.reduce((sum: number, inv: { subtotal: Decimal | number | string }) => sum + Number(inv.subtotal), 0);
+  const totalInvoiced = invoices.reduce((sum: number, inv: { totalAmount: Decimal | number | string }) => sum + Number(inv.totalAmount), 0);
+  const totalClientPaid = invoices.reduce(
+    (sum: number, inv: { payments: Array<{ amount: Decimal | number | string }> }) =>
+      sum + inv.payments.reduce((s: number, p: { amount: Decimal | number | string }) => s + Number(p.amount), 0),
+    0,
+  );
   const receivables = calculateOutstanding(totalInvoiced, [totalClientPaid]).toNumber();
 
-  const workerNet = workerPayrolls.reduce((sum, p) => sum + Number(p.netPayable), 0);
-  const workerPaid = workerPayrolls.reduce((sum, p) => sum + p.payments.reduce((s, pay) => s + Number(pay.amount), 0), 0);
-  const employeeNet = employeePayrolls.reduce((sum, p) => sum + Number(p.netPayable), 0);
+  const workerNet = workerPayrolls.reduce((sum: number, p: { netPayable: Decimal | number | string }) => sum + Number(p.netPayable), 0);
+  const workerPaid = workerPayrolls.reduce(
+    (sum: number, p: { payments: Array<{ amount: Decimal | number | string }> }) =>
+      sum + p.payments.reduce((s: number, pay: { amount: Decimal | number | string }) => s + Number(pay.amount), 0),
+    0,
+  );
+  const employeeNet = employeePayrolls.reduce((sum: number, p: { netPayable: Decimal | number | string }) => sum + Number(p.netPayable), 0);
   const employeePaid = employeePayrolls.reduce(
-    (sum, p) => sum + p.payments.reduce((s, pay) => s + Number(pay.amount), 0),
+    (sum: number, p: { payments: Array<{ amount: Decimal | number | string }> }) =>
+      sum + p.payments.reduce((s: number, pay: { amount: Decimal | number | string }) => s + Number(pay.amount), 0),
     0,
   );
   const payables = calculateOutstanding(workerNet + employeeNet, [workerPaid + employeePaid]).toNumber();
 
   const advancesOutstanding = advances.reduce(
-    (sum, a) => sum + calculateRepayableBalance(a.amount.toString(), a.repayments.map((r) => r.amount.toString())).toNumber(),
+    (sum: number, a: { amount: Decimal | number | string; repayments: Array<{ amount: Decimal | number | string }> }) =>
+      sum + calculateRepayableBalance(a.amount.toString(), a.repayments.map((r: { amount: Decimal | number | string }) => r.amount.toString())).toNumber(),
     0,
   );
   const loansOutstanding = loans.reduce(
-    (sum, l) =>
-      sum + calculateRepayableBalance(l.principalAmount.toString(), l.repayments.map((r) => r.amount.toString())).toNumber(),
+    (sum: number, l: { principalAmount: Decimal | number | string; repayments: Array<{ amount: Decimal | number | string }> }) =>
+      sum + calculateRepayableBalance(l.principalAmount.toString(), l.repayments.map((r: { amount: Decimal | number | string }) => r.amount.toString())).toNumber(),
     0,
   );
 
-  const workerCost = workerPayrolls.reduce((sum, p) => sum + Number(p.grossPay), 0);
+  const workerCost = workerPayrolls.reduce((sum: number, p: { grossPay: Decimal | number | string }) => sum + Number(p.grossPay), 0);
   const expenseTotal = Number(expenses._sum.amount ?? 0);
   const commissionTotal = Number(commissions._sum.amount ?? 0);
   const vehicleExpenseTotal = Number(vehicleExpenses._sum.amount ?? 0);

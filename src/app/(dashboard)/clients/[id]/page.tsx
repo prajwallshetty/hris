@@ -103,6 +103,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         }
         actions={
           <>
+            {canViewFinancials && (
+              <Link href={`/clients/${client.id}/statement`}>
+                <Button variant="outline">
+                  <FileText className="size-4" />
+                  Statement
+                </Button>
+              </Link>
+            )}
             {canEdit && (
               <ClientFormDialog
                 clientId={client.id}

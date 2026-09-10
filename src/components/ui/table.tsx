@@ -23,7 +23,14 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("bg-secondary/60 [&_tr]:border-b", className)}
+      className={cn(
+        // Sticks just below the app's persistent topbar (h-14) once a tall,
+        // unpaginated table (ledgers, LOG grids, payroll rows) scrolls past
+        // it. Harmless no-op on short tables — sticky only engages once the
+        // header would otherwise scroll out of view.
+        "bg-secondary sticky top-14 z-[5] [&_tr]:border-b",
+        className,
+      )}
       {...props}
     />
   )

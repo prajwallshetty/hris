@@ -6,7 +6,8 @@ import { auth } from "@/auth";
 import { DesktopSidebar } from "@/components/shared/desktop-sidebar";
 import { GlobalSearch } from "@/components/shared/global-search";
 import { Logo } from "@/components/shared/logo";
-import { NotificationsBell } from "@/components/shared/notifications-bell";
+import { ConnectionStatus } from "@/components/pwa/connection-status";
+import { InstallButton } from "@/components/pwa/install-button";
 import { QuickCreateMenu } from "@/components/shared/quick-create-menu";
 import { SidebarNav } from "@/components/shared/sidebar-nav";
 import { UserMenu } from "@/components/shared/user-menu";
@@ -23,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-svh">
-      <DesktopSidebar role={role} notifications={<NotificationsBell />} userMenu={<UserMenu name={name} email={email} role={role} />} />
+      <DesktopSidebar role={role} userMenu={<UserMenu name={name} email={email} role={role} />} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="bg-background/95 sticky top-0 z-10 flex h-16 items-center justify-between gap-2 border-b px-4 backdrop-blur md:justify-end">
@@ -49,7 +50,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <SidebarNav role={role} />
               </div>
               <div className="space-y-0.5 border-t p-2">
-                <NotificationsBell />
                 <UserMenu name={name} email={email} role={role} />
               </div>
             </SheetContent>
@@ -59,7 +59,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Logo size="sidebar" />
           </Link>
 
-          <QuickCreateMenu role={role} />
+          <div className="flex items-center gap-2">
+            <ConnectionStatus />
+            <InstallButton />
+            <QuickCreateMenu role={role} />
+          </div>
         </header>
 
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">{children}</main>

@@ -950,9 +950,6 @@ model WorkerPayment {
 
   createdById  String?
   approvedById String?
-  voidedAt     DateTime?
-  voidReason   String?
-  voidedById   String?
 
   // Voiding a payment never deletes it (§ historical payment transactions
   // must never be deleted) — it's flagged here, excluded from

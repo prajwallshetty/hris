@@ -23,11 +23,9 @@ import {
 // directly (§ Next.js server/client composition).
 export function DesktopSidebar({
   role,
-  notifications,
   userMenu,
 }: {
   role: Role;
-  notifications: React.ReactNode;
   userMenu: React.ReactNode;
 }) {
   const collapsed = useSyncExternalStore(
@@ -58,7 +56,6 @@ export function DesktopSidebar({
       </div>
 
       <div className={cn("space-y-0.5 border-t p-2", collapsed && "flex flex-col items-center")}>
-        {notifications}
         {userMenu}
         <div className={cn("pt-1", collapsed ? "" : "flex justify-end")}>
           <Button

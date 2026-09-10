@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { toCsv } from "@/lib/csv";
+import { formatEmployeeCode } from "@/lib/codes";
 import { attendanceFormSchema, employeeFormSchema, type AttendanceFormInput, type EmployeeFormInput } from "@/lib/validation/employee";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { assertCan } from "@/server/rbac";
+import { listEmployees } from "@/server/queries/employees";
 import { getSessionUser } from "@/server/session";
 
 function toDate(value?: string) {
@@ -113,6 +116,31 @@ export async function reactivateEmployee(id: string): Promise<ActionResult<{ id:
     revalidatePath("/employees");
     revalidatePath(`/employees/${id}`);
     return ok({ id: employee.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+// Ignores pagination so a filtered CSV export always reflects every
+// matching row, not just the current page (§14 — filtered download must
+// reflect exactly what's filtered).
+export async function exportEmployeesCsv(search?: string): Promise<ActionResult<{ csv: string }>> {
+  try {
+    const user = await getSessionUser();
+    const { employees } = await listEmployees(user, { search, page: 1, pageSize: 100000 });
+    const csv = toCsv(
+      ["Employee ID", "Name", "Department", "Designation", "Base Salary", "Status", "Archived"],
+      employees.map((e) => [
+        formatEmployeeCode(e.sequenceNo),
+        e.fullName,
+        e.department?.name ?? "",
+        e.designation?.title ?? "",
+        Number(e.baseSalary).toFixed(2),
+        e.status,
+        e.deletedAt ? "Yes" : "No",
+      ]),
+    );
+    return ok({ csv });
   } catch (error) {
     return actionError(error);
   }

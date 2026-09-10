@@ -2,17 +2,20 @@ import { FileText } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { SelectFilter } from "@/components/shared/select-filter";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/server/rbac";
+import { exportInvoicesCsv } from "@/server/actions/invoices";
 import { listClientHierarchyForSelect } from "@/server/queries/clients";
 import { listInvoices } from "@/server/queries/invoices";
 import { getSessionUser } from "@/server/session";
 
 import { GenerateInvoiceDialog } from "./generate-invoice-dialog";
+import { InvoiceRowActions } from "./invoice-row-actions";
 
 function formatDate(date: Date | null) {
   if (!date) return "—";
@@ -32,6 +35,7 @@ export default async function InvoicesPage({
   const user = await getSessionUser();
   const page = Number(params.page ?? 1) || 1;
   const canCreate = can(user, "create", "invoice");
+  const canUpdate = can(user, "update", "invoice");
 
   const [{ invoices, total, pageSize }, clients] = await Promise.all([
     listInvoices(user, { status: (params.status as never) ?? "ALL", page }),
@@ -47,19 +51,26 @@ export default async function InvoicesPage({
         actions={canCreate && <GenerateInvoiceDialog clients={clients} />}
       />
 
-      <SelectFilter
-        paramKey="status"
-        placeholder="Status"
-        options={[
-          { label: "Draft", value: "DRAFT" },
-          { label: "Approved", value: "APPROVED" },
-          { label: "Issued", value: "ISSUED" },
-          { label: "Partially Paid", value: "PARTIALLY_PAID" },
-          { label: "Paid", value: "PAID" },
-          { label: "Overdue", value: "OVERDUE" },
-          { label: "Cancelled", value: "CANCELLED" },
-        ]}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <SelectFilter
+          paramKey="status"
+          placeholder="Status"
+          options={[
+            { label: "Draft", value: "DRAFT" },
+            { label: "Approved", value: "APPROVED" },
+            { label: "Issued", value: "ISSUED" },
+            { label: "Partially Paid", value: "PARTIALLY_PAID" },
+            { label: "Paid", value: "PAID" },
+            { label: "Overdue", value: "OVERDUE" },
+            { label: "Cancelled", value: "CANCELLED" },
+          ]}
+        />
+        <ExportCsvButton
+          action={exportInvoicesCsv.bind(null, (params.status as never) ?? "ALL")}
+          filename="invoices.csv"
+          label="Export"
+        />
+      </div>
 
       {invoices.length === 0 ? (
         <EmptyState icon={FileText} title="No invoices yet" description={canCreate ? "Generate one from approved hours." : undefined} />
@@ -76,6 +87,7 @@ export default async function InvoicesPage({
                   <TableHead>Paid</TableHead>
                   <TableHead>Due</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-10 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -105,6 +117,14 @@ export default async function InvoicesPage({
                       <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell>
                         <StatusBadge status={isOverdue ? "OVERDUE" : invoice.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <InvoiceRowActions
+                          invoiceId={invoice.id}
+                          invoiceNumber={invoice.sequenceNo}
+                          status={invoice.status}
+                          canUpdate={canUpdate}
+                        />
                       </TableCell>
                     </TableRow>
                   );

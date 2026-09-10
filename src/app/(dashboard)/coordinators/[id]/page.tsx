@@ -1,18 +1,21 @@
-import { Car, DollarSign, HandCoins } from "lucide-react";
+import { Archive, ArchiveRestore, Car, DollarSign, HandCoins, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { RecordAvatarInitials, RecordHeader } from "@/components/shared/record-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatEquipmentCode, formatVehicleCode } from "@/lib/codes";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { can } from "@/server/rbac";
+import { archiveCoordinator, reactivateCoordinator } from "@/server/actions/coordinators";
 import { listAllClientsForSelect } from "@/server/queries/clients";
 import {
   getApplicableCommissionRules,
@@ -28,6 +31,7 @@ import { listVehiclesForCoordinator } from "@/server/queries/vehicles";
 import { getSessionUser } from "@/server/session";
 
 import { AdvanceCommissionButton, GenerateCommissionDialog } from "./commission-actions";
+import { CoordinatorFormDialog } from "../coordinator-form-dialog";
 import { GenerateAdvancedCommissionDialog } from "./generate-advanced-commission-dialog";
 import { SaleDialog } from "./sale-dialog";
 
@@ -50,6 +54,8 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
   const canUpdateCommission = can(user, "update", "commission");
   const canViewActivity = can(user, "view", "auditLog");
   const canViewFleet = can(user, "view", "vehicle") || can(user, "view", "equipment");
+  const canEdit = can(user, "update", "coordinator");
+  const canArchive = can(user, "archive", "coordinator");
 
   const [sales, commissions, uncommissionedSales, rules, clients, invoices, vehicles, equipment, activity] =
     await Promise.all([
@@ -94,6 +100,52 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
             {(coordinator.email ?? coordinator.phone) && <span>{coordinator.email ?? coordinator.phone}</span>}
             {(coordinator.email ?? coordinator.phone) && <span aria-hidden>·</span>}
             <span>Edited {formatRelativeTime(lastEdited)}</span>
+          </>
+        }
+        actions={
+          <>
+            {canEdit && (
+              <CoordinatorFormDialog
+                coordinatorId={coordinator.id}
+                defaultValues={{ name: coordinator.name, phone: coordinator.phone ?? "", email: coordinator.email ?? "" }}
+                trigger={
+                  <Button variant="outline">
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                }
+              />
+            )}
+            {canArchive && coordinator.status === "ACTIVE" && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <Archive className="size-4" />
+                    Archive
+                  </Button>
+                }
+                title="Archive this coordinator?"
+                description="They'll be hidden from active pickers but their history stays intact."
+                confirmLabel="Archive"
+                action={archiveCoordinator.bind(null, coordinator.id)}
+                successMessage="Coordinator archived."
+              />
+            )}
+            {canEdit && coordinator.status === "INACTIVE" && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <ArchiveRestore className="size-4" />
+                    Reactivate
+                  </Button>
+                }
+                title="Reactivate this coordinator?"
+                description="They'll become available again in assignment/sale pickers."
+                confirmLabel="Reactivate"
+                action={reactivateCoordinator.bind(null, coordinator.id)}
+                successMessage="Coordinator reactivated."
+              />
+            )}
           </>
         }
       />

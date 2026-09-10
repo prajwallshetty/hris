@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
-import { assignmentFormSchema, type AssignmentFormInput } from "@/lib/validation/assignment";
+import { assignmentEditFormSchema, assignmentFormSchema, type AssignmentEditFormInput, type AssignmentFormInput } from "@/lib/validation/assignment";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { assertCan } from "@/server/rbac";
@@ -73,6 +73,49 @@ export async function createAssignment(
     revalidatePath(`/workers/${data.workerId}`);
     revalidatePath(`/clients/${data.clientId}`);
     return ok({ id: result.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateAssignment(
+  id: string,
+  input: AssignmentEditFormInput,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "assignment");
+    const data = assignmentEditFormSchema.parse(input);
+
+    const before = await db.assignment.findUniqueOrThrow({ where: { id } });
+    if (before.status !== "ACTIVE") {
+      return { success: false, error: "Only the worker's current active assignment can be edited. Ended assignments are historical records." };
+    }
+
+    const assignment = await db.assignment.update({
+      where: { id },
+      data: {
+        designation: data.designation || null,
+        workerHourlyRate: data.workerHourlyRate,
+        clientBillingRate: data.clientBillingRate,
+        coordinatorId: data.coordinatorId || null,
+        notes: data.notes || null,
+      },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "update",
+      entityType: "Assignment",
+      entityId: assignment.id,
+      previousValue: before,
+      newValue: data,
+    });
+
+    revalidatePath("/assignments");
+    revalidatePath(`/workers/${assignment.workerId}`);
+    revalidatePath(`/clients/${assignment.clientId}`);
+    return ok({ id: assignment.id });
   } catch (error) {
     return actionError(error);
   }

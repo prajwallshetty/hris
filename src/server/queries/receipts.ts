@@ -101,7 +101,7 @@ export async function getPaymentReceiptData(paymentId: string, user: SessionUser
     const w = payment.worker;
     const activeAssignment = w.assignments[0];
     const wp = payment.workerPayroll;
-    const allPayments = wp?.payments ?? [payment];
+    const allPayments = (wp?.payments ?? [payment]).filter((p) => !p.voidedAt);
     const totalPaid = allPayments.reduce((sum, p) => sum + Number(p.amount), 0);
     const netPayable = wp ? Number(wp.netPayable) : Number(payment.amount);
     const remainingOutstanding = Math.max(0, netPayable - totalPaid);
@@ -157,7 +157,7 @@ export async function getPaymentReceiptData(paymentId: string, user: SessionUser
   } else if (payment.employee) {
     const e = payment.employee;
     const ep = payment.employeePayroll;
-    const allPayments = ep?.payments ?? [payment];
+    const allPayments = (ep?.payments ?? [payment]).filter((p) => !p.voidedAt);
     const totalPaid = allPayments.reduce((sum, p) => sum + Number(p.amount), 0);
     const netPayable = ep ? Number(ep.netPayable) : Number(payment.amount);
     const remainingOutstanding = Math.max(0, netPayable - totalPaid);

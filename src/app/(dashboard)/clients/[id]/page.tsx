@@ -1,7 +1,8 @@
-import { Building2, FileText, MapPin, Pencil, Plus, Users } from "lucide-react";
+import { Archive, ArchiveRestore, Building2, FileText, MapPin, Pencil, Plus, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { RecordAvatarIcon, RecordHeader } from "@/components/shared/record-header";
@@ -16,6 +17,14 @@ import { formatRelativeTime } from "@/lib/relative-time";
 import { calculateOutstanding } from "@/server/calc/finance";
 import { calculateRentalTotal } from "@/server/calc/rental";
 import { can } from "@/server/rbac";
+import {
+  archiveClient,
+  archiveProject,
+  archiveSite,
+  reactivateClient,
+  reactivateProject,
+  reactivateSite,
+} from "@/server/actions/clients";
 import { getClient } from "@/server/queries/clients";
 import {
   getClientFinancials,
@@ -59,6 +68,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   if (!client) notFound();
 
   const canEdit = can(user, "update", "client");
+  const canArchive = can(user, "archive", "client");
   const canManageProjects = can(user, "create", "project");
   const canViewFinancials = can(user, "view", "invoice") || can(user, "view", "workerPayroll");
   const canGenerateInvoice = can(user, "create", "invoice");
@@ -91,7 +101,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Clients", href: "/clients" }, { label: client.companyName }]}
         avatar={<RecordAvatarIcon icon={Building2} />}
         title={client.companyName}
-        badges={<StatusBadge status={client.status} />}
+        badges={client.deletedAt ? <StatusBadge status="ARCHIVED" /> : <StatusBadge status={client.status} />}
         meta={
           <>
             {client.contactPerson && <span>{client.contactPerson}</span>}
@@ -101,7 +111,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         }
         actions={
           <>
-            {canEdit && (
+            {canViewFinancials && (
+              <Link href={`/clients/${client.id}/statement`}>
+                <Button variant="outline">
+                  <FileText className="size-4" />
+                  Statement
+                </Button>
+              </Link>
+            )}
+            {canEdit && !client.deletedAt && (
               <ClientFormDialog
                 clientId={client.id}
                 defaultValues={{
@@ -121,6 +139,37 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                     Edit
                   </Button>
                 }
+              />
+            )}
+            {canArchive && !client.deletedAt && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <Archive className="size-4" />
+                    Archive
+                  </Button>
+                }
+                title="Archive this client?"
+                description="They'll be hidden from active pickers but their projects, invoices, and history stay intact and recoverable."
+                confirmLabel="Archive"
+                variant="destructive"
+                action={archiveClient.bind(null, client.id)}
+                successMessage="Client archived."
+              />
+            )}
+            {canEdit && client.deletedAt && (
+              <ConfirmActionButton
+                trigger={
+                  <Button variant="outline">
+                    <ArchiveRestore className="size-4" />
+                    Reactivate
+                  </Button>
+                }
+                title="Reactivate this client?"
+                description="They'll become available again in active pickers and lists."
+                confirmLabel="Reactivate"
+                action={reactivateClient.bind(null, client.id)}
+                successMessage="Client reactivated."
               />
             )}
           </>
@@ -243,20 +292,63 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           ) : (
             <div className="space-y-4">
               {client.projects.map((project) => (
-                <Card key={project.id}>
+                <Card key={project.id} className={project.deletedAt ? "opacity-60" : undefined}>
                   <CardHeader className="flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-base">{project.name}</CardTitle>
                     <div className="flex items-center gap-2">
+                      {project.deletedAt && (
+                        <span className="text-muted-foreground text-xs font-medium uppercase">Archived</span>
+                      )}
                       <StatusBadge status={project.status} />
-                      {canManageProjects && (
-                        <AddSiteDialog
-                          projectId={project.id}
+                      {canManageProjects && !project.deletedAt && (
+                        <>
+                          <AddProjectDialog
+                            clientId={client.id}
+                            projectId={project.id}
+                            defaultValues={{ clientId: client.id, name: project.name, status: project.status }}
+                            trigger={
+                              <Button size="icon-sm" variant="ghost" aria-label={`Edit ${project.name}`}>
+                                <Pencil className="size-4" />
+                              </Button>
+                            }
+                          />
+                          <ConfirmActionButton
+                            trigger={
+                              <Button size="icon-sm" variant="ghost" aria-label={`Archive ${project.name}`}>
+                                <ArchiveRestore className="size-4 rotate-180" />
+                              </Button>
+                            }
+                            title={`Archive ${project.name}?`}
+                            description="Its sites stay attached but the project is hidden from active pickers. History is preserved."
+                            confirmLabel="Archive"
+                            variant="destructive"
+                            action={archiveProject.bind(null, project.id)}
+                            successMessage="Project archived."
+                          />
+                          <AddSiteDialog
+                            projectId={project.id}
+                            trigger={
+                              <Button size="sm" variant="outline">
+                                <Plus className="size-4" />
+                                Add Site
+                              </Button>
+                            }
+                          />
+                        </>
+                      )}
+                      {canManageProjects && project.deletedAt && (
+                        <ConfirmActionButton
                           trigger={
                             <Button size="sm" variant="outline">
-                              <Plus className="size-4" />
-                              Add Site
+                              <ArchiveRestore className="size-4" />
+                              Reactivate
                             </Button>
                           }
+                          title={`Reactivate ${project.name}?`}
+                          description="It'll become available again for adding assignments and sites."
+                          confirmLabel="Reactivate"
+                          action={reactivateProject.bind(null, project.id)}
+                          successMessage="Project reactivated."
                         />
                       )}
                     </div>
@@ -269,7 +361,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                         {project.sites.map((site) => (
                           <li key={site.id} className="flex items-center justify-between py-2 text-sm">
                             <div>
-                              <p className="font-medium">{site.name}</p>
+                              <p className={site.deletedAt ? "text-muted-foreground font-medium line-through" : "font-medium"}>
+                                {site.name}
+                              </p>
                               {site.location && <p className="text-muted-foreground">{site.location}</p>}
                             </div>
                             <div className="flex items-center gap-3">
@@ -278,6 +372,52 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                                 {site._count.vehicleAssignments > 0 ? ` · ${site._count.vehicleAssignments} vehicles` : ""}
                               </span>
                               <StatusBadge status={site.status} />
+                              {canManageProjects && !site.deletedAt && !project.deletedAt && (
+                                <>
+                                  <AddSiteDialog
+                                    projectId={project.id}
+                                    siteId={site.id}
+                                    defaultValues={{
+                                      projectId: project.id,
+                                      name: site.name,
+                                      location: site.location ?? "",
+                                      status: site.status,
+                                    }}
+                                    trigger={
+                                      <Button size="icon-sm" variant="ghost" aria-label={`Edit ${site.name}`}>
+                                        <Pencil className="size-4" />
+                                      </Button>
+                                    }
+                                  />
+                                  <ConfirmActionButton
+                                    trigger={
+                                      <Button size="icon-sm" variant="ghost" aria-label={`Archive ${site.name}`}>
+                                        <ArchiveRestore className="size-4 rotate-180" />
+                                      </Button>
+                                    }
+                                    title={`Archive ${site.name}?`}
+                                    description="It'll be hidden from active pickers but its history is preserved."
+                                    confirmLabel="Archive"
+                                    variant="destructive"
+                                    action={archiveSite.bind(null, site.id)}
+                                    successMessage="Site archived."
+                                  />
+                                </>
+                              )}
+                              {canManageProjects && site.deletedAt && (
+                                <ConfirmActionButton
+                                  trigger={
+                                    <Button size="icon-sm" variant="ghost" aria-label={`Reactivate ${site.name}`}>
+                                      <ArchiveRestore className="size-4" />
+                                    </Button>
+                                  }
+                                  title={`Reactivate ${site.name}?`}
+                                  description="It'll become available again for new assignments."
+                                  confirmLabel="Reactivate"
+                                  action={reactivateSite.bind(null, site.id)}
+                                  successMessage="Site reactivated."
+                                />
+                              )}
                             </div>
                           </li>
                         ))}

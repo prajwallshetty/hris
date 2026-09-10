@@ -47,6 +47,39 @@ export async function createExpense(input: ExpenseFormInput): Promise<ActionResu
   }
 }
 
+export async function updateExpense(id: string, input: ExpenseFormInput): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "expense");
+    const data = expenseFormSchema.parse(input);
+    const departmentId = await resolveDepartmentId(data.department);
+
+    const before = await db.expense.findUniqueOrThrow({ where: { id } });
+    const expense = await db.expense.update({
+      where: { id },
+      data: {
+        category: data.category,
+        amount: data.amount,
+        date: new Date(data.date),
+        description: data.description || null,
+        workerId: data.workerId || null,
+        clientId: data.clientId || null,
+        siteId: data.siteId || null,
+        coordinatorId: data.coordinatorId || null,
+        departmentId,
+      },
+    });
+
+    await logAudit({ userId: user.id, action: "update", entityType: "Expense", entityId: expense.id, previousValue: before, newValue: data });
+    revalidatePath("/expenses");
+    if (before.clientId) revalidatePath(`/clients/${before.clientId}`);
+    if (data.clientId) revalidatePath(`/clients/${data.clientId}`);
+    return ok({ id: expense.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function archiveExpense(id: string): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();

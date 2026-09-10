@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<string, string> = {
   CORRECTION: "Correction",
   RECURRING_CHARGE: "Rent / Other Charge",
   FINAL_SETTLEMENT: "Final Settlement",
+  VOIDED_PAYMENT: "Voided Payment",
 };
 
 function formatDate(date: Date) {

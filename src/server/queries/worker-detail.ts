@@ -91,7 +91,7 @@ export async function getWorkerPaymentReceipt(user: SessionUser, workerId: strin
   const outstanding = payment.workerPayroll
     ? calculateOutstanding(
         payment.workerPayroll.netPayable.toString(),
-        payment.workerPayroll.payments.map((p) => p.amount.toString()),
+        payment.workerPayroll.payments.filter((p) => !p.voidedAt).map((p) => p.amount.toString()),
       ).toNumber()
     : null;
 

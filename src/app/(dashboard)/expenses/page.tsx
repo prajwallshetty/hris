@@ -1,15 +1,8 @@
-import { Receipt } from "lucide-react";
-
-import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
-import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { SelectFilter } from "@/components/shared/select-filter";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EXPENSE_CATEGORIES } from "@/lib/validation/expense";
 import { can } from "@/server/rbac";
-import { archiveExpense } from "@/server/actions/expenses";
 import { listClientHierarchyForSelect } from "@/server/queries/clients";
 import { listCoordinators } from "@/server/queries/coordinators";
 import { listExpenses } from "@/server/queries/expenses";
@@ -17,10 +10,7 @@ import { listWorkersForSelect } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
 
 import { ExpenseFormDialog } from "./expense-form-dialog";
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
-}
+import { ExpensesTable, type ExpenseRow } from "./expenses-table";
 
 function formatMoney(value: unknown) {
   return `SAR ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -45,6 +35,22 @@ export default async function ExpensesPage({
   ]);
 
   const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const rows: ExpenseRow[] = expenses.map((e) => ({
+    id: e.id,
+    date: e.date.toISOString(),
+    category: e.category,
+    description: e.description,
+    amount: Number(e.amount),
+    workerId: e.workerId,
+    workerName: e.worker?.fullName ?? null,
+    clientId: e.clientId,
+    clientName: e.client?.companyName ?? null,
+    siteId: e.siteId,
+    siteName: e.site?.name ?? null,
+    coordinatorId: e.coordinatorId,
+    coordinatorName: e.coordinatorName,
+    department: e.departmentName,
+  }));
 
   return (
     <div className="space-y-6">
@@ -66,54 +72,17 @@ export default async function ExpensesPage({
         </p>
       </div>
 
-      {expenses.length === 0 ? (
-        <EmptyState icon={Receipt} title="No expenses recorded yet" description={canCreate ? "Add one to get started." : undefined} />
-      ) : (
+      <ExpensesTable
+        rows={rows}
+        clients={clients}
+        workers={workers}
+        coordinators={coordinators}
+        canEdit={can(user, "update", "expense")}
+        canArchive={canArchive}
+      />
+
+      {expenses.length > 0 && (
         <div className="rounded-lg border">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Linked To</TableHead>
-                  <TableHead>Amount</TableHead>
-                  {canArchive && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>{formatDate(expense.date)}</TableCell>
-                    <TableCell>{expense.category.replaceAll("_", " ")}</TableCell>
-                    <TableCell>{expense.description ?? "—"}</TableCell>
-                    <TableCell>
-                      {[expense.worker?.fullName, expense.client?.companyName, expense.site?.name].filter(Boolean).join(" / ") || "—"}
-                    </TableCell>
-                    <TableCell className="font-medium">{formatMoney(expense.amount)}</TableCell>
-                    {canArchive && (
-                      <TableCell className="text-right">
-                        <ConfirmActionButton
-                          trigger={
-                            <Button variant="ghost" size="sm">
-                              Archive
-                            </Button>
-                          }
-                          title="Archive this expense?"
-                          description="It will no longer count toward profitability calculations."
-                          confirmLabel="Archive"
-                          variant="destructive"
-                          action={archiveExpense.bind(null, expense.id)}
-                          successMessage="Expense archived."
-                        />
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
           <Pagination page={page} pageSize={pageSize} total={total} />
         </div>
       )}

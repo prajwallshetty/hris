@@ -208,7 +208,7 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
         });
         const remaining = calculateOutstanding(
           payroll.netPayable.toString(),
-          payroll.payments.map((p) => p.amount.toString()),
+          payroll.payments.filter((p) => !p.voidedAt).map((p) => p.amount.toString()),
         );
         outstanding = remaining.toNumber();
         await tx.workerPayroll.update({
@@ -224,7 +224,7 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
         });
         const remaining = calculateOutstanding(
           payroll.netPayable.toString(),
-          payroll.payments.map((p) => p.amount.toString()),
+          payroll.payments.filter((p) => !p.voidedAt).map((p) => p.amount.toString()),
         );
         outstanding = remaining.toNumber();
         await tx.employeePayroll.update({
@@ -249,6 +249,78 @@ export async function createWorkerPayment(input: WorkerPaymentFormInput): Promis
       amount: Number(payment.amount),
       outstanding,
     });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+// Voiding never deletes the row (§ never delete historical payment
+// transactions) — it flags the payment and excludes it from outstanding/
+// payroll-status calculations from here on, while it stays visible (marked
+// VOIDED) in payment history and the worker ledger for audit purposes.
+export async function voidWorkerPayment(id: string, reason: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "workerPayment");
+    if (!reason.trim()) {
+      return { success: false, error: "A reason is required to void a payment." };
+    }
+
+    const payment = await db.$transaction(async (tx) => {
+      const before = await tx.workerPayment.findUniqueOrThrow({ where: { id } });
+      if (before.voidedAt) {
+        throw new Error("This payment has already been voided.");
+      }
+
+      const voided = await tx.workerPayment.update({
+        where: { id },
+        data: { voidedAt: new Date(), voidReason: reason.trim(), voidedById: user.id },
+      });
+
+      if (before.workerPayrollId) {
+        const payroll = await tx.workerPayroll.findUniqueOrThrow({
+          where: { id: before.workerPayrollId },
+          include: { payments: true },
+        });
+        const remaining = calculateOutstanding(
+          payroll.netPayable.toString(),
+          payroll.payments.filter((p) => !p.voidedAt).map((p) => p.amount.toString()),
+        );
+        await tx.workerPayroll.update({
+          where: { id: before.workerPayrollId },
+          data: { status: remaining.lte(0) ? "PAID" : remaining.gte(payroll.netPayable) ? "APPROVED" : "PARTIALLY_PAID" },
+        });
+      }
+
+      if (before.employeePayrollId) {
+        const payroll = await tx.employeePayroll.findUniqueOrThrow({
+          where: { id: before.employeePayrollId },
+          include: { payments: true },
+        });
+        const remaining = calculateOutstanding(
+          payroll.netPayable.toString(),
+          payroll.payments.filter((p) => !p.voidedAt).map((p) => p.amount.toString()),
+        );
+        await tx.employeePayroll.update({
+          where: { id: before.employeePayrollId },
+          data: { status: remaining.lte(0) ? "PAID" : remaining.gte(payroll.netPayable) ? "APPROVED" : "PARTIALLY_PAID" },
+        });
+      }
+
+      return voided;
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "update",
+      entityType: "WorkerPayment",
+      entityId: payment.id,
+      newValue: { voidedAt: payment.voidedAt, voidReason: reason },
+    });
+    revalidatePath(payment.workerId ? `/workers/${payment.workerId}` : `/employees/${payment.employeeId}`);
+    if (payment.workerPayrollId) revalidatePath(`/payroll/worker/${payment.workerPayrollId}`);
+    if (payment.employeePayrollId) revalidatePath(`/payroll/employee/${payment.employeePayrollId}`);
+    return ok({ id: payment.id });
   } catch (error) {
     return actionError(error);
   }

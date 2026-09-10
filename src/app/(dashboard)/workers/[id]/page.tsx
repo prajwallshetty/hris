@@ -150,7 +150,10 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
     if (p.workerPayrollId && p.workerPayroll) {
       const group = paymentsByPayroll.get(p.workerPayrollId)!;
       const idx = group.findIndex((g) => g.id === p.id);
-      const cumulative = group.slice(0, idx + 1).reduce((sum, g) => sum + Number(g.amount), 0);
+      const cumulative = group
+        .slice(0, idx + 1)
+        .filter((g) => !g.voidedAt)
+        .reduce((sum, g) => sum + Number(g.amount), 0);
       balance = Number(p.workerPayroll.netPayable) - cumulative;
     }
     return {
@@ -163,6 +166,8 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
       payrollId: p.workerPayrollId,
       referenceNumber: p.referenceNumber,
       balance,
+      voidedAt: p.voidedAt,
+      voidReason: p.voidReason,
     };
   });
 
@@ -771,7 +776,13 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               />
             </div>
           )}
-          <PaymentHistoryTable workerId={worker.id} workerName={worker.fullName} workerMobile={worker.mobile} rows={paymentHistoryRows} />
+          <PaymentHistoryTable
+            workerId={worker.id}
+            workerName={worker.fullName}
+            workerMobile={worker.mobile}
+            rows={paymentHistoryRows}
+            canVoid={can(user, "update", "workerPayment")}
+          />
         </TabsContent>
 
         {canViewLedger && (

@@ -35,7 +35,25 @@ export async function listExpenses(
     db.expense.count({ where }),
   ]);
 
-  return { expenses, total, page, pageSize };
+  // coordinatorId/departmentId are bare scalars on Expense (no Prisma
+  // relation defined), so resolve their display names with two small
+  // batch lookups instead.
+  const coordinatorIds = [...new Set(expenses.map((e) => e.coordinatorId).filter((id): id is string => !!id))];
+  const departmentIds = [...new Set(expenses.map((e) => e.departmentId).filter((id): id is string => !!id))];
+  const [coordinators, departments] = await Promise.all([
+    coordinatorIds.length ? db.coordinator.findMany({ where: { id: { in: coordinatorIds } }, select: { id: true, name: true } }) : [],
+    departmentIds.length ? db.department.findMany({ where: { id: { in: departmentIds } }, select: { id: true, name: true } }) : [],
+  ]);
+  const coordinatorNameById = new Map(coordinators.map((c) => [c.id, c.name]));
+  const departmentNameById = new Map(departments.map((d) => [d.id, d.name]));
+
+  const expensesWithNames = expenses.map((e) => ({
+    ...e,
+    coordinatorName: e.coordinatorId ? (coordinatorNameById.get(e.coordinatorId) ?? null) : null,
+    departmentName: e.departmentId ? (departmentNameById.get(e.departmentId) ?? null) : null,
+  }));
+
+  return { expenses: expensesWithNames, total, page, pageSize };
 }
 
 export async function getTotalExpenses(filters: { clientId?: string } = {}) {

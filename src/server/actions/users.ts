@@ -56,6 +56,41 @@ export async function createUser(input: UserFormInput): Promise<ActionResult<{ i
   }
 }
 
+export async function updateUser(id: string, input: UserFormInput): Promise<ActionResult<{ id: string }>> {
+  try {
+    const sessionUser = await getSessionUser();
+    assertCan(sessionUser, "update", "user");
+    const data = userFormSchema.parse(input);
+
+    const before = await db.user.findUniqueOrThrow({ where: { id } });
+    const updated = await db.user.update({
+      where: { id },
+      data: {
+        name: data.name,
+        email: data.email.toLowerCase(),
+        role: data.role,
+        coordinatorId: data.role === "COORDINATOR" ? data.coordinatorId || null : null,
+        clientId: data.role === "CLIENT" ? data.clientId || null : null,
+      },
+    });
+
+    await logAudit({
+      userId: sessionUser.id,
+      action: "update",
+      entityType: "User",
+      entityId: updated.id,
+      previousValue: { name: before.name, email: before.email, role: before.role },
+      newValue: { name: data.name, email: data.email, role: data.role },
+    });
+
+    revalidatePath("/users");
+    revalidatePath(`/users/${id}`);
+    return ok({ id: updated.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function generateAccessCode(userId: string): Promise<ActionResult<{ accessCode: string }>> {
   try {
     const sessionUser = await getSessionUser();

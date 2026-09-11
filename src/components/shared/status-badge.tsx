@@ -46,6 +46,7 @@ const STATUS_TONES: Record<string, Tone> = {
   REVIEW: "warning",
   PAID: "success",
   PARTIALLY_PAID: "warning",
+  UNPAID: "neutral",
   PAYABLE: "info",
 
   // Advances / loans

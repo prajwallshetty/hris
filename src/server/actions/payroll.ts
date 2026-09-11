@@ -279,6 +279,57 @@ export async function generateWorkerPayroll(
   }
 }
 
+/**
+ * "Create Salary Slip" from a worker's own page (§ UX restructure) — the
+ * one-worker entry point into payroll, so an HR user never has to know
+ * what a "payroll period" is. Finds the calendar-month period if one
+ * already exists, creates it if not (same fields createPayrollPeriod
+ * writes), then generates payroll for just this worker via the existing,
+ * unmodified generateWorkerPayroll — no calculation logic is duplicated
+ * here, only period lookup/creation and reading back the row it made.
+ */
+export async function createSalarySlipForWorker(
+  workerId: string,
+  month: string,
+): Promise<ActionResult<{ workerPayrollId: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "create", "workerPayroll");
+
+    const [year, monthNum] = month.split("-").map(Number);
+    if (!year || !monthNum) return { success: false, error: "Invalid month." };
+    const periodStart = new Date(year, monthNum - 1, 1);
+    const periodEnd = new Date(year, monthNum, 0);
+    const periodName = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(periodStart);
+
+    let period = await db.payrollPeriod.findFirst({ where: { periodStart, periodEnd } });
+    if (!period) {
+      const created = await createPayrollPeriod({
+        name: periodName,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+      });
+      if (!created.success) return created;
+      period = await db.payrollPeriod.findUniqueOrThrow({ where: { id: created.data.id } });
+    }
+
+    const existing = await db.workerPayroll.findUnique({
+      where: { payrollPeriodId_workerId: { payrollPeriodId: period.id, workerId } },
+    });
+    if (existing) return ok({ workerPayrollId: existing.id });
+
+    const generated = await generateWorkerPayroll({ payrollPeriodId: period.id, workerId, clientId: "", siteId: "" });
+    if (!generated.success) return generated;
+
+    const row = await db.workerPayroll.findUniqueOrThrow({
+      where: { payrollPeriodId_workerId: { payrollPeriodId: period.id, workerId } },
+    });
+    return ok({ workerPayrollId: row.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 const LOCKED_PAYROLL_STATUSES = new Set(["APPROVED", "PAID", "PARTIALLY_PAID"]);
 
 export async function addPayrollAdjustment(input: PayrollAdjustmentFormInput): Promise<ActionResult<{ id: string }>> {

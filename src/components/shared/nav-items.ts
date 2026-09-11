@@ -32,13 +32,15 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-// Enterprise-ERP-style grouping (§4): Overview / Workforce / Clients / HR /
-// Payroll / Operations / Reports / Administration — one group per business
-// domain rather than a generic "Finance" catch-all. Only routes that exist
-// today are listed; Projects/Sites/Contracts/Billing/Leave/Documents/
-// Advances/Loans/Sales/Commission live inside their parent detail pages for
-// now and get their own top-level nav entry once Phases 4-11 build
-// standalone list pages for them.
+// Business-section grouping (§ UX restructure): Overview / Workforce /
+// Payroll / Client Billing / Rentals / People / Finance / Admin — a normal
+// HR/admin user shouldn't have to know which of these is "operations" vs
+// "clients" in database terms, just where to find the thing they need. Only
+// routes that exist today are listed; sub-features like Projects/Sites/
+// Leave/Advances/Loans/Documents live inside their parent detail page
+// (Client/Worker 360) rather than getting their own top-level entry —
+// adding a nav item for every sub-feature is exactly the navigation
+// confusion this restructure is meant to remove.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
@@ -61,36 +63,8 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/timesheets",
-        label: "Timesheets",
+        label: "Timesheets (LOG)",
         icon: ClipboardCheck,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
-    ],
-  },
-  {
-    label: "Clients",
-    items: [
-      {
-        href: "/clients",
-        label: "Clients",
-        icon: Building2,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR"],
-      },
-      {
-        href: "/invoices",
-        label: "Invoices",
-        icon: FileText,
-        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"],
-      },
-    ],
-  },
-  {
-    label: "HR",
-    items: [
-      {
-        href: "/employees",
-        label: "Employees",
-        icon: UserSquare2,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
     ],
@@ -107,14 +81,25 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Operations",
+    label: "Client Billing",
     items: [
       {
-        href: "/coordinators",
-        label: "Coordinators",
-        icon: UserCog,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
+        href: "/clients",
+        label: "Clients",
+        icon: Building2,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR"],
       },
+      {
+        href: "/invoices",
+        label: "Invoices",
+        icon: FileText,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"],
+      },
+    ],
+  },
+  {
+    label: "Rentals",
+    items: [
       {
         href: "/vehicles",
         label: "Vehicles",
@@ -129,21 +114,38 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/rentals",
-        label: "Rentals",
+        label: "Equipment Rentals",
         icon: Timer,
         roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "COORDINATOR"],
       },
+    ],
+  },
+  {
+    label: "People",
+    items: [
+      {
+        href: "/coordinators",
+        label: "Coordinators",
+        icon: UserCog,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
+      },
+      {
+        href: "/employees",
+        label: "Employees",
+        icon: UserSquare2,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
       {
         href: "/expenses",
         label: "Expenses",
         icon: Receipt,
         roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
       },
-    ],
-  },
-  {
-    label: "Reports",
-    items: [
       {
         href: "/reports",
         label: "Reports",
@@ -153,7 +155,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Administration",
+    label: "Admin",
     items: [
       {
         href: "/users",

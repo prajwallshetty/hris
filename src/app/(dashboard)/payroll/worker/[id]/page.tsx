@@ -1,4 +1,4 @@
-import { Send, ShieldCheck } from "lucide-react";
+import { FileText, Send, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -74,6 +74,10 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
         description={payroll.payrollPeriod.name}
         actions={
           <>
+            <Button variant="outline" render={<Link href={`/payroll/worker/${payroll.id}/slip`} />}>
+              <FileText className="size-4" />
+              Salary Slip
+            </Button>
             <StatusBadge status={payroll.status} />
             {canUpdate && payroll.status === "DRAFT" && (
               <ConfirmActionButton

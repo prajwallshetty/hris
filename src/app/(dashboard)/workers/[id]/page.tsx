@@ -36,6 +36,7 @@ import { getSessionUser } from "@/server/session";
 
 import { AssignmentFormDialog } from "../../assignments/assignment-form";
 import { AdvanceDialog } from "./advance-dialog";
+import { CreateSalarySlipDialog } from "./create-salary-slip-dialog";
 import { DocumentActions } from "./document-actions";
 import { DocumentDialog } from "./document-dialog";
 import { LeaveDecisionButtons } from "./leave-decision-buttons";
@@ -73,6 +74,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const canManageAdvances = can(user, "create", "advance");
   const canManageLoans = can(user, "create", "loan");
   const canManagePayments = can(user, "create", "workerPayment");
+  const canCreateSalarySlip = can(user, "create", "workerPayroll");
   const canViewRecurringCharges = can(user, "view", "recurringCharge");
   const canManageRecurringCharges = can(user, "create", "recurringCharge");
   const canViewActivity = can(user, "view", "auditLog");
@@ -224,6 +226,16 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         ]}
         actions={
           <>
+            {canCreateSalarySlip && <CreateSalarySlipDialog workerId={worker.id} workerName={worker.fullName} />}
+            {canManagePayments && (
+              <PaymentDialog
+                workerId={worker.id}
+                workerPayrollId={latestPayroll?.id}
+                workerName={worker.fullName}
+                workerMobile={worker.mobile ?? undefined}
+                trigger={<Button variant="outline">Record Payment</Button>}
+              />
+            )}
             {canEdit && (
               <Button
                 variant="outline"
@@ -308,7 +320,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="assignments">Assignment History</TabsTrigger>
-          <TabsTrigger value="payroll">Payroll</TabsTrigger>
+          <TabsTrigger value="payroll">Salary</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
@@ -529,7 +541,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
 
         <TabsContent value="payroll" className="space-y-4">
           {payrollHistory.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No payroll history yet" />
+            <EmptyState icon={ClipboardList} title="No salary history yet" />
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <Table>
@@ -552,7 +564,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     const paid = p.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
                     return (
                       <TableRow key={p.id}>
-                        <TableCell>{p.payrollPeriod.name}</TableCell>
+                        <TableCell>
+                          <Link href={`/payroll/worker/${p.id}`} className="font-medium hover:underline">
+                            {p.payrollPeriod.name}
+                          </Link>
+                        </TableCell>
                         <TableCell>{Number(p.regularHours).toFixed(1)}</TableCell>
                         <TableCell>{Number(p.overtimeHours).toFixed(1)}</TableCell>
                         <TableCell>{formatMoney(p.grossPay)}</TableCell>

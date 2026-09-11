@@ -3,6 +3,7 @@ import type { PayrollStatus, Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { assertCan, type SessionUser } from "@/server/rbac";
+import { CURRENT_ASSIGNMENT_INCLUDE } from "@/server/queries/workers";
 
 export async function listPayrollPeriods(
   user: SessionUser,
@@ -53,7 +54,7 @@ export async function getWorkerPayrollDetail(user: SessionUser, id: string) {
     where: { id },
     include: {
       payrollPeriod: true,
-      worker: true,
+      worker: { include: CURRENT_ASSIGNMENT_INCLUDE },
       items: { orderBy: { createdAt: "asc" } },
       payments: { orderBy: { date: "desc" } },
     },

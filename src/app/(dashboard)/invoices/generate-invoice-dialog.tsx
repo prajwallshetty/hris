@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   generateInvoiceFormSchema,
@@ -78,46 +79,30 @@ export function GenerateInvoiceDialog({ clients, presetClientId }: { clients: Cl
             {!presetClientId && (
               <Field>
                 <FieldLabel>Client *</FieldLabel>
-                <Select
+                <EntityCombobox
+                  entityType="client"
                   value={form.watch("clientId")}
-                  onValueChange={(v) => {
-                    form.setValue("clientId", v ?? "");
+                  onChange={(v) => {
+                    form.setValue("clientId", v);
                     form.setValue("projectId", "");
                   }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.companyName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select Client"
+                  error={errors.clientId?.message}
+                  required
+                />
                 {errors.clientId && <FieldError>{errors.clientId.message}</FieldError>}
               </Field>
             )}
             <Field>
               <FieldLabel>Project (optional)</FieldLabel>
-              <Select
-                value={form.watch("projectId") || "ALL"}
-                onValueChange={(v) => form.setValue("projectId", v === "ALL" ? "" : (v ?? ""))}
+              <EntityCombobox
+                entityType="project"
+                value={form.watch("projectId")}
+                parentValue={clientId}
                 disabled={!clientId}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All projects" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All projects</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => form.setValue("projectId", v)}
+                placeholder={clientId ? "All projects (Optional)" : "Select client first"}
+              />
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field>

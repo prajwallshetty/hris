@@ -21,6 +21,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   assignmentFormSchema,
   type AssignmentFormInput,
@@ -78,15 +79,6 @@ export function AssignmentFormDialog({
   const marginSar = clientRate - workerRate;
   const marginPct = workerRate > 0 ? (marginSar / workerRate) * 100 : 0;
 
-  const projects = useMemo(
-    () => clients.find((c) => c.id === selectedClientId)?.projects ?? [],
-    [clients, selectedClientId],
-  );
-  const sites = useMemo(
-    () => projects.find((p) => p.id === selectedProjectId)?.sites ?? [],
-    [projects, selectedProjectId],
-  );
-
   async function onSubmit(values: AssignmentFormInput) {
     const result = await createAssignment(values);
     if (result.success) {
@@ -121,31 +113,22 @@ export function AssignmentFormDialog({
                 1. Deployment & Site Selection
               </h4>
               <div className="grid grid-cols-1 gap-4">
-                {workers && (
+                {!presetWorkerId && (
                   <Field>
                     <FieldLabel>Worker *</FieldLabel>
-                    <Select
+                    <EntityCombobox
+                      entityType="worker"
                       value={form.watch("workerId")}
-                      onValueChange={(v) => {
-                        const val = v ?? "";
+                      onChange={(val, rawWorker) => {
                         form.setValue("workerId", val);
-                        const selectedWorker = workers.find((w) => w.id === val);
-                        if (selectedWorker?.hourlyRate) {
-                          form.setValue("workerHourlyRate", Number(selectedWorker.hourlyRate));
+                        if (rawWorker?.hourlyRate) {
+                          form.setValue("workerHourlyRate", Number(rawWorker.hourlyRate));
                         }
                       }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select worker" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {workers.map((w) => (
-                          <SelectItem key={w.id} value={w.id}>
-                            {w.fullName} — {w.iqamaNumber}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Search worker by name or Iqama..."
+                      error={errors.workerId?.message}
+                      required
+                    />
                     {errors.workerId && <FieldError>{errors.workerId.message}</FieldError>}
                   </Field>
                 )}
@@ -153,68 +136,51 @@ export function AssignmentFormDialog({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <Field>
                     <FieldLabel>Client *</FieldLabel>
-                    <Select
+                    <EntityCombobox
+                      entityType="client"
                       value={form.watch("clientId")}
-                      onValueChange={(v) => {
-                        form.setValue("clientId", v ?? "");
+                      onChange={(v) => {
+                        form.setValue("clientId", v);
                         form.setValue("projectId", "");
                         form.setValue("siteId", "");
                       }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.companyName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select Client"
+                      error={errors.clientId?.message}
+                      required
+                    />
                     {errors.clientId && <FieldError>{errors.clientId.message}</FieldError>}
                   </Field>
+
                   <Field>
                     <FieldLabel>Project *</FieldLabel>
-                    <Select
+                    <EntityCombobox
+                      entityType="project"
                       value={form.watch("projectId")}
-                      onValueChange={(v) => {
-                        form.setValue("projectId", v ?? "");
+                      parentValue={selectedClientId}
+                      disabled={!selectedClientId}
+                      onChange={(v) => {
+                        form.setValue("projectId", v);
                         form.setValue("siteId", "");
                       }}
-                      disabled={!selectedClientId}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder={selectedClientId ? "Select Project" : "Select client first"}
+                      error={errors.projectId?.message}
+                      required
+                    />
                     {errors.projectId && <FieldError>{errors.projectId.message}</FieldError>}
                   </Field>
+
                   <Field>
                     <FieldLabel>Site *</FieldLabel>
-                    <Select
+                    <EntityCombobox
+                      entityType="site"
                       value={form.watch("siteId")}
-                      onValueChange={(v) => form.setValue("siteId", v ?? "")}
+                      parentValue={selectedProjectId}
                       disabled={!selectedProjectId}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Site" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sites.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(v) => form.setValue("siteId", v)}
+                      placeholder={selectedProjectId ? "Select Site" : "Select project first"}
+                      error={errors.siteId?.message}
+                      required
+                    />
                     {errors.siteId && <FieldError>{errors.siteId.message}</FieldError>}
                   </Field>
                 </div>
@@ -282,22 +248,12 @@ export function AssignmentFormDialog({
                 </Field>
                 <Field>
                   <FieldLabel>Site Coordinator</FieldLabel>
-                  <Select
-                    value={form.watch("coordinatorId") || "NONE"}
-                    onValueChange={(v) => form.setValue("coordinatorId", v === "NONE" ? "" : (v ?? ""))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NONE">None</SelectItem>
-                      {coordinators.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <EntityCombobox
+                    entityType="coordinator"
+                    value={form.watch("coordinatorId")}
+                    onChange={(v) => form.setValue("coordinatorId", v)}
+                    placeholder="Select Coordinator (Optional)"
+                  />
                 </Field>
                 <Field className="sm:col-span-2">
                   <FieldLabel htmlFor="notes">Notes / Special Terms</FieldLabel>

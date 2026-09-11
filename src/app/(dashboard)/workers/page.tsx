@@ -70,14 +70,14 @@ export default async function WorkersPage({
         }
       />
 
-      <div className="bg-card flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <SearchInput placeholder="Search by name, Iqama, mobile, or worker ID…" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <SelectFilter
             paramKey="status"
             placeholder="Status"
             options={WORKER_STATUSES.map((s) => ({ label: s.replaceAll("_", " "), value: s }))}
           />
+          <SearchInput placeholder="Search by name, Iqama, mobile, or worker ID…" />
         </div>
         <ExportWorkersButton />
       </div>

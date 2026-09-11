@@ -31,7 +31,7 @@ export function SelectFilter({
 
   return (
     <Select value={value} onValueChange={handleChange}>
-      <SelectTrigger className="w-full sm:w-48">
+      <SelectTrigger className="bg-secondary/60 w-full rounded-full border-transparent sm:w-auto">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

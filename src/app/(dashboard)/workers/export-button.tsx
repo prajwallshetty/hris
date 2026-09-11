@@ -16,6 +16,7 @@ export function ExportWorkersButton() {
   return (
     <Button
       variant="outline"
+      className="rounded-full"
       render={
         <a href={`/api/workers/export?${params.toString()}`}>
           <Download className="size-4" />

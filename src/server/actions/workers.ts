@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { workerFormSchema, type WorkerFormInput } from "@/lib/validation/worker";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
-import { assertCan } from "@/server/rbac";
+import { assertCan, type SessionUser } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
 function toDate(value?: string) {
@@ -36,7 +36,7 @@ async function resolveDesignationId(title?: string | null): Promise<string | nul
   return designation.id;
 }
 
-function buildData(data: WorkerFormInput, designationId: string | null) {
+function buildData(data: WorkerFormInput, designationId: string | null, user: SessionUser) {
   return {
     iqamaNumber: data.iqamaNumber,
     fullName: data.fullName,
@@ -51,7 +51,13 @@ function buildData(data: WorkerFormInput, designationId: string | null) {
     joiningDate: toDate(data.joiningDate),
     mobilizationDate: toDate(data.mobilizationDate),
     demobilizationDate: toDate(data.demobilizationDate),
-    coordinatorId: data.coordinatorId || null,
+    // A coordinator's own Workers list is scoped to coordinatorId === their
+    // own id (workerScopeWhere). Trusting the form's value here let a
+    // coordinator create/edit a worker that doesn't satisfy their own
+    // scope — the worker saves fine but immediately vanishes from their
+    // list. Force it server-side rather than relying on the form
+    // remembering to pre-select them.
+    coordinatorId: user.role === "COORDINATOR" ? user.coordinatorId : data.coordinatorId || null,
     hourlyRate: data.hourlyRate ?? null,
     overtimeRate: data.overtimeRate ?? null,
     status: data.status,
@@ -86,7 +92,7 @@ export async function createWorker(input: WorkerFormInput): Promise<ActionResult
     const data = workerFormSchema.parse(input);
     const designationId = await resolveDesignationId(data.designation);
 
-    const worker = await db.worker.create({ data: buildData(data, designationId) });
+    const worker = await db.worker.create({ data: buildData(data, designationId, user) });
 
     await db.workerStatusHistory.create({
       data: { workerId: worker.id, previousStatus: null, newStatus: worker.status, changedById: user.id },
@@ -121,7 +127,7 @@ export async function updateWorker(
     const designationId = await resolveDesignationId(data.designation);
 
     const before = await db.worker.findUniqueOrThrow({ where: { id } });
-    const worker = await db.worker.update({ where: { id }, data: buildData(data, designationId) });
+    const worker = await db.worker.update({ where: { id }, data: buildData(data, designationId, user) });
 
     if (before.status !== worker.status) {
       await db.workerStatusHistory.create({

@@ -149,7 +149,13 @@ export async function assignVehicle(
         data: {
           vehicleId: data.vehicleId,
           workerId: data.workerId,
-          coordinatorId: data.coordinatorId || vehicle.coordinatorId || null,
+          // A coordinator's own lists are scoped to coordinatorId === their
+          // own id (vehicleAssignmentScopeWhere). Leaving the form field
+          // blank previously fell back to the vehicle's existing
+          // coordinatorId (often null), so an assignment a coordinator just
+          // created could immediately vanish from their own scoped view.
+          coordinatorId:
+            user.role === "COORDINATOR" ? user.coordinatorId : data.coordinatorId || vehicle.coordinatorId || null,
           clientId: data.clientId || null,
           projectId: data.projectId || null,
           siteId: data.siteId || null,
@@ -287,7 +293,7 @@ export async function recordVehicleExpense(
         amount: data.amount,
         date: new Date(data.date),
         workerId: data.workerId || null,
-        coordinatorId: data.coordinatorId || null,
+        coordinatorId: user.role === "COORDINATOR" ? user.coordinatorId : data.coordinatorId || null,
         clientId: data.clientId || null,
         projectId: data.projectId || null,
         siteId: data.siteId || null,

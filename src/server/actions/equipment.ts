@@ -146,7 +146,12 @@ export async function createRental(input: EquipmentRentalFormInput): Promise<Act
           clientId: data.clientId,
           projectId: data.projectId || null,
           siteId: data.siteId || null,
-          coordinatorId: data.coordinatorId || equipment.coordinatorId || null,
+          // Same reasoning as assignVehicle/recordVehicleExpense: a
+          // coordinator's own scope requires coordinatorId === their own
+          // id, so a blank form field must never fall back to something
+          // that isn't them, or the rental they just created vanishes from
+          // their own list.
+          coordinatorId: user.role === "COORDINATOR" ? user.coordinatorId : data.coordinatorId || equipment.coordinatorId || null,
           rateType: data.rateType,
           rateAmount: data.rateAmount,
           quantity: data.quantity,

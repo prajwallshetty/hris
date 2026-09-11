@@ -1,4 +1,4 @@
-import { ClipboardList, ListFilter, Plus, Upload } from "lucide-react";
+import { ClipboardList, ListFilter, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -45,7 +45,7 @@ export default async function TimesheetsPage({
       <PageHeader
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Workforce" }, { label: "Timesheets" }]}
         title="Timesheets"
-        description="Login-sheet uploads and manual attendance, from upload through approval and locking."
+        description="Manual attendance and timesheets, from entry through approval and locking."
         actions={
           <>
             <Button variant="outline" render={<Link href="/timesheets/log" />}>
@@ -53,22 +53,16 @@ export default async function TimesheetsPage({
               View Log
             </Button>
             {canCreate && (
-              <>
-                <ManualTimesheetEntryDialog
-                  clients={clients}
-                  workers={workers}
-                  trigger={
-                    <Button variant="outline">
-                      <Plus className="size-4" />
-                      Manual Entry
-                    </Button>
-                  }
-                />
-                <Button render={<Link href="/timesheets/upload" />}>
-                  <Upload className="size-4" />
-                  Upload Login Sheet
-                </Button>
-              </>
+              <ManualTimesheetEntryDialog
+                clients={clients}
+                workers={workers}
+                trigger={
+                  <Button>
+                    <Plus className="size-4" />
+                    Manual Entry
+                  </Button>
+                }
+              />
             )}
           </>
         }
@@ -90,7 +84,7 @@ export default async function TimesheetsPage({
         <EmptyState
           icon={ClipboardList}
           title="No timesheets found"
-          description={canCreate ? "Upload a login sheet or add a manual entry to get started." : undefined}
+          description={canCreate ? "Add a manual entry to get started." : undefined}
         />
       ) : (
         <div className="rounded-lg border">

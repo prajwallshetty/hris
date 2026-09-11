@@ -119,10 +119,11 @@ export function AssignmentFormDialog({
                     <EntityCombobox
                       entityType="worker"
                       value={form.watch("workerId")}
-                      onChange={(val, rawWorker) => {
+                      onChange={(val, rawItem) => {
                         form.setValue("workerId", val);
-                        if (rawWorker?.hourlyRate) {
-                          form.setValue("workerHourlyRate", Number(rawWorker.hourlyRate));
+                        const worker = rawItem as { hourlyRate?: number | string } | undefined;
+                        if (worker?.hourlyRate) {
+                          form.setValue("workerHourlyRate", Number(worker.hourlyRate));
                         }
                       }}
                       placeholder="Search worker by name or Iqama..."

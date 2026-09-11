@@ -17,7 +17,7 @@ function buildWorkerSearchWhere(search?: string): Prisma.WorkerWhereInput {
   };
 }
 
-const CURRENT_ASSIGNMENT_INCLUDE = {
+export const CURRENT_ASSIGNMENT_INCLUDE = {
   assignments: {
     where: { status: "ACTIVE" as const },
     orderBy: { startDate: "desc" as const },

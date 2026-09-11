@@ -1,4 +1,25 @@
-import { ArchiveRestore, Archive, ClipboardList, LogOut, Pencil, Plus } from "lucide-react";
+import {
+  ArchiveRestore,
+  Archive,
+  BookOpen,
+  Briefcase,
+  Calendar,
+  Car,
+  Clock,
+  ClipboardList,
+  CreditCard,
+  ExternalLink,
+  FileText,
+  HandCoins,
+  Home,
+  Landmark,
+  LayoutGrid,
+  LogOut,
+  Pencil,
+  Plus,
+  Receipt,
+  ShieldAlert,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -58,6 +79,16 @@ function formatMoney(value: unknown) {
   return `SAR ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
 
+function isExpiringSoon(date: Date | null, daysThreshold = 30) {
+  if (!date) return false;
+  const diff = (new Date(date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
+  return diff >= 0 && diff <= daysThreshold;
+}
+
+function isExpired(date: Date | null) {
+  if (!date) return false;
+  return new Date(date).getTime() < new Date().getTime();
+}
 
 export default async function WorkerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -106,17 +137,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const currentAssignment = worker.assignments.find((a) => a.status === "ACTIVE");
   const isDemobilizable = currentAssignment !== undefined && worker.status !== "DEMOBILIZED";
 
-  // §11 financial summary strip — the latest payroll period's real figures,
-  // not a fabricated "current month" (no live timesheet data feeds that yet).
   const latestPayroll = payrollHistory[0];
   const latestPayrollPaid = latestPayroll
     ? latestPayroll.payments.reduce((sum, p) => sum + Number(p.amount), 0)
     : 0;
   const latestPayrollOutstanding = latestPayroll ? Number(latestPayroll.netPayable) - latestPayrollPaid : 0;
 
-  // §Worker 360 overview — active loan/advance balances, leave balance, and
-  // current vehicle, all derived from the same rows the dedicated tabs use
-  // (never a separate/duplicated calculation).
   const activeLoan = loans.find((l) => l.status === "ACTIVE");
   const activeLoanRemaining = activeLoan
     ? calculateRepayableBalance(activeLoan.principalAmount.toString(), activeLoan.repayments.map((r) => r.amount.toString()))
@@ -134,9 +160,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   const currentVehicleAssignment = vehicleAssignments.find((a) => a.status === "ACTIVE");
   const lastEdited = activity[0]?.createdAt ?? worker.updatedAt;
 
-  // Running balance per linked payroll — grouped from the same `payments`
-  // rows already loaded, cumulative sum ascending by date, never a second
-  // query or a separately-maintained ledger balance.
+  const iqamaExpiring = isExpiringSoon(worker.iqamaExpiryDate);
+  const iqamaExpired = isExpired(worker.iqamaExpiryDate);
+
   const paymentsByPayroll = new Map<string, typeof payments>();
   for (const p of payments) {
     if (!p.workerPayrollId) continue;
@@ -147,6 +173,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   for (const group of paymentsByPayroll.values()) {
     group.sort((a, b) => a.date.getTime() - b.date.getTime());
   }
+
   const paymentHistoryRows: PaymentHistoryRow[] = payments.map((p) => {
     let balance: number | null = null;
     if (p.workerPayrollId && p.workerPayroll) {
@@ -197,10 +224,27 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         ]}
         avatar={<RecordAvatarInitials name={worker.fullName} />}
         title={worker.fullName}
-        badges={<StatusBadge status={worker.status} />}
+        badges={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={worker.status} />
+            {iqamaExpired && <StatusBadge status="EXPIRED" />}
+            {!iqamaExpired && iqamaExpiring && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20 ring-inset">
+                <ShieldAlert className="size-3.5 text-amber-600" />
+                Iqama Expiring Soon
+              </span>
+            )}
+          </div>
+        }
         meta={
           <>
             <span>Iqama: {worker.iqamaNumber}</span>
+            {worker.designation?.title && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{worker.designation.title}</span>
+              </>
+            )}
             {worker.coordinator && (
               <>
                 <span aria-hidden>·</span>
@@ -218,9 +262,14 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             tone: latestPayrollOutstanding > 0 ? "warning" : "success",
           },
           {
-            label: "Loan Remaining",
+            label: "Loan Balance",
             value: activeLoan ? formatMoney(activeLoanRemaining!.toNumber()) : "None",
             tone: activeLoan ? "info" : "neutral",
+          },
+          {
+            label: "Advance Balance",
+            value: advanceBalance > 0 ? formatMoney(advanceBalance) : "None",
+            tone: advanceBalance > 0 ? "warning" : "neutral",
           },
           { label: "Leave Balance", value: `${leaveBalanceRemaining.toFixed(1)}d`, tone: "neutral" },
         ]}
@@ -233,7 +282,25 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 workerPayrollId={latestPayroll?.id}
                 workerName={worker.fullName}
                 workerMobile={worker.mobile ?? undefined}
-                trigger={<Button variant="outline">Record Payment</Button>}
+                trigger={
+                  <Button variant="outline">
+                    <CreditCard className="size-4" />
+                    Record Payment
+                  </Button>
+                }
+              />
+            )}
+            {canCreateAssignment && (
+              <AssignmentFormDialog
+                clients={clients}
+                coordinators={[]}
+                presetWorkerId={worker.id}
+                trigger={
+                  <Button variant="outline">
+                    <Briefcase className="size-4" />
+                    Assign
+                  </Button>
+                }
               />
             )}
             {canEdit && (
@@ -298,8 +365,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <KpiCard label="Hourly Rate" value={formatMoney(worker.hourlyRate)} />
+        <KpiCard label="Overtime Rate" value={formatMoney(worker.overtimeRate)} />
         {latestPayroll ? (
           <>
             <KpiCard label="Net Payable" value={formatMoney(latestPayroll.netPayable)} />
@@ -307,82 +375,154 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             <KpiCard
               label="Outstanding"
               value={formatMoney(latestPayrollOutstanding)}
-              className={latestPayrollOutstanding > 0 ? "text-warning-foreground" : undefined}
+              className={latestPayrollOutstanding > 0 ? "text-amber-600 font-semibold" : undefined}
             />
+            <KpiCard label="Active Loan" value={activeLoan ? formatMoney(activeLoanRemaining!.toNumber()) : "None"} />
           </>
         ) : (
-          <KpiCard label="Payroll" value="No payroll yet" className="col-span-3" />
+          <KpiCard label="Payroll" value="No payroll yet" className="col-span-4" />
         )}
       </div>
 
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="assignments">Assignment History</TabsTrigger>
-          <TabsTrigger value="payroll">Salary</TabsTrigger>
-          <TabsTrigger value="leave">Leave</TabsTrigger>
-          <TabsTrigger value="advances">Advances</TabsTrigger>
-          <TabsTrigger value="loans">Loans</TabsTrigger>
-          <TabsTrigger value="payments">Payment History</TabsTrigger>
-          {canViewLedger && <TabsTrigger value="ledger">Ledger</TabsTrigger>}
-          <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
-          {canViewRecurringCharges && <TabsTrigger value="recurring-charges">Housing &amp; Charges</TabsTrigger>}
-          {canViewActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="flex h-auto max-w-full flex-wrap gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+          <TabsTrigger value="overview" className="gap-1.5 text-xs">
+            <LayoutGrid className="size-3.5" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-1.5 text-xs">
+            <FileText className="size-3.5" />
+            Documents ({worker.documents.length})
+          </TabsTrigger>
+          <TabsTrigger value="assignments" className="gap-1.5 text-xs">
+            <Briefcase className="size-3.5" />
+            Assignments ({worker.assignments.length})
+          </TabsTrigger>
+          <TabsTrigger value="payroll" className="gap-1.5 text-xs">
+            <Receipt className="size-3.5" />
+            Salary ({payrollHistory.length})
+          </TabsTrigger>
+          <TabsTrigger value="leave" className="gap-1.5 text-xs">
+            <Calendar className="size-3.5" />
+            Leave
+          </TabsTrigger>
+          <TabsTrigger value="advances" className="gap-1.5 text-xs">
+            <HandCoins className="size-3.5" />
+            Advances ({advances.length})
+          </TabsTrigger>
+          <TabsTrigger value="loans" className="gap-1.5 text-xs">
+            <Landmark className="size-3.5" />
+            Loans ({loans.length})
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="gap-1.5 text-xs">
+            <CreditCard className="size-3.5" />
+            Payment History ({payments.length})
+          </TabsTrigger>
+          {canViewLedger && (
+            <TabsTrigger value="ledger" className="gap-1.5 text-xs">
+              <BookOpen className="size-3.5" />
+              Ledger
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="vehicles" className="gap-1.5 text-xs">
+            <Car className="size-3.5" />
+            Vehicles ({vehicleAssignments.length})
+          </TabsTrigger>
+          {canViewRecurringCharges && (
+            <TabsTrigger value="recurring-charges" className="gap-1.5 text-xs">
+              <Home className="size-3.5" />
+              Housing &amp; Charges
+            </TabsTrigger>
+          )}
+          {canViewActivity && (
+            <TabsTrigger value="activity" className="gap-1.5 text-xs">
+              <Clock className="size-3.5" />
+              Activity
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Snapshot</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Snapshot &amp; Active Status</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-sm">
                 <Detail
                   label="Current Assignment"
-                  value={currentAssignment ? `${currentAssignment.client.companyName} / ${currentAssignment.site.name}` : "Unassigned"}
+                  value={
+                    currentAssignment ? (
+                      <span className="font-medium text-slate-900">
+                        {currentAssignment.client.companyName} / {currentAssignment.site.name}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Unassigned</span>
+                    )
+                  }
                 />
                 <Detail
                   label="Current Vehicle"
-                  value={currentVehicleAssignment ? currentVehicleAssignment.vehicle.plateNumber : "None"}
+                  value={
+                    currentVehicleAssignment ? (
+                      <Link
+                        href={`/vehicles/${currentVehicleAssignment.vehicleId}`}
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {currentVehicleAssignment.vehicle.plateNumber}
+                      </Link>
+                    ) : (
+                      <span className="text-slate-400">None</span>
+                    )
+                  }
                 />
                 <Detail label="Active Loan" value={activeLoan ? formatMoney(activeLoan.principalAmount) : "None"} />
                 <Detail label="Loan Remaining" value={activeLoan ? formatMoney(activeLoanRemaining!.toNumber()) : "—"} />
                 <Detail label="Advance Balance" value={formatMoney(advanceBalance)} />
                 <Detail label="Leave Balance" value={`${leaveBalanceRemaining.toFixed(1)} days (${currentYear})`} />
-                <Detail label="Iqama Expiry" value={formatDate(worker.iqamaExpiryDate)} />
+                <Detail
+                  label="Iqama Expiry"
+                  value={
+                    <span className={iqamaExpired ? "font-semibold text-rose-600" : iqamaExpiring ? "font-semibold text-amber-600" : undefined}>
+                      {formatDate(worker.iqamaExpiryDate)}
+                    </span>
+                  }
+                />
                 <Detail label="Passport Expiry" value={formatDate(worker.passportExpiryDate)} />
               </CardContent>
             </Card>
+
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Payment History</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Payment Trends</CardTitle>
               </CardHeader>
               <CardContent>
                 {paymentChartData.length === 0 ? (
-                  <p className="text-muted-foreground py-10 text-center text-sm">No payments recorded yet.</p>
+                  <p className="py-10 text-center text-sm text-slate-400">No payments recorded yet.</p>
                 ) : (
                   <WorkerPaymentHistoryChart data={paymentChartData} />
                 )}
               </CardContent>
             </Card>
+
             <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-base">Hours Worked</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Hours Worked History</CardTitle>
               </CardHeader>
               <CardContent>
                 {hoursChartData.length === 0 ? (
-                  <p className="text-muted-foreground py-10 text-center text-sm">No payroll history yet.</p>
+                  <p className="py-10 text-center text-sm text-slate-400">No payroll history recorded yet.</p>
                 ) : (
                   <WorkerHoursChart data={hoursChartData} />
                 )}
               </CardContent>
             </Card>
+
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Identity</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Identity Details</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-sm">
                 <Detail label="Mobile" value={worker.mobile} />
                 <Detail label="Passport Number" value={worker.passportNumber} />
                 <Detail label="Passport Expiry" value={formatDate(worker.passportExpiryDate)} />
@@ -391,11 +531,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 <Detail label="Date of Birth" value={formatDate(worker.dateOfBirth)} />
               </CardContent>
             </Card>
+
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Employment</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Employment Details</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-sm">
                 <Detail label="Designation" value={worker.designation?.title} />
                 <Detail label="Skill / Category" value={worker.skillCategory} />
                 <Detail label="Coordinator" value={worker.coordinator?.name} />
@@ -404,30 +545,33 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 <Detail label="Demobilization Date" value={formatDate(worker.demobilizationDate)} />
               </CardContent>
             </Card>
+
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Rates</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Compensation Rates</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-sm">
                 <Detail label="Hourly Rate" value={formatMoney(worker.hourlyRate)} />
                 <Detail label="Overtime Rate" value={formatMoney(worker.overtimeRate)} />
               </CardContent>
             </Card>
+
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Bank Details</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Bank &amp; Payment Details</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-sm">
                 <Detail label="Bank Name" value={worker.bankName} />
                 <Detail label="IBAN / Account" value={worker.bankAccountIban} />
               </CardContent>
             </Card>
+
             {worker.notes && (
               <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-base">Notes</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Notes</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm whitespace-pre-wrap">{worker.notes}</CardContent>
+                <CardContent className="whitespace-pre-wrap text-sm text-slate-600">{worker.notes}</CardContent>
               </Card>
             )}
           </div>
@@ -442,13 +586,13 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           {worker.documents.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No documents uploaded yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>File</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Expiry</TableHead>
+                    <TableHead>File Name</TableHead>
+                    <TableHead>Document Type</TableHead>
+                    <TableHead>Expiry Date</TableHead>
                     <TableHead>Verification</TableHead>
                     {canEdit && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
@@ -457,7 +601,13 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                   {worker.documents.map((doc) => (
                     <TableRow key={doc.id}>
                       <TableCell>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 font-medium text-blue-600 hover:underline"
+                        >
+                          <FileText className="size-4 text-slate-400" />
                           {doc.fileName}
                         </a>
                       </TableCell>
@@ -498,12 +648,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
 
           {worker.assignments.length === 0 ? (
             <EmptyState
-              icon={ClipboardList}
+              icon={Briefcase}
               title="No assignments yet"
               description="Deploy this worker to a client site to start tracking their assignment history."
             />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -511,15 +661,15 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     <TableHead>Site</TableHead>
                     <TableHead>Worker Rate</TableHead>
                     <TableHead>Client Rate</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
+                    <TableHead>Start Date</TableHead>
+                    <TableHead>End Date</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {worker.assignments.map((a) => (
                     <TableRow key={a.id}>
-                      <TableCell>{a.client.companyName}</TableCell>
+                      <TableCell className="font-medium">{a.client.companyName}</TableCell>
                       <TableCell>{a.site.name}</TableCell>
                       <TableCell>{formatMoney(a.workerHourlyRate)}</TableCell>
                       <TableCell>{formatMoney(a.clientBillingRate)}</TableCell>
@@ -535,26 +685,26 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
           {currentAssignment === undefined && worker.assignments.length > 0 && (
-            <p className="text-muted-foreground text-sm">This worker has no active assignment right now.</p>
+            <p className="text-sm text-slate-500">This worker has no active assignment right now.</p>
           )}
         </TabsContent>
 
         <TabsContent value="payroll" className="space-y-4">
           {payrollHistory.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No salary history yet" />
+            <EmptyState icon={Receipt} title="No salary history yet" description="Salary slips will appear here once calculated." />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Period</TableHead>
+                    <TableHead>Salary Period</TableHead>
                     <TableHead>Regular Hrs</TableHead>
                     <TableHead>OT Hrs</TableHead>
-                    <TableHead>Gross</TableHead>
+                    <TableHead>Gross Pay</TableHead>
                     <TableHead>Deductions</TableHead>
                     <TableHead>Net Payable</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Calculation</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -565,7 +715,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     return (
                       <TableRow key={p.id}>
                         <TableCell>
-                          <Link href={`/payroll/worker/${p.id}`} className="font-medium hover:underline">
+                          <Link href={`/payroll/worker/${p.id}`} className="font-medium text-blue-600 hover:underline">
                             {p.payrollPeriod.name}
                           </Link>
                         </TableCell>
@@ -582,27 +732,39 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                           <StatusBadge status={p.status} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <PayrollCalculationDialog
-                            data={{
-                              periodName: p.payrollPeriod.name,
-                              regularHours: Number(p.regularHours),
-                              regularRate: Number(p.regularRate),
-                              regularPay: Number(regularItem?.amount ?? Number(p.regularHours) * Number(p.regularRate)),
-                              overtimeHours: Number(p.overtimeHours),
-                              overtimeRate: Number(p.overtimeRate),
-                              overtimePay: Number(overtimeItem?.amount ?? Number(p.overtimeHours) * Number(p.overtimeRate)),
-                              allowances: Number(p.allowances),
-                              bonuses: Number(p.bonuses),
-                              advanceDeduction: Number(p.advanceDeduction),
-                              loanDeduction: Number(p.loanDeduction),
-                              leaveDeduction: Number(p.leaveDeduction),
-                              otherDeductions: Number(p.otherDeductions),
-                              grossPay: Number(p.grossPay),
-                              netPayable: Number(p.netPayable),
-                              paid,
-                              outstanding: Number(p.netPayable) - paid,
-                            }}
-                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <PayrollCalculationDialog
+                              data={{
+                                periodName: p.payrollPeriod.name,
+                                regularHours: Number(p.regularHours),
+                                regularRate: Number(p.regularRate),
+                                regularPay: Number(regularItem?.amount ?? Number(p.regularHours) * Number(p.regularRate)),
+                                overtimeHours: Number(p.overtimeHours),
+                                overtimeRate: Number(p.overtimeRate),
+                                overtimePay: Number(overtimeItem?.amount ?? Number(p.overtimeHours) * Number(p.overtimeRate)),
+                                allowances: Number(p.allowances),
+                                bonuses: Number(p.bonuses),
+                                advanceDeduction: Number(p.advanceDeduction),
+                                loanDeduction: Number(p.loanDeduction),
+                                leaveDeduction: Number(p.leaveDeduction),
+                                otherDeductions: Number(p.otherDeductions),
+                                grossPay: Number(p.grossPay),
+                                netPayable: Number(p.netPayable),
+                                paid,
+                                outstanding: Number(p.netPayable) - paid,
+                              }}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              render={
+                                <Link href={`/payroll/worker/${p.id}/slip`}>
+                                  <FileText className="size-3.5" />
+                                  Salary Slip
+                                </Link>
+                              }
+                            />
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -616,14 +778,14 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         <TabsContent value="leave" className="space-y-4">
           <div className="flex flex-wrap gap-4">
             {leave.balances.map((balance) => (
-              <Card key={balance.id} className="min-w-40">
-                <CardContent className="pt-6">
-                  <p className="text-muted-foreground text-xs">{balance.leaveType.name}</p>
-                  <p className="text-lg font-semibold">
+              <Card key={balance.id} className="min-w-44">
+                <CardContent className="pt-5 pb-4">
+                  <p className="text-xs font-medium text-slate-500">{balance.leaveType.name}</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">
                     {(Number(balance.entitledDays) - Number(balance.usedDays)).toFixed(1)}{" "}
-                    <span className="text-muted-foreground text-sm font-normal">remaining</span>
+                    <span className="text-xs font-normal text-slate-500">days left</span>
                   </p>
-                  <p className="text-muted-foreground text-xs">
+                  <p className="mt-1 text-xs text-slate-400">
                     {Number(balance.usedDays)} used of {Number(balance.entitledDays)} ({balance.year})
                   </p>
                 </CardContent>
@@ -641,9 +803,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
           )}
 
           {leave.requests.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No leave requests yet" />
+            <EmptyState icon={Calendar} title="No leave requests yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -658,7 +820,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 <TableBody>
                   {leave.requests.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell>{r.leaveType.name}</TableCell>
+                      <TableCell className="font-medium">{r.leaveType.name}</TableCell>
                       <TableCell>{formatDate(r.startDate)}</TableCell>
                       <TableCell>{formatDate(r.endDate)}</TableCell>
                       <TableCell>{Number(r.days)}</TableCell>
@@ -685,9 +847,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
           {advances.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No advances given" />
+            <EmptyState icon={HandCoins} title="No advances given" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -709,7 +871,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     return (
                       <TableRow key={advance.id}>
                         <TableCell>
-                          <Link href={`/workers/${worker.id}/advances/${advance.id}`} className="font-medium hover:underline">
+                          <Link href={`/workers/${worker.id}/advances/${advance.id}`} className="font-medium text-blue-600 hover:underline">
                             {formatDate(advance.dateGiven)}
                           </Link>
                         </TableCell>
@@ -736,9 +898,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
           {loans.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No loans given" />
+            <EmptyState icon={Landmark} title="No loans given" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -761,7 +923,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                     return (
                       <TableRow key={loan.id}>
                         <TableCell>
-                          <Link href={`/workers/${worker.id}/loans/${loan.id}`} className="font-medium hover:underline">
+                          <Link href={`/workers/${worker.id}/loans/${loan.id}`} className="font-medium text-blue-600 hover:underline">
                             {formatDate(loan.dateGiven)}
                           </Link>
                         </TableCell>
@@ -809,16 +971,16 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
 
         <TabsContent value="vehicles" className="space-y-4">
           {vehicleAssignments.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No vehicle assignments yet" />
+            <EmptyState icon={Car} title="No vehicle assignments yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Vehicle</TableHead>
+                    <TableHead>Vehicle Plate</TableHead>
                     <TableHead>Client / Site</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>Return</TableHead>
+                    <TableHead>Start Date</TableHead>
+                    <TableHead>Return Date</TableHead>
                     <TableHead>Mileage</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -827,7 +989,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                   {vehicleAssignments.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell>
-                        <Link href={`/vehicles/${a.vehicleId}`} className="font-medium hover:underline">
+                        <Link href={`/vehicles/${a.vehicleId}`} className="font-medium text-blue-600 hover:underline">
                           {a.vehicle.plateNumber}
                         </Link>
                       </TableCell>
@@ -859,9 +1021,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               </div>
             )}
             {recurringCharges.length === 0 ? (
-              <EmptyState icon={ClipboardList} title="No recurring charges set up" description="Track rent, housing, or other periodic worker deductions here." />
+              <EmptyState icon={Home} title="No recurring charges set up" description="Track rent, housing, or other periodic worker deductions here." />
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="overflow-x-auto rounded-lg border bg-white">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -882,7 +1044,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                           <TableCell>
                             <Link
                               href={`/workers/${worker.id}/recurring-charges/${charge.id}`}
-                              className="font-medium hover:underline"
+                              className="font-medium text-blue-600 hover:underline"
                             >
                               {charge.description || charge.category}
                             </Link>
@@ -891,7 +1053,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                           <TableCell>{formatMoney(charge.amount)}</TableCell>
                           <TableCell>{charge.frequency.replaceAll("_", " ")}</TableCell>
                           <TableCell>{formatMoney(summary.paid)}</TableCell>
-                          <TableCell className={summary.outstanding > 0 ? "text-warning-foreground font-medium" : undefined}>
+                          <TableCell className={summary.outstanding > 0 ? "font-medium text-amber-600" : undefined}>
                             {formatMoney(summary.outstanding)}
                           </TableCell>
                           <TableCell>
@@ -917,11 +1079,11 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
   );
 }
 
-function Detail({ label, value }: { label: string; value?: string | null }) {
+function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium">{value || "—"}</dd>
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
+      <dd className="mt-0.5 font-medium text-slate-900">{value || "—"}</dd>
     </div>
   );
 }

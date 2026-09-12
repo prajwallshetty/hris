@@ -12,6 +12,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   EMPLOYEE_STATUSES,
   employeeFormSchema,
@@ -122,24 +123,15 @@ export function EmployeeForm({
               <FieldLabel htmlFor="joiningDate">Joining Date</FieldLabel>
               <Input id="joiningDate" type="date" {...form.register("joiningDate")} />
             </Field>
+
             <Field>
               <FieldLabel>Coordinator</FieldLabel>
-              <Select
-                value={form.watch("coordinatorId") || "NONE"}
-                onValueChange={(value) => form.setValue("coordinatorId", value === "NONE" ? "" : (value ?? ""))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">None</SelectItem>
-                  {coordinators.map((coordinator) => (
-                    <SelectItem key={coordinator.id} value={coordinator.id}>
-                      {coordinator.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EntityCombobox
+                entityType="coordinator"
+                value={form.watch("coordinatorId")}
+                onChange={(value) => form.setValue("coordinatorId", value)}
+                placeholder="Select Coordinator (Optional)"
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="baseSalary">Base Salary (SAR/month) *</FieldLabel>

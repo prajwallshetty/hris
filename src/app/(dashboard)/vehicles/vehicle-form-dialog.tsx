@@ -20,6 +20,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   VEHICLE_STATUSES,
   vehicleFormSchema,
@@ -184,24 +185,15 @@ export function VehicleFormDialog({
                 <FieldLabel htmlFor="ownerCompany">Owner Company</FieldLabel>
                 <Input id="ownerCompany" {...form.register("ownerCompany")} />
               </Field>
+
               <Field>
                 <FieldLabel>Coordinator</FieldLabel>
-                <Select
-                  value={form.watch("coordinatorId") || "NONE"}
-                  onValueChange={(v) => form.setValue("coordinatorId", v === "NONE" ? "" : (v ?? ""))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NONE">None</SelectItem>
-                    {coordinators.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entityType="coordinator"
+                  value={form.watch("coordinatorId")}
+                  onChange={(v) => form.setValue("coordinatorId", v)}
+                  placeholder="Select Coordinator (Optional)"
+                />
               </Field>
             </div>
 

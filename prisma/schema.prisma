@@ -966,6 +966,7 @@ model WorkerPayment {
   @@index([employeeId])
   @@index([employeePayrollId])
   @@index([receiptNumber])
+  @@index([voidedAt])
 }
 
 model ClientPayment {

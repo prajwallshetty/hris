@@ -39,7 +39,7 @@ export function QuickCreateMenu({ role }: { role: Role }) {
     can(user, "create", "employee") && { href: "/employees/new", label: "Add Employee", icon: UserSquare2 },
     can(user, "create", "client") && { href: "/clients", label: "Add Client", icon: Building2 },
     can(user, "create", "assignment") && { href: "/assignments", label: "New Assignment", icon: ClipboardList },
-    can(user, "create", "timesheet") && { href: "/timesheets/upload", label: "Upload Timesheet", icon: ClipboardCheck },
+    can(user, "create", "timesheet") && { href: "/timesheets", label: "New Timesheet", icon: ClipboardCheck },
     can(user, "create", "payrollPeriod") && { href: "/payroll", label: "New Payroll Period", icon: Banknote },
     can(user, "create", "invoice") && { href: "/invoices", label: "Generate Invoice", icon: FileText },
     can(user, "create", "vehicleAssignment") && { href: "/vehicles", label: "New Vehicle Assignment", icon: Car },

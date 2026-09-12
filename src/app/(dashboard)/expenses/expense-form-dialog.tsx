@@ -20,6 +20,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   EXPENSE_CATEGORIES,
   expenseFormSchema,
@@ -138,83 +139,44 @@ export function ExpenseFormDialog({
 
             <Field>
               <FieldLabel>Client</FieldLabel>
-              <Select
-                value={clientId || "NONE"}
-                onValueChange={(v) => {
-                  form.setValue("clientId", v === "NONE" ? "" : (v ?? ""));
+              <EntityCombobox
+                entityType="client"
+                value={form.watch("clientId")}
+                onChange={(v) => {
+                  form.setValue("clientId", v);
                   form.setValue("siteId", "");
                 }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">None</SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.companyName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select Client (Optional)"
+              />
             </Field>
             <Field>
               <FieldLabel>Site</FieldLabel>
-              <Select
-                value={form.watch("siteId") || "NONE"}
-                onValueChange={(v) => form.setValue("siteId", v === "NONE" ? "" : (v ?? ""))}
+              <EntityCombobox
+                entityType="site"
+                value={form.watch("siteId")}
+                parentValue={clientId}
                 disabled={!clientId}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">None</SelectItem>
-                  {sites.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => form.setValue("siteId", v)}
+                placeholder={clientId ? "Select Site (Optional)" : "Select client first"}
+              />
             </Field>
             <Field>
               <FieldLabel>Worker</FieldLabel>
-              <Select
-                value={form.watch("workerId") || "NONE"}
-                onValueChange={(v) => form.setValue("workerId", v === "NONE" ? "" : (v ?? ""))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">None</SelectItem>
-                  {workers.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {w.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EntityCombobox
+                entityType="worker"
+                value={form.watch("workerId")}
+                onChange={(v) => form.setValue("workerId", v)}
+                placeholder="Select Worker (Optional)"
+              />
             </Field>
             <Field>
               <FieldLabel>Coordinator</FieldLabel>
-              <Select
-                value={form.watch("coordinatorId") || "NONE"}
-                onValueChange={(v) => form.setValue("coordinatorId", v === "NONE" ? "" : (v ?? ""))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">None</SelectItem>
-                  {coordinators.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EntityCombobox
+                entityType="coordinator"
+                value={form.watch("coordinatorId")}
+                onChange={(v) => form.setValue("coordinatorId", v)}
+                placeholder="Select Coordinator (Optional)"
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="department">Department</FieldLabel>

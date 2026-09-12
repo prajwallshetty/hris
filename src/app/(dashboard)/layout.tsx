@@ -6,6 +6,8 @@ import { auth } from "@/auth";
 import { DesktopSidebar } from "@/components/shared/desktop-sidebar";
 import { GlobalSearch } from "@/components/shared/global-search";
 import { Logo } from "@/components/shared/logo";
+import { ConnectionStatus } from "@/components/pwa/connection-status";
+import { InstallButton } from "@/components/pwa/install-button";
 import { QuickCreateMenu } from "@/components/shared/quick-create-menu";
 import { SidebarNav } from "@/components/shared/sidebar-nav";
 import { UserMenu } from "@/components/shared/user-menu";
@@ -57,7 +59,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Logo size="sidebar" />
           </Link>
 
-          <QuickCreateMenu role={role} />
+          <div className="flex items-center gap-2">
+            <ConnectionStatus />
+            <InstallButton />
+            <QuickCreateMenu role={role} />
+          </div>
         </header>
 
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">{children}</main>

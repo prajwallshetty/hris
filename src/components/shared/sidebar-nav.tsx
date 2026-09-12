@@ -2,11 +2,38 @@
 
 import type { Role } from "@prisma/client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { navGroupsForRole } from "@/components/shared/nav-items";
+import { navGroupsForRole, type NavGroup, type NavItem } from "@/components/shared/nav-items";
+
+// A nav item's href can carry a query string (e.g. "/invoices?status=OVERDUE"
+// for "Outstanding" next to plain "/invoices" for "Invoices") to give two
+// sidebar entries genuinely distinct destinations on the same page rather
+// than duplicating it. usePathname() alone can't tell them apart — it drops
+// the query string — so the plain item would look active while viewing the
+// filtered one. This checks the current search params too, and treats the
+// plain (query-less) sibling as active only when no more specific
+// query-carrying sibling on the same path currently matches.
+function isNavItemActive(item: NavItem, group: NavGroup, pathname: string, searchParams: URLSearchParams): boolean {
+  const [itemPath, itemQuery] = item.href.split("?");
+  if (pathname !== itemPath && !pathname.startsWith(`${itemPath}/`)) return false;
+
+  if (!itemQuery) {
+    const moreSpecificSiblingActive = group.items.some((sibling) => {
+      if (sibling === item) return false;
+      const [siblingPath, siblingQuery] = sibling.href.split("?");
+      if (siblingPath !== itemPath || !siblingQuery) return false;
+      const siblingParams = new URLSearchParams(siblingQuery);
+      return Array.from(siblingParams.entries()).every(([key, value]) => searchParams.get(key) === value);
+    });
+    return !moreSpecificSiblingActive;
+  }
+
+  const itemParams = new URLSearchParams(itemQuery);
+  return Array.from(itemParams.entries()).every(([key, value]) => searchParams.get(key) === value);
+}
 
 export function SidebarNav({
   role,
@@ -18,6 +45,7 @@ export function SidebarNav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const groups = navGroupsForRole(role);
 
   return (
@@ -30,7 +58,7 @@ export function SidebarNav({
             </p>
           )}
           {group.items.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = isNavItemActive(item, group, pathname, searchParams);
             const link = (
               <Link
                 key={item.href}

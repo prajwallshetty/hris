@@ -1,6 +1,8 @@
 import type { Role } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
 import {
+  AlertCircle,
+  Bell,
   LayoutDashboard,
   Users,
   UserSquare2,
@@ -10,7 +12,6 @@ import {
   ClipboardCheck,
   FileText,
   Receipt,
-  BarChart3,
   UserCog,
   UsersRound,
   History,
@@ -32,19 +33,47 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-// Business-section grouping (§ UX restructure): Overview / Workforce /
-// Payroll / Client Billing / Rentals / People / Finance / Admin — a normal
-// HR/admin user shouldn't have to know which of these is "operations" vs
-// "clients" in database terms, just where to find the thing they need. Only
-// routes that exist today are listed; sub-features like Projects/Sites/
-// Leave/Advances/Loans/Documents live inside their parent detail page
-// (Client/Worker 360) rather than getting their own top-level entry —
-// adding a nav item for every sub-feature is exactly the navigation
-// confusion this restructure is meant to remove.
+// Business-section grouping (§ IA restructure): Overview / Workforce /
+// Payroll / Client Billing / Assets / Operations / Finance & Reports /
+// Administration — a normal HR/admin user shouldn't have to know which of
+// these is "operations" vs "clients" in database terms, just where to find
+// the thing they need.
+//
+// This list is the result of an explicit audit against every route that
+// actually exists (see the routes enumerated under src/app/(dashboard)) —
+// every entry below resolves to a real, working page or a real, working
+// filter on one. The following were deliberately left out because they
+// have no standalone destination of their own — showing them would mean
+// either a dead link or a duplicate of an item already listed:
+//   - Leave, Accommodation: tabs on a worker's own 360° page only.
+//   - Salary, Salary Slips, Payments, Advances, Loans, Final Settlement:
+//     all reachable from Payroll -> a period -> a worker's payroll row
+//     (which is also where Salary Slip/Record Payment/Receipt live), or
+//     from a worker's own 360° page. Final Settlement is a payment type
+//     you pick when recording a payment, not a separate workflow.
+//   - Projects, Sites, Client Payments, Statements: tabs/actions on a
+//     client's own 360° page (a project/site/statement always belongs to
+//     one specific client, so there's nothing meaningful for a top-level
+//     list to show).
+//   - Vehicle Assignments, Vehicle Expenses, Maintenance: tabs on a
+//     vehicle's own detail page. Equipment's Maintenance tab is the same.
+//   - Sales, Commissions: tabs on a coordinator's own detail page.
+//   - Roles & Permissions: access levels are defined in code (src/server/
+//     rbac.ts), not an editable admin screen — there is nothing to link to.
+//   - Cost Centres: not a concept this system tracks anywhere.
+//   - Worker/Employee/Client/Vehicle/Equipment Documents as a top-level
+//     "Documents" section: only Worker Documents exist today, as a tab on
+//     the worker's own page — the other three record types have no
+//     document feature built at all.
+// If any of the above should become real top-level workflows, that's a
+// feature request, not a nav relabel — build the page first, then link it.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/notifications", label: "Pending Actions", icon: Bell },
+    ],
   },
   {
     label: "Workforce",
@@ -95,10 +124,16 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: FileText,
         roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"],
       },
+      {
+        href: "/invoices?status=OVERDUE",
+        label: "Outstanding",
+        icon: AlertCircle,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
+      },
     ],
   },
   {
-    label: "Rentals",
+    label: "Assets",
     items: [
       {
         href: "/vehicles",
@@ -121,7 +156,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "People",
+    label: "Operations",
     items: [
       {
         href: "/coordinators",
@@ -131,14 +166,14 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/employees",
-        label: "Employees",
+        label: "Internal Employees",
         icon: UserSquare2,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
     ],
   },
   {
-    label: "Finance",
+    label: "Finance & Reports",
     items: [
       {
         href: "/expenses",
@@ -147,19 +182,31 @@ export const NAV_GROUPS: NavGroup[] = [
         roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
       },
       {
-        href: "/reports",
-        label: "Reports",
-        icon: BarChart3,
+        href: "/reports?tab=payroll",
+        label: "Payroll Reports",
+        icon: Banknote,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+      {
+        href: "/reports?tab=finance",
+        label: "Client Reports",
+        icon: Building2,
+        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
+      },
+      {
+        href: "/reports?tab=workforce",
+        label: "Worker Reports",
+        icon: Users,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
     ],
   },
   {
-    label: "Admin",
+    label: "Administration",
     items: [
       {
         href: "/users",
-        label: "Users",
+        label: "Users & Access",
         icon: UsersRound,
         roles: ["SUPER_ADMIN"],
       },

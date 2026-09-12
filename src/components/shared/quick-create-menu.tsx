@@ -1,7 +1,20 @@
 "use client";
 
 import type { Role } from "@prisma/client";
-import { Banknote, Building2, ClipboardCheck, ClipboardList, FileText, Plus, Receipt, UserCog, UserPlus, UserSquare2 } from "lucide-react";
+import {
+  Banknote,
+  Building2,
+  Car,
+  ClipboardCheck,
+  ClipboardList,
+  FileText,
+  Plus,
+  Receipt,
+  Timer,
+  UserCog,
+  UserPlus,
+  UserSquare2,
+} from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +42,8 @@ export function QuickCreateMenu({ role }: { role: Role }) {
     can(user, "create", "timesheet") && { href: "/timesheets", label: "New Timesheet", icon: ClipboardCheck },
     can(user, "create", "payrollPeriod") && { href: "/payroll", label: "New Payroll Period", icon: Banknote },
     can(user, "create", "invoice") && { href: "/invoices", label: "Generate Invoice", icon: FileText },
+    can(user, "create", "vehicleAssignment") && { href: "/vehicles", label: "New Vehicle Assignment", icon: Car },
+    can(user, "create", "equipmentRental") && { href: "/equipment", label: "New Equipment Rental", icon: Timer },
     can(user, "create", "expense") && { href: "/expenses", label: "Add Expense", icon: Receipt },
     can(user, "create", "coordinator") && { href: "/coordinators", label: "Add Coordinator", icon: UserCog },
   ].filter((item): item is { href: string; label: string; icon: typeof UserPlus } => Boolean(item));

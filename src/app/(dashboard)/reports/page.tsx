@@ -22,7 +22,12 @@ function formatMoney(value: number) {
   return `SAR ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
 
-export default async function ReportsPage() {
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const params = await searchParams;
   const user = await getSessionUser();
 
   const showWorkforce = can(user, "view", "assignment");
@@ -41,7 +46,15 @@ export default async function ReportsPage() {
     showFinance ? getFinanceOverviewReport(user) : Promise.resolve(null),
   ]);
 
-  const defaultTab = showWorkforce ? "workforce" : showAttendance ? "attendance" : showPayroll ? "payroll" : showCoordinator ? "coordinator" : "finance";
+  const fallbackTab = showWorkforce ? "workforce" : showAttendance ? "attendance" : showPayroll ? "payroll" : showCoordinator ? "coordinator" : "finance";
+  const requestedTab = params.tab;
+  const tabIsAvailable =
+    (requestedTab === "workforce" && showWorkforce) ||
+    (requestedTab === "attendance" && showAttendance) ||
+    (requestedTab === "payroll" && showPayroll) ||
+    (requestedTab === "coordinator" && showCoordinator) ||
+    (requestedTab === "finance" && showFinance);
+  const defaultTab = tabIsAvailable ? requestedTab! : fallbackTab;
 
   return (
     <div className="space-y-6">
@@ -51,7 +64,7 @@ export default async function ReportsPage() {
         description="Aggregated, DB-backed rollups across workforce, attendance, payroll, coordinators, and finance."
       />
 
-      <Tabs defaultValue={defaultTab}>
+      <Tabs key={defaultTab} defaultValue={defaultTab}>
         <TabsList>
           {showWorkforce && <TabsTrigger value="workforce">Workforce</TabsTrigger>}
           {showAttendance && <TabsTrigger value="attendance">Attendance</TabsTrigger>}

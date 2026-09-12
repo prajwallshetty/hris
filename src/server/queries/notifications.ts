@@ -35,7 +35,7 @@ export async function getNotifications(user: SessionUser): Promise<NotificationI
   const soon = daysFromNow(EXPIRY_WINDOW_DAYS);
 
   if (can(user, "view", "worker")) {
-    const [expiringIqama, expiringPassport] = await Promise.all([
+    const [expiringIqama, expiringPassport, unassignedWorkers] = await Promise.all([
       db.worker.findMany({
         where: { deletedAt: null, ...workerScopeWhere(user), iqamaExpiryDate: { lte: soon } },
         select: { id: true, fullName: true, iqamaExpiryDate: true },
@@ -46,7 +46,27 @@ export async function getNotifications(user: SessionUser): Promise<NotificationI
         select: { id: true, fullName: true, passportExpiryDate: true },
         take: 20,
       }),
+      db.worker.findMany({
+        where: {
+          deletedAt: null,
+          status: "ACTIVE",
+          ...workerScopeWhere(user),
+          assignments: { none: { status: "ACTIVE" } },
+        },
+        select: { id: true, fullName: true, createdAt: true },
+        take: 20,
+      }),
     ]);
+    for (const w of unassignedWorkers) {
+      items.push({
+        id: `unassigned-${w.id}`,
+        severity: "warning",
+        title: "Worker without assignment",
+        message: `${w.fullName} is active but has no current assignment.`,
+        href: `/workers/${w.id}`,
+        date: w.createdAt,
+      });
+    }
     for (const w of expiringIqama) {
       const expired = w.iqamaExpiryDate! < new Date();
       items.push({

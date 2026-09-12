@@ -5,29 +5,25 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { diffAuditValues, getAuditEntryLabel } from "@/lib/audit-log-format";
 
-function formatJson(value: unknown) {
-  if (value === null || value === undefined) return null;
-  return JSON.stringify(value, null, 2);
-}
-
-/** §37 — click a row to see the before/after values behind an audit entry. */
+/** §37 — click a row to see what changed, as readable field rows (never
+ * raw JSON, never the bare record id). */
 export function AuditDiffDialog({
   entityType,
-  entityId,
   previousValue,
   newValue,
 }: {
   entityType: string;
-  entityId: string;
   previousValue: unknown;
   newValue: unknown;
 }) {
   const [open, setOpen] = useState(false);
-  const before = formatJson(previousValue);
-  const after = formatJson(newValue);
+  const fields = diffAuditValues(previousValue, newValue);
+  const label = getAuditEntryLabel(previousValue, newValue);
 
-  if (!before && !after) return null;
+  if (fields.length === 0) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -41,20 +37,30 @@ export function AuditDiffDialog({
       />
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {entityType} — {entityId}
-          </DialogTitle>
+          <DialogTitle>{label ? `${entityType} — ${label}` : entityType}</DialogTitle>
           <DialogDescription>Recorded values before and after this change.</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground mb-1.5 text-xs font-medium">Before</p>
-            <pre className="bg-muted max-h-80 overflow-auto rounded-md p-3 text-xs">{before ?? "—"}</pre>
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-1.5 text-xs font-medium">After</p>
-            <pre className="bg-muted max-h-80 overflow-auto rounded-md p-3 text-xs">{after ?? "—"}</pre>
-          </div>
+        <div className="max-h-96 overflow-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Field</TableHead>
+                <TableHead>Before</TableHead>
+                <TableHead>After</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {fields.map((field) => (
+                <TableRow key={field.key}>
+                  <TableCell className="text-muted-foreground font-medium">{field.label}</TableCell>
+                  <TableCell className={field.changed ? "text-muted-foreground line-through" : undefined}>
+                    {field.before}
+                  </TableCell>
+                  <TableCell className={field.changed ? "font-medium" : undefined}>{field.after}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </DialogContent>
     </Dialog>

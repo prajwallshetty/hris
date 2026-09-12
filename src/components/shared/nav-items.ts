@@ -2,7 +2,6 @@ import type { Role } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
-  Bell,
   LayoutDashboard,
   Users,
   UserSquare2,
@@ -70,10 +69,7 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/notifications", label: "Pending Actions", icon: Bell },
-    ],
+    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Workforce",

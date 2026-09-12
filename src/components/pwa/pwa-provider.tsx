@@ -32,15 +32,13 @@ const DISMISSAL_KEY = "expand_arabia_pwa_install_dismissed_at";
 const DISMISSAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // 1. Initial Online status & event listeners
-    setIsOnline(navigator.onLine);
-
+    // 1. Online/offline event listeners
     const handleOnline = () => {
       setIsOnline(true);
       toast.success("Connection restored. Application is online.", {

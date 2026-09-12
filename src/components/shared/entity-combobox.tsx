@@ -74,8 +74,9 @@ export function EntityCombobox({
   const [search, setSearch] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [options, setOptions] = React.useState<EntityOption[]>(initialOptions);
-  const [fetchedLabel, setFetchedLabel] = React.useState<{ title: string; subtitle?: string } | null>(null);
-  const [resolvingInitial, setResolvingInitial] = React.useState(false);
+  const [fetchedLabel, setFetchedLabel] = React.useState<{ forValue: string; title: string; subtitle?: string } | null>(
+    null,
+  );
 
   // Default placeholder per entity type
   const defaultPlaceholder = React.useMemo(() => {
@@ -108,12 +109,19 @@ export function EntityCombobox({
     [options, value]
   );
 
+  const fetchedLabelForValue = fetchedLabel && fetchedLabel.forValue === value ? fetchedLabel : null;
+
   const selectedLabel = React.useMemo(() => {
     if (matchInOptions) {
       return { title: matchInOptions.title, subtitle: matchInOptions.subtitle ?? undefined };
     }
-    return fetchedLabel;
-  }, [matchInOptions, fetchedLabel]);
+    return fetchedLabelForValue;
+  }, [matchInOptions, fetchedLabelForValue]);
+
+  // Resolving until a label for the current value lands (success,
+  // null-result, or failure all populate it below), so this stays true only
+  // for the moment we're actually waiting on the server.
+  const resolvingInitial = Boolean(value) && !matchInOptions && !fetchedLabelForValue;
 
   // Fetch label from server if not found in current options list
   React.useEffect(() => {
@@ -122,15 +130,16 @@ export function EntityCombobox({
     }
 
     let isSubscribed = true;
-    setResolvingInitial(true);
     getEntityLabel(entityType, value)
       .then((res) => {
         if (isSubscribed) {
-          setFetchedLabel(res ?? { title: value });
+          setFetchedLabel(res ? { forValue: value, ...res } : { forValue: value, title: value });
         }
       })
-      .finally(() => {
-        if (isSubscribed) setResolvingInitial(false);
+      .catch(() => {
+        if (isSubscribed) {
+          setFetchedLabel({ forValue: value, title: value });
+        }
       });
 
     return () => {
@@ -283,7 +292,7 @@ export function EntityCombobox({
 
   const handleSelect = (option: EntityOption) => {
     onChange(option.id, option.raw);
-    setFetchedLabel({ title: option.title, subtitle: option.subtitle ?? undefined });
+    setFetchedLabel({ forValue: option.id, title: option.title, subtitle: option.subtitle ?? undefined });
     setOpen(false);
   };
 

@@ -17,10 +17,10 @@ import {
   subscribeSidebarCollapsed,
 } from "@/lib/sidebar-collapsed-store";
 
-// Server-rendered slots (Notifications hits the DB, UserMenu reads the
-// session) passed down from the layout — this component itself stays a
-// client component for the collapse state, so it can't import/render them
-// directly (§ Next.js server/client composition).
+// Server-rendered slot (UserMenu reads the session) passed down from the
+// layout — this component itself stays a client component for the collapse
+// state, so it can't import/render it directly (§ Next.js server/client
+// composition).
 export function DesktopSidebar({
   role,
   userMenu,

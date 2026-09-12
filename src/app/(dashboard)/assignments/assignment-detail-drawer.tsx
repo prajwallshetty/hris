@@ -164,9 +164,6 @@ export function AssignmentDetailDrawer({
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground border">
-                  #{assignment.id.slice(-6).toUpperCase()}
-                </span>
                 <StatusBadge status={assignment.status} />
               </div>
               <SheetTitle className="text-xl font-semibold">

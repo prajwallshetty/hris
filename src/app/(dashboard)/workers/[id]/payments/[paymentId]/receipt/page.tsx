@@ -59,7 +59,6 @@ export default async function PaymentReceiptPage({
           <div className="text-right">
             <p className="text-muted-foreground text-xs font-medium uppercase">Receipt No.</p>
             <p className="font-mono text-lg font-semibold">{formatReceiptNumber(payment.sequenceNo)}</p>
-            <p className="text-muted-foreground text-xs">Payment ID: {payment.id}</p>
             <p className="text-muted-foreground text-xs">{formatDate(payment.date)}</p>
           </div>
         </div>

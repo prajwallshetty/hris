@@ -15,6 +15,14 @@ const TONE_CLASSES: Record<Tone, string> = {
   neutral: "bg-muted text-muted-foreground",
 };
 
+const DOT_CLASSES: Record<Tone, string> = {
+  success: "bg-success",
+  warning: "bg-warning-foreground",
+  destructive: "bg-destructive",
+  info: "bg-info",
+  neutral: "bg-muted-foreground",
+};
+
 const STATUS_TONES: Record<string, Tone> = {
   // Worker / general entity status
   ACTIVE: "success",
@@ -91,7 +99,8 @@ function toLabel(status: string) {
 export function StatusBadge({ status }: { status: string }) {
   const tone = STATUS_TONES[status] ?? "neutral";
   return (
-    <Badge variant="outline" className={cn("border-transparent font-medium", TONE_CLASSES[tone])}>
+    <Badge variant="outline" className={cn("gap-1.5 rounded-full border-transparent font-medium", TONE_CLASSES[tone])}>
+      <span className={cn("size-1.5 shrink-0 rounded-full", DOT_CLASSES[tone])} />
       {toLabel(status)}
     </Badge>
   );

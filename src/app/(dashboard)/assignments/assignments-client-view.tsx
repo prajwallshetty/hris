@@ -577,8 +577,7 @@ export function AssignmentsClientView({
         />
       ) : (
         <div className="rounded-xl border bg-card shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
+          <Table className="min-w-[960px]">
               <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="w-10">
@@ -620,32 +619,38 @@ export function AssignmentsClientView({
                       </button>
                     </TableHead>
                   )}
-                  {visibleColumns.project && <TableHead className="font-semibold text-xs">Project</TableHead>}
+                  {visibleColumns.project && (
+                    <TableHead className="hidden font-semibold text-xs lg:table-cell">Project</TableHead>
+                  )}
                   {visibleColumns.site && <TableHead className="font-semibold text-xs">Site</TableHead>}
-                  {visibleColumns.coordinator && <TableHead className="font-semibold text-xs">Coordinator</TableHead>}
+                  {visibleColumns.coordinator && (
+                    <TableHead className="hidden font-semibold text-xs lg:table-cell">Coordinator</TableHead>
+                  )}
                   {visibleColumns.workerRate && (
-                    <TableHead className="text-right">
+                    <TableHead className="hidden text-right xl:table-cell">
                       <button
                         type="button"
                         onClick={() => handleSort("workerHourlyRate")}
-                        className="flex items-center gap-1 font-semibold text-xs ml-auto hover:text-primary focus:outline-none"
+                        className="ml-auto flex items-center gap-1 font-semibold text-xs hover:text-primary focus:outline-none"
                       >
                         Worker Rate <ArrowUpDown className="size-3" />
                       </button>
                     </TableHead>
                   )}
                   {visibleColumns.clientRate && (
-                    <TableHead className="text-right">
+                    <TableHead className="hidden text-right xl:table-cell">
                       <button
                         type="button"
                         onClick={() => handleSort("clientBillingRate")}
-                        className="flex items-center gap-1 font-semibold text-xs ml-auto hover:text-primary focus:outline-none"
+                        className="ml-auto flex items-center gap-1 font-semibold text-xs hover:text-primary focus:outline-none"
                       >
                         Client Rate <ArrowUpDown className="size-3" />
                       </button>
                     </TableHead>
                   )}
-                  {visibleColumns.margin && <TableHead className="text-right font-semibold text-xs">Margin</TableHead>}
+                  {visibleColumns.margin && (
+                    <TableHead className="hidden text-right font-semibold text-xs xl:table-cell">Margin</TableHead>
+                  )}
                   {visibleColumns.startDate && (
                     <TableHead>
                       <button
@@ -657,7 +662,9 @@ export function AssignmentsClientView({
                       </button>
                     </TableHead>
                   )}
-                  {visibleColumns.endDate && <TableHead className="font-semibold text-xs">End Date</TableHead>}
+                  {visibleColumns.endDate && (
+                    <TableHead className="hidden font-semibold text-xs md:table-cell">End Date</TableHead>
+                  )}
                   {visibleColumns.status && <TableHead className="font-semibold text-xs">Status</TableHead>}
                   {visibleColumns.actions && <TableHead className="text-right font-semibold text-xs">Actions</TableHead>}
                 </TableRow>
@@ -712,7 +719,7 @@ export function AssignmentsClientView({
                       )}
 
                       {visibleColumns.project && (
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                           {a.project.name}
                         </TableCell>
                       )}
@@ -724,25 +731,25 @@ export function AssignmentsClientView({
                       )}
 
                       {visibleColumns.coordinator && (
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                           {a.coordinator?.name || "—"}
                         </TableCell>
                       )}
 
                       {visibleColumns.workerRate && (
-                        <TableCell className="text-right text-xs tabular-nums font-medium">
+                        <TableCell className="hidden text-right text-xs tabular-nums font-medium xl:table-cell">
                           {formatMoney(workerRate)}
                         </TableCell>
                       )}
 
                       {visibleColumns.clientRate && (
-                        <TableCell className="text-right text-xs tabular-nums font-medium text-primary">
+                        <TableCell className="hidden text-right text-xs tabular-nums font-medium text-primary xl:table-cell">
                           {formatMoney(clientRate)}
                         </TableCell>
                       )}
 
                       {visibleColumns.margin && (
-                        <TableCell className="text-right text-xs tabular-nums font-semibold text-success">
+                        <TableCell className="hidden text-right text-xs tabular-nums font-semibold text-success xl:table-cell">
                           +{formatMoney(marginSar)}
                         </TableCell>
                       )}
@@ -754,7 +761,7 @@ export function AssignmentsClientView({
                       )}
 
                       {visibleColumns.endDate && (
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        <TableCell className="hidden text-xs text-muted-foreground whitespace-nowrap md:table-cell">
                           {formatDate(a.endDate)}
                         </TableCell>
                       )}
@@ -809,8 +816,7 @@ export function AssignmentsClientView({
                   );
                 })}
               </TableBody>
-            </Table>
-          </div>
+          </Table>
 
           {/* 5. Pagination Footer */}
           <div className="border-t p-3 bg-muted/20">

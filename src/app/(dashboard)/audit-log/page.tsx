@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { SelectFilter } from "@/components/shared/select-filter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auditActionLabel } from "@/lib/audit-log-format";
+import { auditActionLabel, getAuditEntryLabel } from "@/lib/audit-log-format";
 import type { AuditAction } from "@/server/audit";
 import { can } from "@/server/rbac";
 import { listAuditLog, listAuditLogEntityTypes } from "@/server/queries/dashboard";
@@ -64,7 +64,7 @@ export default async function AuditLogPage({
                   <TableHead>User</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Entity</TableHead>
-                  <TableHead>Record ID</TableHead>
+                  <TableHead>Record</TableHead>
                   <TableHead className="text-right">Changes</TableHead>
                 </TableRow>
               </TableHeader>
@@ -79,11 +79,12 @@ export default async function AuditLogPage({
                     <TableCell>{entry.user?.name ?? "System"}</TableCell>
                     <TableCell>{auditActionLabel(entry.action)}</TableCell>
                     <TableCell>{entry.entityType}</TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-xs">{entry.entityId}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {getAuditEntryLabel(entry.previousValue, entry.newValue) ?? "—"}
+                    </TableCell>
                     <TableCell className="text-right">
                       <AuditDiffDialog
                         entityType={entry.entityType}
-                        entityId={entry.entityId}
                         previousValue={entry.previousValue}
                         newValue={entry.newValue}
                       />

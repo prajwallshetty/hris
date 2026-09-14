@@ -254,6 +254,7 @@ export function AssignmentsClientView({
                 clients={clients}
                 coordinators={coordinators}
                 workers={workers}
+                defaultOpen={searchParams.get("new") === "1"}
                 trigger={
                   <Button size="sm">
                     <Plus className="size-4" />

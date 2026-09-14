@@ -29,7 +29,7 @@ function formatMoney(value: unknown) {
 export default async function InvoicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; new?: string }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
@@ -48,7 +48,7 @@ export default async function InvoicesPage({
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Clients" }, { label: "Invoices" }]}
         title="Invoices"
         description="Client billing generated from approved, locked timesheet hours — independent of worker payroll."
-        actions={canCreate && <GenerateInvoiceDialog clients={clients} />}
+        actions={canCreate && <GenerateInvoiceDialog clients={clients} defaultOpen={params.new === "1"} />}
       />
 
       <div className="flex flex-wrap items-center gap-2">

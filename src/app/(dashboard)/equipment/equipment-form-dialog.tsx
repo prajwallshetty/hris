@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,9 +35,12 @@ export function EquipmentFormDialog({
   trigger,
   coordinators,
   equipment,
+  defaultOpen,
 }: {
   trigger: React.ReactElement;
   coordinators: CoordinatorOption[];
+  /** Open the dialog immediately on mount — e.g. a `?new=1` deep link from Quick Create. */
+  defaultOpen?: boolean;
   equipment?: {
     id: string;
     serialNumber: string;
@@ -55,7 +59,8 @@ export function EquipmentFormDialog({
     notes: string | null;
   };
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  useClearNewParam(Boolean(defaultOpen));
   const router = useRouter();
   const isEdit = Boolean(equipment);
 

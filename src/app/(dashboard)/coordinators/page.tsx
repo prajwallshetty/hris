@@ -10,7 +10,12 @@ import { getSessionUser } from "@/server/session";
 import { CoordinatorFormDialog } from "./coordinator-form-dialog";
 import { CoordinatorsTable, type CoordinatorRow } from "./coordinators-table";
 
-export default async function CoordinatorsPage() {
+export default async function CoordinatorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ new?: string }>;
+}) {
+  const params = await searchParams;
   const user = await getSessionUser();
   if (!can(user, "view", "coordinator")) forbidden();
 
@@ -34,6 +39,7 @@ export default async function CoordinatorsPage() {
         actions={
           can(user, "create", "coordinator") && (
             <CoordinatorFormDialog
+              defaultOpen={params.new === "1"}
               trigger={
                 <Button>
                   <Plus className="size-4" />

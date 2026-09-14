@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,8 +31,18 @@ import { generateInvoice } from "@/server/actions/invoices";
 
 type ClientTree = { id: string; companyName: string; projects: { id: string; name: string }[] };
 
-export function GenerateInvoiceDialog({ clients, presetClientId }: { clients: ClientTree[]; presetClientId?: string }) {
-  const [open, setOpen] = useState(false);
+export function GenerateInvoiceDialog({
+  clients,
+  presetClientId,
+  defaultOpen,
+}: {
+  clients: ClientTree[];
+  presetClientId?: string;
+  /** Open the dialog immediately on mount — e.g. a `?new=1` deep link from Quick Create. */
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  useClearNewParam(Boolean(defaultOpen));
   const router = useRouter();
   const defaults: GenerateInvoiceFormValues = {
     clientId: presetClientId ?? "",

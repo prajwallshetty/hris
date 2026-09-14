@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +30,7 @@ export function ClientFormDialog({
   defaultValues,
   open: openProp,
   onOpenChange: onOpenChangeProp,
+  defaultOpen,
 }: {
   trigger?: React.ReactElement;
   clientId?: string;
@@ -37,8 +39,11 @@ export function ClientFormDialog({
    * omit them and the dialog manages its own open state via `trigger`. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Open the dialog immediately on mount — e.g. a `?new=1` deep link from Quick Create. */
+  defaultOpen?: boolean;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false);
+  useClearNewParam(Boolean(defaultOpen));
   const open = openProp ?? internalOpen;
   const setOpen = onOpenChangeProp ?? setInternalOpen;
   const router = useRouter();

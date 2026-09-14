@@ -57,11 +57,16 @@ function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"div"> & {
   inset?: boolean
 }) {
+  // A plain heading, not Base UI's Menu.GroupLabel — that primitive throws
+  // ("MenuGroupContext is missing") unless it's rendered inside a
+  // Menu.Group/Menu.RadioGroup, which neither caller of this component uses
+  // (§ crashed the whole menu — logout and Quick Create both silently
+  // failed to open because of it).
   return (
-    <MenuPrimitive.GroupLabel
+    <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(

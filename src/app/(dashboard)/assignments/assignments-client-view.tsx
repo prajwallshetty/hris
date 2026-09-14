@@ -63,7 +63,12 @@ type CoordinatorOption = { id: string; name: string };
 // Derived directly from the query's actual return shape (not hand-typed)
 // so this view can never silently drift out of sync with what the server
 // component passes down.
-type AssignmentRecord = Awaited<ReturnType<typeof listAssignments>>["assignments"][number];
+// workerHourlyRate/clientBillingRate arrive pre-converted to plain numbers
+// (see page.tsx) — Prisma Decimal instances can't cross the RSC boundary.
+type AssignmentRecord = Omit<
+  Awaited<ReturnType<typeof listAssignments>>["assignments"][number],
+  "workerHourlyRate" | "clientBillingRate"
+> & { workerHourlyRate: number; clientBillingRate: number };
 type AssignmentDetail = Awaited<ReturnType<typeof getAssignmentDetail>>;
 
 type AssignmentStats = {
@@ -577,7 +582,12 @@ export function AssignmentsClientView({
           }
         />
       ) : (
-        <div className="rounded-xl border bg-card shadow-xs overflow-hidden">
+        <>
+          {/* Dense enterprise table — lg (1024px) and up only. Below that,
+              a 10-column table has no room to breathe even with column
+              hiding, so 320-1023px (including the 768px tablet breakpoint)
+              get the card list below instead. */}
+          <div className="hidden lg:block rounded-xl border bg-card shadow-xs overflow-hidden">
           <Table className="min-w-[960px]">
               <TableHeader className="bg-muted/40">
                 <TableRow>
@@ -818,12 +828,115 @@ export function AssignmentsClientView({
                 })}
               </TableBody>
           </Table>
+          </div>
 
-          {/* 5. Pagination Footer */}
-          <div className="border-t p-3 bg-muted/20">
+          {/* Mobile/tablet card list — below lg (up to 1023px, covering the
+              320/375/390/430/768 breakpoints). Same data and actions as the
+              table, laid out as one clean card per assignment instead of a
+              squeezed row. */}
+          <div className="lg:hidden space-y-3">
+            {assignments.map((a) => {
+              const isSelected = selectedIds.includes(a.id);
+              return (
+                <div
+                  key={a.id}
+                  className={`rounded-xl border bg-card shadow-xs p-4 space-y-3 ${isSelected ? "ring-2 ring-primary/40 bg-primary/5" : ""}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectRow(a.id, !!checked)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <Link
+                          href={`/workers/${a.workerId}`}
+                          className="font-semibold text-sm text-foreground hover:text-primary hover:underline truncate block"
+                        >
+                          {a.worker.fullName}
+                        </Link>
+                        <p className="text-[11px] text-muted-foreground font-mono">
+                          Iqama: {a.worker.iqamaNumber}
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge status={a.status} />
+                  </div>
+
+                  <div className="text-xs space-y-0.5 pl-[26px]">
+                    <p className="font-medium text-foreground">{a.client.companyName}</p>
+                    <p className="text-muted-foreground">{a.project.name}</p>
+                    <p className="text-muted-foreground">{a.site.name}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pl-[26px] text-muted-foreground">
+                    <span>Coordinator: {a.coordinator?.name || "Unassigned"}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pl-[26px] text-xs">
+                    <span className="tabular-nums text-muted-foreground">
+                      {formatDate(a.startDate)} {a.endDate ? `→ ${formatDate(a.endDate)}` : "→ Present"}
+                    </span>
+                    <span className="font-semibold text-success tabular-nums">
+                      +{formatMoney(Number(a.clientBillingRate) - Number(a.workerHourlyRate))}/hr
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t pl-[26px] pt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs flex-1"
+                      onClick={() => updateQueryParams({ detail: a.id })}
+                    >
+                      View
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      } />
+                      <DropdownMenuContent align="end" className="w-44 text-xs">
+                        <DropdownMenuItem onClick={() => updateQueryParams({ detail: a.id })}>
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/workers/${a.workerId}`)}>
+                          View Worker Profile
+                        </DropdownMenuItem>
+                        {canEnd && a.status === "ACTIVE" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={async () => {
+                                const res = await endAssignment(a.id);
+                                if (res.success) {
+                                  toast.success("Assignment ended.");
+                                  router.refresh();
+                                } else {
+                                  toast.error(res.error);
+                                }
+                              }}
+                            >
+                              End Assignment
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 5. Pagination Footer (shared by table and card layouts) */}
+          <div className="rounded-xl border p-3 bg-muted/20">
             <Pagination page={page} pageSize={pageSize} total={total} />
           </div>
-        </div>
+        </>
       )}
 
       {/* 6. Assignment Detail Drawer */}

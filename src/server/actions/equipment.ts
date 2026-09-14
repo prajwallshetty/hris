@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { formatEquipmentCode, formatRentalCode } from "@/lib/codes";
+import { toCsv } from "@/lib/csv";
 import {
   equipmentFormSchema,
   equipmentMaintenanceFormSchema,
@@ -19,10 +21,12 @@ import {
   type RentalPaymentFormInput,
   type RentalReturnFormInput,
 } from "@/lib/validation/equipment";
-import { calculateRentalSubtotal } from "@/server/calc/rental";
+import { calculateOutstanding } from "@/server/calc/finance";
+import { calculateRentalSubtotal, calculateRentalTotal } from "@/server/calc/rental";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { assertCan, ForbiddenError } from "@/server/rbac";
+import { listEquipment, listRentals } from "@/server/queries/equipment";
 import { getSessionUser } from "@/server/session";
 
 function toDate(value?: string | null) {
@@ -521,6 +525,72 @@ export async function updateEquipmentMaintenanceStatus(
     revalidatePath("/equipment");
     revalidatePath(`/equipment/${maintenance.equipmentId}`);
     return ok({ id: maintenance.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function exportEquipmentCsv(
+  search?: string,
+  status?: string,
+): Promise<ActionResult<{ csv: string }>> {
+  try {
+    const user = await getSessionUser();
+    const { equipment } = await listEquipment(user, {
+      search,
+      status: (status as never) ?? "ALL",
+      page: 1,
+      pageSize: 100000,
+    });
+    const csv = toCsv(
+      ["Equipment ID", "Name", "Serial Number", "Category", "Current Client", "Coordinator", "Status", "Archived"],
+      equipment.map((e) => [
+        formatEquipmentCode(e.sequenceNo),
+        e.name,
+        e.serialNumber,
+        e.category ?? "",
+        e.rentals[0]?.client.companyName ?? "",
+        e.coordinator?.name ?? "",
+        e.status,
+        e.deletedAt ? "Yes" : "No",
+      ]),
+    );
+    return ok({ csv });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function exportRentalsCsv(
+  search?: string,
+  status?: string,
+): Promise<ActionResult<{ csv: string }>> {
+  try {
+    const user = await getSessionUser();
+    const { rentals } = await listRentals(user, {
+      search,
+      status: (status as never) ?? "ALL",
+      page: 1,
+      pageSize: 100000,
+    });
+    const csv = toCsv(
+      ["Rental ID", "Equipment", "Client", "Start", "Expected End", "Total", "Outstanding", "Status"],
+      rentals.map((r) => {
+        const total = calculateRentalTotal(r.charges.map((c) => c.amount.toString()));
+        const outstanding = calculateOutstanding(total, r.payments.map((p) => p.amount.toString()));
+        return [
+          formatRentalCode(r.sequenceNo),
+          r.equipment.name,
+          r.client.companyName,
+          r.startDate.toISOString().slice(0, 10),
+          r.expectedEndDate ? r.expectedEndDate.toISOString().slice(0, 10) : "",
+          total,
+          outstanding.toString(),
+          r.status,
+        ];
+      }),
+    );
+    return ok({ csv });
   } catch (error) {
     return actionError(error);
   }

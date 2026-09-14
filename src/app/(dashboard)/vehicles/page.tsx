@@ -1,6 +1,7 @@
 import { Car, Plus } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { SearchInput } from "@/components/shared/search-input";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatVehicleCode } from "@/lib/codes";
 import { VEHICLE_STATUSES } from "@/lib/validation/vehicle";
 import { can } from "@/server/rbac";
+import { exportVehiclesCsv } from "@/server/actions/vehicles";
 import { listVehicles } from "@/server/queries/vehicles";
 import { listCoordinators } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
@@ -101,6 +103,7 @@ export default async function VehiclesPage({
           placeholder="Status"
           options={VEHICLE_STATUSES.map((s) => ({ label: s.replaceAll("_", " "), value: s }))}
         />
+        <ExportCsvButton action={exportVehiclesCsv.bind(null, params.q, params.status)} filename="vehicles.csv" label="Export" />
       </div>
 
       {rows.length === 0 ? (

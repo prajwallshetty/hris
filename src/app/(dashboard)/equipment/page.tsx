@@ -1,6 +1,7 @@
 import { Plus, Wrench } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { SearchInput } from "@/components/shared/search-input";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatEquipmentCode } from "@/lib/codes";
 import { EQUIPMENT_STATUSES } from "@/lib/validation/equipment";
 import { can } from "@/server/rbac";
+import { exportEquipmentCsv } from "@/server/actions/equipment";
 import { listEquipment } from "@/server/queries/equipment";
 import { listCoordinators } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
@@ -95,6 +97,7 @@ export default async function EquipmentPage({
           placeholder="Status"
           options={EQUIPMENT_STATUSES.map((s) => ({ label: s.replaceAll("_", " "), value: s }))}
         />
+        <ExportCsvButton action={exportEquipmentCsv.bind(null, params.q, params.status)} filename="equipment.csv" label="Export" />
       </div>
 
       {rows.length === 0 ? (

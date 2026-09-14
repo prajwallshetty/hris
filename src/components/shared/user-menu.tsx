@@ -68,16 +68,10 @@ export function UserMenu({ name, email, role }: { name: string; email: string; r
           <p className="text-muted-foreground mt-0.5 text-xs font-normal">{role.replaceAll("_", " ")}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <form action={signOutAction}>
-          <DropdownMenuItem
-            render={
-              <button type="submit" className="flex w-full items-center gap-2">
-                <LogOut className="size-4" />
-                Sign out
-              </button>
-            }
-          />
-        </form>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => void signOutAction()}>
+          <LogOut className="size-4" />
+          Sign out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/shared/skeletons";
 
-export default function TimesheetLogLoading() {
-  return <PageSkeleton columns={12} />;
+export default function TimesheetsLogLoading() {
+  return <PageSkeleton columns={6} />;
 }

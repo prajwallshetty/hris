@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { formatVehicleCode } from "@/lib/codes";
+import { toCsv } from "@/lib/csv";
 import {
   vehicleAssignFormSchema,
   vehicleExpenseFormSchema,
@@ -18,6 +20,7 @@ import {
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
 import { assertCan, ForbiddenError } from "@/server/rbac";
+import { listVehicles } from "@/server/queries/vehicles";
 import { getSessionUser } from "@/server/session";
 
 function toDate(value?: string | null) {
@@ -427,6 +430,39 @@ export async function updateVehicleMaintenanceStatus(
     revalidatePath("/vehicles");
     revalidatePath(`/vehicles/${maintenance.vehicleId}`);
     return ok({ id: maintenance.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function exportVehiclesCsv(
+  search?: string,
+  status?: string,
+): Promise<ActionResult<{ csv: string }>> {
+  try {
+    const user = await getSessionUser();
+    const { vehicles } = await listVehicles(user, {
+      search,
+      status: (status as never) ?? "ALL",
+      page: 1,
+      pageSize: 100000,
+    });
+    const csv = toCsv(
+      ["Vehicle ID", "Plate Number", "Make", "Model", "Type", "Current Driver", "Coordinator", "Mileage", "Status", "Archived"],
+      vehicles.map((v) => [
+        formatVehicleCode(v.sequenceNo),
+        v.plateNumber,
+        v.make,
+        v.model,
+        v.vehicleType ?? "",
+        v.assignments[0]?.worker.fullName ?? "",
+        v.coordinator?.name ?? "",
+        v.currentMileage ?? "",
+        v.status,
+        v.deletedAt ? "Yes" : "No",
+      ]),
+    );
+    return ok({ csv });
   } catch (error) {
     return actionError(error);
   }

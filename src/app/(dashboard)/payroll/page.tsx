@@ -22,7 +22,7 @@ function formatDate(date: Date) {
 export default async function PayrollPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; new?: string }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
@@ -40,7 +40,7 @@ export default async function PayrollPage({
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Payroll" }]}
         title="Payroll"
         description="Generate worker payroll from locked timesheets, review, approve, and lock each period."
-        actions={canCreate && <PayrollPeriodFormDialog />}
+        actions={canCreate && <PayrollPeriodFormDialog defaultOpen={params.new === "1"} />}
       />
 
       <div className="flex flex-wrap items-center gap-2">

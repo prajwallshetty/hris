@@ -31,21 +31,29 @@ import { can } from "@/server/rbac";
 // §39: a global "+ Create" menu for the operations that matter most day to
 // day. Links to the existing create page/dialog for each — no new
 // standalone create flows, just a faster way to reach the ones that exist.
+//
+// Most of these targets are a list page whose "create" is a dialog, not a
+// route of its own — so a bare link just lands on the list, leaving the
+// user to go find the real button themselves (a "quick create" that quick
+// creates nothing). Every such target carries `?new=1`, which the list
+// page reads and passes as `defaultOpen` to that dialog so it's already
+// open on arrival. Worker/Employee/Timesheet keep plain links since those
+// really are dedicated create pages.
 export function QuickCreateMenu({ role }: { role: Role }) {
   const user = { id: "", role, coordinatorId: null, clientId: null };
 
   const items = [
     can(user, "create", "worker") && { href: "/workers/new", label: "Add Worker", icon: UserPlus },
     can(user, "create", "employee") && { href: "/employees/new", label: "Add Employee", icon: UserSquare2 },
-    can(user, "create", "client") && { href: "/clients", label: "Add Client", icon: Building2 },
-    can(user, "create", "assignment") && { href: "/assignments", label: "New Assignment", icon: ClipboardList },
-    can(user, "create", "timesheet") && { href: "/timesheets", label: "New Timesheet", icon: ClipboardCheck },
-    can(user, "create", "payrollPeriod") && { href: "/payroll", label: "New Payroll Period", icon: Banknote },
-    can(user, "create", "invoice") && { href: "/invoices", label: "Generate Invoice", icon: FileText },
-    can(user, "create", "vehicleAssignment") && { href: "/vehicles", label: "New Vehicle Assignment", icon: Car },
-    can(user, "create", "equipmentRental") && { href: "/equipment", label: "New Equipment Rental", icon: Timer },
-    can(user, "create", "expense") && { href: "/expenses", label: "Add Expense", icon: Receipt },
-    can(user, "create", "coordinator") && { href: "/coordinators", label: "Add Coordinator", icon: UserCog },
+    can(user, "create", "client") && { href: "/clients?new=1", label: "Add Client", icon: Building2 },
+    can(user, "create", "assignment") && { href: "/assignments?new=1", label: "New Assignment", icon: ClipboardList },
+    can(user, "create", "timesheet") && { href: "/timesheets/upload", label: "Upload Timesheet", icon: ClipboardCheck },
+    can(user, "create", "payrollPeriod") && { href: "/payroll?new=1", label: "New Payroll Period", icon: Banknote },
+    can(user, "create", "invoice") && { href: "/invoices?new=1", label: "Generate Invoice", icon: FileText },
+    can(user, "create", "vehicle") && { href: "/vehicles?new=1", label: "Add Vehicle", icon: Car },
+    can(user, "create", "equipment") && { href: "/equipment?new=1", label: "Add Equipment", icon: Timer },
+    can(user, "create", "expense") && { href: "/expenses?new=1", label: "Add Expense", icon: Receipt },
+    can(user, "create", "coordinator") && { href: "/coordinators?new=1", label: "Add Coordinator", icon: UserCog },
   ].filter((item): item is { href: string; label: string; icon: typeof UserPlus } => Boolean(item));
 
   if (items.length === 0) return null;

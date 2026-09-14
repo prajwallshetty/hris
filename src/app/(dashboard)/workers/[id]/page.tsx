@@ -187,6 +187,8 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
     }
     return {
       id: p.id,
+      sequenceNo: p.sequenceNo,
+      receiptNumber: p.receiptNumber,
       date: p.date,
       paymentType: p.paymentType,
       amount: Number(p.amount),

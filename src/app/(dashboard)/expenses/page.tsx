@@ -19,7 +19,7 @@ function formatMoney(value: unknown) {
 export default async function ExpensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; page?: string }>;
+  searchParams: Promise<{ category?: string; page?: string; new?: string }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
@@ -58,7 +58,16 @@ export default async function ExpensesPage({
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Operations" }, { label: "Expenses" }]}
         title="Expenses"
         description="Transport, accommodation, recruitment, medical, and other company costs — linkable to a worker, client, site, or coordinator."
-        actions={canCreate && <ExpenseFormDialog clients={clients} workers={workers} coordinators={coordinators} />}
+        actions={
+          canCreate && (
+            <ExpenseFormDialog
+              clients={clients}
+              workers={workers}
+              coordinators={coordinators}
+              defaultOpen={params.new === "1"}
+            />
+          )
+        }
       />
 
       <div className="flex flex-wrap items-center justify-between gap-4">

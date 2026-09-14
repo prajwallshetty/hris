@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,14 +45,18 @@ export function AssignmentFormDialog({
   coordinators,
   workers,
   presetWorkerId,
+  defaultOpen,
 }: {
   trigger: React.ReactElement;
   clients: ClientTree[];
   coordinators: Coordinator[];
   workers?: WorkerOption[];
   presetWorkerId?: string;
+  /** Open the dialog immediately on mount — e.g. a `?new=1` deep link from Quick Create. */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  useClearNewParam(Boolean(defaultOpen));
   const router = useRouter();
 
   const form = useForm<AssignmentFormValues, unknown, AssignmentFormInput>({

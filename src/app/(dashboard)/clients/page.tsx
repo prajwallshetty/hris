@@ -10,7 +10,12 @@ import { getSessionUser } from "@/server/session";
 import { ClientFormDialog } from "./client-form-dialog";
 import { ClientsTable, type ClientRow } from "./clients-table";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ new?: string }>;
+}) {
+  const params = await searchParams;
   const user = await getSessionUser();
   const clients = await listClients(user);
 
@@ -53,6 +58,7 @@ export default async function ClientsPage() {
         actions={
           can(user, "create", "client") && (
             <ClientFormDialog
+              defaultOpen={params.new === "1"}
               trigger={
                 <Button>
                   <Plus className="size-4" />

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,8 +26,9 @@ import {
 } from "@/lib/validation/payroll";
 import { createPayrollPeriod } from "@/server/actions/payroll";
 
-export function PayrollPeriodFormDialog() {
-  const [open, setOpen] = useState(false);
+export function PayrollPeriodFormDialog({ defaultOpen }: { defaultOpen?: boolean } = {}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  useClearNewParam(Boolean(defaultOpen));
   const router = useRouter();
   const defaults: PayrollPeriodFormValues = { name: "", periodStart: "", periodEnd: "" };
   const form = useForm<PayrollPeriodFormValues, unknown, PayrollPeriodFormInput>({

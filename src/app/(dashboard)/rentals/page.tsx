@@ -2,6 +2,7 @@ import { Plus, Wrench } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { SearchInput } from "@/components/shared/search-input";
@@ -14,6 +15,7 @@ import { RENTAL_STATUSES } from "@/lib/validation/equipment";
 import { calculateOutstanding } from "@/server/calc/finance";
 import { calculateRentalTotal } from "@/server/calc/rental";
 import { can } from "@/server/rbac";
+import { exportRentalsCsv } from "@/server/actions/equipment";
 import { listClientHierarchyForSelect } from "@/server/queries/clients";
 import { listEquipmentForSelect, listRentals } from "@/server/queries/equipment";
 import { listCoordinators } from "@/server/queries/workers";
@@ -86,6 +88,7 @@ export default async function RentalsPage({
           placeholder="Status"
           options={RENTAL_STATUSES.map((s) => ({ label: s.replaceAll("_", " "), value: s }))}
         />
+        <ExportCsvButton action={exportRentalsCsv.bind(null, params.q, params.status)} filename="rentals.csv" label="Export" />
       </div>
 
       {rentals.length === 0 ? (

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { auditActionLabel, auditActionTone } from "@/lib/audit-log-format";
+import { formatReceiptNumber } from "@/lib/codes";
 import { calculateOutstanding } from "@/server/calc";
 import { can } from "@/server/rbac";
 import { approveWorkerPayroll, submitWorkerPayrollForReview } from "@/server/actions/payroll";
@@ -223,7 +224,7 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
               </TableHeader>
               <TableBody>
                 {payroll.payments.map((p) => {
-                  const rNum = p.receiptNumber || `RCP-${p.id.slice(-6).toUpperCase()}`;
+                  const rNum = p.receiptNumber || formatReceiptNumber(p.sequenceNo);
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-xs font-semibold text-primary">

@@ -47,7 +47,14 @@ export default async function PaymentReceiptPage({
         <Link href={`/workers/${worker.id}`} className="text-muted-foreground text-sm hover:underline">
           ← Back to {worker.fullName}
         </Link>
-        <ReceiptActions />
+        <ReceiptActions
+          paymentId={payment.id}
+          receiptNumber={formatReceiptNumber(payment.sequenceNo)}
+          recipientName={worker.fullName}
+          mobileNumber={worker.mobile ?? undefined}
+          amount={Number(payment.amount)}
+          payrollPeriodName={payroll?.payrollPeriod.name ?? "Direct Payment"}
+        />
       </div>
 
       <div className="rounded-xl border bg-white p-8 shadow-sm print:border-none print:shadow-none">

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Download, Loader2, Printer, Send } from "lucide-react";
+import { CheckCircle2, Loader2, Printer } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -145,7 +145,7 @@ export function PaymentDialog({
               >
                 <Button className="w-full gap-2">
                   <Printer className="size-4" />
-                  Download Receipt (PDF)
+                  Print / Save as PDF
                 </Button>
               </a>
 

@@ -17,11 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { formatReceiptNumber } from "@/lib/codes";
 import { WORKER_PAYMENT_TYPES } from "@/lib/validation/finance";
 import { voidWorkerPayment } from "@/server/actions/finance";
 
 export type PaymentHistoryRow = {
   id: string;
+  sequenceNo: number;
+  receiptNumber: string | null;
   date: Date;
   paymentType: string;
   amount: number;
@@ -206,6 +209,7 @@ export function PaymentHistoryTable({
                       {!r.voidedAt && (
                         <ReceiptModal
                           paymentId={r.id}
+                          receiptNumber={r.receiptNumber || formatReceiptNumber(r.sequenceNo)}
                           recipientName={workerName}
                           mobileNumber={workerMobile ?? undefined}
                           amount={r.amount}

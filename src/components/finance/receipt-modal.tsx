@@ -24,7 +24,9 @@ export function ReceiptModal({
   trigger,
 }: {
   paymentId: string;
-  receiptNumber?: string | null;
+  /** Human-readable receipt number (e.g. "RCP-000123") — always the real
+   * formatted number, never derived from the raw payment id. */
+  receiptNumber: string;
   recipientName?: string;
   mobileNumber?: string;
   amount?: number;
@@ -43,7 +45,7 @@ export function ReceiptModal({
           <div>
             <DialogTitle className="flex items-center gap-2 text-base font-semibold">
               <FileText className="size-5 text-primary" />
-              Salary Payment Receipt {receiptNumber ? `(${receiptNumber})` : ""}
+              Salary Payment Receipt ({receiptNumber})
             </DialogTitle>
           </div>
 
@@ -51,14 +53,14 @@ export function ReceiptModal({
             <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
               <Button size="sm" variant="outline" className="gap-1.5">
                 <Printer className="size-4" />
-                Print / Download PDF
+                Print / Save as PDF
               </Button>
             </a>
 
             {recipientName && (
               <SendReceiptDialog
                 paymentId={paymentId}
-                receiptNumber={receiptNumber || `RCP-${paymentId.slice(-6).toUpperCase()}`}
+                receiptNumber={receiptNumber}
                 recipientName={recipientName}
                 mobileNumber={mobileNumber}
                 amount={amount || 0}
@@ -71,7 +73,7 @@ export function ReceiptModal({
         <div className="flex-1 w-full bg-muted/20 min-h-[550px] p-2 overflow-hidden">
           <iframe
             src={receiptUrl}
-            title={`Receipt ${receiptNumber || paymentId}`}
+            title={`Receipt ${receiptNumber}`}
             className="w-full h-full min-h-[550px] border-0 rounded bg-white shadow-sm"
           />
         </div>

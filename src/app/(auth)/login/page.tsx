@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { Logo } from "@/components/shared/logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -12,7 +14,9 @@ export default function LoginPage() {
         <CardDescription>Sign in to Manpower HRIS with your access code</CardDescription>
       </CardHeader>
       <CardContent>
-        <LoginForm />
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
       </CardContent>
     </Card>
   );

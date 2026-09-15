@@ -42,6 +42,7 @@ export function Pagination({
           variant="outline"
           size="sm"
           disabled={page <= 1}
+          nativeButton={false}
           render={
             <Link href={hrefForPage(Math.max(1, page - 1))} aria-disabled={page <= 1}>
               <ChevronLeft className="size-4" />
@@ -56,6 +57,7 @@ export function Pagination({
           variant="outline"
           size="sm"
           disabled={page >= totalPages}
+          nativeButton={false}
           render={
             <Link href={hrefForPage(Math.min(totalPages, page + 1))} aria-disabled={page >= totalPages}>
               Next

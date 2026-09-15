@@ -1,8 +1,10 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
+import { toast } from "sonner";
 
 import { authenticate } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,19 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(authenticate, undefined);
   const [visible, setVisible] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const signedOut = searchParams.get("signedOut") === "1";
+  const shownRef = useRef(false);
+
+  useEffect(() => {
+    if (signedOut && !shownRef.current) {
+      shownRef.current = true;
+      toast.success("Signed out successfully");
+      router.replace(pathname, { scroll: false });
+    }
+  }, [signedOut, pathname, router]);
 
   return (
     <form action={formAction}>

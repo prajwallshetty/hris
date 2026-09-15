@@ -55,9 +55,19 @@ export default async function AssignmentsPage({
     params.detail ? getAssignmentDetail(params.detail, user) : Promise.resolve(null),
   ]);
 
+  // Server Components can't pass Prisma Decimal instances to Client
+  // Components across the RSC boundary (only plain serializable values) -
+  // convert here rather than relying on the client's own Number(...) calls,
+  // which run too late (§ assignments table Decimal serialization bug).
+  const serializedAssignments = assignments.map((a) => ({
+    ...a,
+    workerHourlyRate: Number(a.workerHourlyRate),
+    clientBillingRate: Number(a.clientBillingRate),
+  }));
+
   return (
     <AssignmentsClientView
-      assignments={assignments}
+      assignments={serializedAssignments}
       total={total}
       page={page}
       pageSize={pageSize}

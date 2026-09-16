@@ -69,6 +69,7 @@ export function GeneratePayrollForm({
               setClientId(v === "ALL" ? "" : (v ?? ""));
               setSiteId("");
             }}
+            items={[{ value: "ALL", label: "All clients" }, ...clients.map((c) => ({ value: c.id, label: c.companyName }))]}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All clients" />
@@ -85,7 +86,12 @@ export function GeneratePayrollForm({
         </Field>
         <Field>
           <FieldLabel>Site</FieldLabel>
-          <Select value={siteId || "ALL"} onValueChange={(v) => setSiteId(v === "ALL" ? "" : (v ?? ""))} disabled={!clientId}>
+          <Select
+            value={siteId || "ALL"}
+            onValueChange={(v) => setSiteId(v === "ALL" ? "" : (v ?? ""))}
+            disabled={!clientId}
+            items={[{ value: "ALL", label: "All sites" }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All sites" />
             </SelectTrigger>
@@ -101,7 +107,11 @@ export function GeneratePayrollForm({
         </Field>
         <Field>
           <FieldLabel>Worker</FieldLabel>
-          <Select value={workerId || "ALL"} onValueChange={(v) => setWorkerId(v === "ALL" ? "" : (v ?? ""))}>
+          <Select
+            value={workerId || "ALL"}
+            onValueChange={(v) => setWorkerId(v === "ALL" ? "" : (v ?? ""))}
+            items={[{ value: "ALL", label: "All workers" }, ...workers.map((w) => ({ value: w.id, label: `${w.fullName} — ${w.iqamaNumber}` }))]}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All workers" />
             </SelectTrigger>

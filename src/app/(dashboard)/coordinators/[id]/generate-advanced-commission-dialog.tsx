@@ -110,7 +110,14 @@ export function GenerateAdvancedCommissionDialog({
         <div className="space-y-4">
           <Field>
             <FieldLabel>Commission Rule *</FieldLabel>
-            <Select value={ruleId} onValueChange={(v) => v && setRuleId(v)}>
+            <Select
+              value={ruleId}
+              onValueChange={(v) => v && setRuleId(v)}
+              items={advancedRules.map((r) => ({
+                value: r.id,
+                label: `${TYPE_LABELS[r.type] ?? r.type} — ${r.rateOrAmount}${r.type.startsWith("PERCENT") ? "%" : ""}${r.coordinatorId ? " (coordinator-specific)" : " (default)"}`,
+              }))}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a rule" />
               </SelectTrigger>
@@ -129,7 +136,11 @@ export function GenerateAdvancedCommissionDialog({
           {needsInvoice && (
             <Field>
               <FieldLabel>Invoice *</FieldLabel>
-              <Select value={invoiceId} onValueChange={(v) => v && setInvoiceId(v)}>
+              <Select
+                value={invoiceId}
+                onValueChange={(v) => v && setInvoiceId(v)}
+                items={invoices.map((inv) => ({ value: inv.id, label: `#${inv.sequenceNo} — ${inv.clientName} — SAR ${inv.totalAmount}` }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select an invoice" />
                 </SelectTrigger>
@@ -147,7 +158,11 @@ export function GenerateAdvancedCommissionDialog({
           {needsClient && (
             <Field>
               <FieldLabel>Client *</FieldLabel>
-              <Select value={clientId} onValueChange={(v) => v && setClientId(v)}>
+              <Select
+                value={clientId}
+                onValueChange={(v) => v && setClientId(v)}
+                items={clients.map((c) => ({ value: c.id, label: c.companyName }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a client" />
                 </SelectTrigger>

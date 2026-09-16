@@ -69,7 +69,11 @@ export function SaleDialog({ coordinatorId, clients }: { coordinatorId: string; 
             </Field>
             <Field>
               <FieldLabel>Client</FieldLabel>
-              <Select value={form.watch("clientId") || "NONE"} onValueChange={(v) => form.setValue("clientId", v === "NONE" ? "" : (v ?? ""))}>
+              <Select
+                value={form.watch("clientId") || "NONE"}
+                onValueChange={(v) => form.setValue("clientId", v === "NONE" ? "" : (v ?? ""))}
+                items={[{ value: "NONE", label: "None" }, ...clients.map((c) => ({ value: c.id, label: c.companyName }))]}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="None" />
                 </SelectTrigger>

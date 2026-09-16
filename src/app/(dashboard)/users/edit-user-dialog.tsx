@@ -110,7 +110,11 @@ export function EditUserDialog({
             </Field>
             <Field>
               <FieldLabel>Role *</FieldLabel>
-              <Select value={role} onValueChange={(v) => v && setRole(v)}>
+              <Select
+                value={role}
+                onValueChange={(v) => v && setRole(v)}
+                items={USER_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -126,7 +130,11 @@ export function EditUserDialog({
             {role === "COORDINATOR" && (
               <Field>
                 <FieldLabel>Coordinator *</FieldLabel>
-                <Select value={coordinatorId} onValueChange={(v) => v && setCoordinatorId(v)}>
+                <Select
+                  value={coordinatorId}
+                  onValueChange={(v) => v && setCoordinatorId(v)}
+                  items={coordinators.map((c) => ({ value: c.id, label: c.name }))}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a coordinator" />
                   </SelectTrigger>
@@ -143,7 +151,11 @@ export function EditUserDialog({
             {role === "CLIENT" && (
               <Field>
                 <FieldLabel>Client *</FieldLabel>
-                <Select value={clientId} onValueChange={(v) => v && setClientId(v)}>
+                <Select
+                  value={clientId}
+                  onValueChange={(v) => v && setClientId(v)}
+                  items={clients.map((c) => ({ value: c.id, label: c.companyName }))}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a client" />
                   </SelectTrigger>

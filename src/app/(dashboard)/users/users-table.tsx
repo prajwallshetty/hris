@@ -103,7 +103,11 @@ export function UsersTable({
           onChange={(e) => setSearch(e.target.value)}
           className="w-full sm:max-w-xs"
         />
-        <Select value={roleFilter} onValueChange={(v) => v && setRoleFilter(v)}>
+        <Select
+          value={roleFilter}
+          onValueChange={(v) => v && setRoleFilter(v)}
+          items={[{ value: "ALL", label: "All roles" }, ...Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))]}
+        >
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Role" />
           </SelectTrigger>
@@ -116,7 +120,15 @@ export function UsersTable({
             ))}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => v && setStatusFilter(v)}
+          items={[
+            { value: "ALL", label: "All statuses" },
+            { value: "ACTIVE", label: "Active" },
+            { value: "INACTIVE", label: "Inactive" },
+          ]}
+        >
           <SelectTrigger className="w-full sm:w-36">
             <SelectValue placeholder="Status" />
           </SelectTrigger>

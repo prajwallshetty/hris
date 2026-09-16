@@ -84,6 +84,7 @@ export function EditAssignmentDialog({
               <Select
                 value={form.watch("coordinatorId") || "NONE"}
                 onValueChange={(v) => form.setValue("coordinatorId", v === "NONE" ? "" : (v ?? ""))}
+                items={[{ value: "NONE", label: "None" }, ...coordinators.map((c) => ({ value: c.id, label: c.name }))]}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="None" />

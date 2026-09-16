@@ -44,7 +44,11 @@ export function GenerateEmployeePayrollForm({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <Field className="sm:col-span-3">
           <FieldLabel>Employee</FieldLabel>
-          <Select value={employeeId || "ALL"} onValueChange={(v) => setEmployeeId(v === "ALL" ? "" : (v ?? ""))}>
+          <Select
+            value={employeeId || "ALL"}
+            onValueChange={(v) => setEmployeeId(v === "ALL" ? "" : (v ?? ""))}
+            items={[{ value: "ALL", label: "All active employees" }, ...employees.map((e) => ({ value: e.id, label: e.fullName }))]}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All active employees" />
             </SelectTrigger>

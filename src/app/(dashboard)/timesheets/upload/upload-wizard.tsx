@@ -105,6 +105,7 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
                 setSiteId("");
                 setPreview(null);
               }}
+              items={clients.map((c) => ({ value: c.id, label: c.companyName }))}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Client" />
@@ -128,6 +129,7 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
                 setPreview(null);
               }}
               disabled={!clientId}
+              items={projects.map((p) => ({ value: p.id, label: p.name }))}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Project" />
@@ -150,6 +152,7 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
                 setPreview(null);
               }}
               disabled={!projectId}
+              items={sites.map((s) => ({ value: s.id, label: s.name }))}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Site" />

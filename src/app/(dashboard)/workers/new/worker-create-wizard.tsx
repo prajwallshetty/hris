@@ -384,6 +384,7 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
                 <Select
                   value={form.watch("coordinatorId") || "NONE"}
                   onValueChange={(value) => form.setValue("coordinatorId", value === "NONE" ? "" : (value ?? ""))}
+                  items={[{ value: "NONE", label: "None" }, ...coordinators.map((c) => ({ value: c.id, label: c.name }))]}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="None" />
@@ -534,6 +535,7 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
                   <Select
                     value={assignment.clientId}
                     onValueChange={(v) => setAssignment((a) => ({ ...emptyAssignment(), startDate: a.startDate, clientId: v ?? "" }))}
+                    items={clients.map((c) => ({ value: c.id, label: c.companyName }))}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select client" />
@@ -553,6 +555,7 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
                     value={assignment.projectId}
                     disabled={!assignment.clientId}
                     onValueChange={(v) => setAssignment((a) => ({ ...a, projectId: v ?? "", siteId: "" }))}
+                    items={projects.map((p) => ({ value: p.id, label: p.name }))}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select project" />
@@ -572,6 +575,7 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
                     value={assignment.siteId}
                     disabled={!assignment.projectId}
                     onValueChange={(v) => setAssignment((a) => ({ ...a, siteId: v ?? "" }))}
+                    items={sites.map((s) => ({ value: s.id, label: s.name }))}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select site" />
@@ -616,6 +620,7 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
                   <Select
                     value={assignment.coordinatorId || "NONE"}
                     onValueChange={(v) => setAssignment((a) => ({ ...a, coordinatorId: v === "NONE" ? "" : (v ?? "") }))}
+                    items={[{ value: "NONE", label: "None" }, ...coordinators.map((c) => ({ value: c.id, label: c.name }))]}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="None" />

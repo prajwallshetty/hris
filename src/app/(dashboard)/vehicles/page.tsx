@@ -1,4 +1,4 @@
-import { Car, Plus } from "lucide-react";
+import { Car, Plus, UserCog } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { ExportCsvButton } from "@/components/shared/export-csv-button";
@@ -12,9 +12,11 @@ import { VEHICLE_STATUSES } from "@/lib/validation/vehicle";
 import { can } from "@/server/rbac";
 import { exportVehiclesCsv } from "@/server/actions/vehicles";
 import { listVehicles } from "@/server/queries/vehicles";
-import { listCoordinators } from "@/server/queries/workers";
+import { listClientHierarchyForSelect } from "@/server/queries/clients";
+import { listCoordinators, listWorkersForSelect } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
 
+import { AssignVehicleDialog } from "./[id]/assign-vehicle-dialog";
 import { VehicleFormDialog } from "./vehicle-form-dialog";
 import { VehiclesTable, type VehicleRow } from "./vehicles-table";
 
@@ -25,7 +27,7 @@ function toDateInput(date: Date | null) {
 export default async function VehiclesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string; new?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string; new?: string; assign?: string }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
@@ -34,10 +36,13 @@ export default async function VehiclesPage({
   const canCreate = can(user, "create", "vehicle");
   const canEdit = can(user, "update", "vehicle");
   const canArchive = can(user, "archive", "vehicle");
+  const canAssign = can(user, "create", "vehicleAssignment");
 
-  const [{ vehicles, total, pageSize }, coordinators] = await Promise.all([
+  const [{ vehicles, total, pageSize }, coordinators, workers, clients] = await Promise.all([
     listVehicles(user, { search: params.q, status: (params.status as never) ?? "ALL", page }),
-    canCreate || canEdit ? listCoordinators() : Promise.resolve([]),
+    canCreate || canEdit || canAssign ? listCoordinators() : Promise.resolve([]),
+    canAssign ? listWorkersForSelect(user) : Promise.resolve([]),
+    canAssign ? listClientHierarchyForSelect() : Promise.resolve([]),
   ]);
 
   const rows: VehicleRow[] = vehicles.map((vehicle) => {
@@ -81,18 +86,34 @@ export default async function VehiclesPage({
         title="Vehicles"
         description="Fleet master data, deployment, expenses, and maintenance."
         actions={
-          canCreate && (
-            <VehicleFormDialog
-              coordinators={coordinators}
-              defaultOpen={params.new === "1"}
-              trigger={
-                <Button>
-                  <Plus className="size-4" />
-                  Add Vehicle
-                </Button>
-              }
-            />
-          )
+          <div className="flex items-center gap-2">
+            {canAssign && (
+              <AssignVehicleDialog
+                workers={workers}
+                clients={clients}
+                coordinators={coordinators}
+                defaultOpen={params.assign === "1"}
+                trigger={
+                  <Button variant="outline">
+                    <UserCog className="size-4" />
+                    Assign Vehicle
+                  </Button>
+                }
+              />
+            )}
+            {canCreate && (
+              <VehicleFormDialog
+                coordinators={coordinators}
+                defaultOpen={params.new === "1"}
+                trigger={
+                  <Button>
+                    <Plus className="size-4" />
+                    Add Vehicle
+                  </Button>
+                }
+              />
+            )}
+          </div>
         }
       />
 

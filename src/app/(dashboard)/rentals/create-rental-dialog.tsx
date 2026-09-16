@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import {
   RENTAL_RATE_TYPES,
   equipmentRentalFormSchema,
@@ -58,14 +59,18 @@ export function CreateRentalDialog({
   clients,
   coordinators,
   trigger,
+  defaultOpen,
 }: {
   equipmentId?: string;
   equipmentOptions?: EquipmentOption[];
   clients: ClientTree[];
   coordinators: CoordinatorOption[];
   trigger: React.ReactElement;
+  /** Open immediately on mount — e.g. a `?new=1` deep link from Quick Create. */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  useClearNewParam(Boolean(defaultOpen));
   const router = useRouter();
 
   const defaults: EquipmentRentalFormValues = {

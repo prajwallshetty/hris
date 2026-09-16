@@ -114,7 +114,11 @@ export function CommissionRulesSection({ rules, coordinators }: { rules: Rule[];
         <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <Field>
             <FieldLabel>Coordinator</FieldLabel>
-            <Select value={form.watch("coordinatorId") || "DEFAULT"} onValueChange={(v) => form.setValue("coordinatorId", v === "DEFAULT" ? "" : (v ?? ""))}>
+            <Select
+              value={form.watch("coordinatorId") || "DEFAULT"}
+              onValueChange={(v) => form.setValue("coordinatorId", v === "DEFAULT" ? "" : (v ?? ""))}
+              items={[{ value: "DEFAULT", label: "Default (all)" }, ...coordinators.map((c) => ({ value: c.id, label: c.name }))]}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -130,7 +134,11 @@ export function CommissionRulesSection({ rules, coordinators }: { rules: Rule[];
           </Field>
           <Field>
             <FieldLabel>Type</FieldLabel>
-            <Select value={form.watch("type")} onValueChange={(v) => v && form.setValue("type", v as CommissionRuleFormInput["type"])}>
+            <Select
+              value={form.watch("type")}
+              onValueChange={(v) => v && form.setValue("type", v as CommissionRuleFormInput["type"])}
+              items={COMMISSION_TYPES.map((type) => ({ value: type, label: TYPE_LABELS[type] }))}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

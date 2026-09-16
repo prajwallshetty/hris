@@ -422,6 +422,7 @@ export function AssignmentsClientView({
                   <Select
                     value={currentClient || "ALL"}
                     onValueChange={(v) => updateQueryParams({ client: v === "ALL" ? "" : v, project: "", site: "" })}
+                    items={[{ value: "ALL", label: "All Clients" }, ...clients.map((c) => ({ value: c.id, label: c.companyName }))]}
                   >
                     <SelectTrigger className="w-full h-8 text-xs">
                       <SelectValue placeholder="All Clients" />
@@ -442,6 +443,7 @@ export function AssignmentsClientView({
                   <Select
                     value={currentCoordinator || "ALL"}
                     onValueChange={(v) => updateQueryParams({ coordinator: v === "ALL" ? "" : v })}
+                    items={[{ value: "ALL", label: "All Coordinators" }, ...coordinators.map((c) => ({ value: c.id, label: c.name }))]}
                   >
                     <SelectTrigger className="w-full h-8 text-xs">
                       <SelectValue placeholder="All Coordinators" />

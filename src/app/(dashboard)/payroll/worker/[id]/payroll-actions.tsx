@@ -169,7 +169,11 @@ export function RepaymentDialog({
         <div className="space-y-4">
           <Field>
             <FieldLabel>{kind === "ADVANCE" ? "Advance" : "Loan"}</FieldLabel>
-            <Select value={sourceId} onValueChange={(v) => v && setSourceId(v)}>
+            <Select
+              value={sourceId}
+              onValueChange={(v) => v && setSourceId(v)}
+              items={sources.map((s) => ({ value: s.id, label: `${s.label} — remaining ${s.remaining}` }))}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

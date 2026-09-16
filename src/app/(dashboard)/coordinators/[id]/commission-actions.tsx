@@ -73,7 +73,11 @@ export function GenerateCommissionDialog({ sales, rules }: { sales: SaleOption[]
           <FieldGroup>
             <Field>
               <FieldLabel>Sale *</FieldLabel>
-              <Select value={form.watch("saleId")} onValueChange={(v) => form.setValue("saleId", v ?? "")}>
+              <Select
+                value={form.watch("saleId")}
+                onValueChange={(v) => form.setValue("saleId", v ?? "")}
+                items={sales.map((s) => ({ value: s.id, label: `${s.date} — SAR ${s.amount} ${s.description ? `(${s.description})` : ""}` }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select an un-commissioned sale" />
                 </SelectTrigger>
@@ -89,7 +93,14 @@ export function GenerateCommissionDialog({ sales, rules }: { sales: SaleOption[]
             </Field>
             <Field>
               <FieldLabel>Commission Rule *</FieldLabel>
-              <Select value={form.watch("commissionRuleId")} onValueChange={(v) => form.setValue("commissionRuleId", v ?? "")}>
+              <Select
+                value={form.watch("commissionRuleId")}
+                onValueChange={(v) => form.setValue("commissionRuleId", v ?? "")}
+                items={eligibleRules.map((r) => ({
+                  value: r.id,
+                  label: `${r.type === "PERCENT_OF_SALES" ? `${r.rateOrAmount}% of sale` : `Fixed SAR ${r.rateOrAmount}`}${r.coordinatorId ? " (coordinator-specific)" : " (default)"}`,
+                }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a rule" />
                 </SelectTrigger>

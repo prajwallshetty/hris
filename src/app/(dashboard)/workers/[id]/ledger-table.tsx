@@ -142,7 +142,11 @@ export function LedgerTable({ workerId, rows }: { workerId: string; rows: Ledger
           onChange={(e) => setSearch(e.target.value)}
           className="w-full sm:w-56"
         />
-        <Select value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)}>
+        <Select
+          value={typeFilter}
+          onValueChange={(v) => v && setTypeFilter(v)}
+          items={[{ value: "ALL", label: "All types" }, ...Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))]}
+        >
           <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
@@ -156,7 +160,11 @@ export function LedgerTable({ workerId, rows }: { workerId: string; rows: Ledger
           </SelectContent>
         </Select>
         {periods.length > 0 && (
-          <Select value={periodFilter} onValueChange={(v) => v && setPeriodFilter(v)}>
+          <Select
+            value={periodFilter}
+            onValueChange={(v) => v && setPeriodFilter(v)}
+            items={[{ value: "ALL", label: "All periods" }, ...periods.map(([id, name]) => ({ value: id, label: name }))]}
+          >
             <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Payroll period" />
             </SelectTrigger>
@@ -171,7 +179,11 @@ export function LedgerTable({ workerId, rows }: { workerId: string; rows: Ledger
           </Select>
         )}
         {clients.length > 0 && (
-          <Select value={clientFilter} onValueChange={(v) => v && setClientFilter(v)}>
+          <Select
+            value={clientFilter}
+            onValueChange={(v) => v && setClientFilter(v)}
+            items={[{ value: "ALL", label: "All clients" }, ...clients.map(([id, name]) => ({ value: id, label: name }))]}
+          >
             <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Client" />
             </SelectTrigger>

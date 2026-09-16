@@ -173,7 +173,16 @@ export function ClientsTable({
           onChange={(e) => setSearch(e.target.value)}
           className="w-full sm:max-w-xs"
         />
-        <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => v && setStatusFilter(v)}
+          items={[
+            { value: "ALL", label: "All statuses" },
+            { value: "ACTIVE", label: "Active" },
+            { value: "INACTIVE", label: "Inactive" },
+            { value: "ARCHIVED", label: "Archived" },
+          ]}
+        >
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Status" />
           </SelectTrigger>

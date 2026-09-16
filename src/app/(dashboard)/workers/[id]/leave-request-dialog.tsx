@@ -78,7 +78,11 @@ export function LeaveRequestDialog({
           <FieldGroup>
             <Field>
               <FieldLabel>Leave Type *</FieldLabel>
-              <Select value={form.watch("leaveTypeId")} onValueChange={(v) => form.setValue("leaveTypeId", v ?? "")}>
+              <Select
+                value={form.watch("leaveTypeId")}
+                onValueChange={(v) => form.setValue("leaveTypeId", v ?? "")}
+                items={leaveTypes.map((type) => ({ value: type.id, label: type.name }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>

@@ -22,6 +22,7 @@ import { listCoordinators } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
 
 import { CreateRentalDialog } from "../../rentals/create-rental-dialog";
+import { EquipmentFormDialog } from "../equipment-form-dialog";
 import { EquipmentMaintenanceDialog } from "./equipment-maintenance-dialog";
 import { MaintenanceStatusButton } from "./maintenance-status-button";
 
@@ -44,10 +45,11 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
   const canRecordMaintenance = can(user, "create", "equipmentMaintenance");
   const canUpdateMaintenance = can(user, "update", "equipmentMaintenance");
   const canViewActivity = can(user, "view", "auditLog");
+  const canEdit = can(user, "update", "equipment");
 
   const [clients, coordinators, activity] = await Promise.all([
     canCreateRental ? listClientHierarchyForSelect() : Promise.resolve([]),
-    canCreateRental ? listCoordinators() : Promise.resolve([]),
+    canCreateRental || canEdit ? listCoordinators() : Promise.resolve([]),
     canViewActivity ? getEntityAuditLog("Equipment", equipment.id) : Promise.resolve([]),
   ]);
 
@@ -75,7 +77,34 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
         ]}
         title={equipment.name}
         description={`${formatEquipmentCode(equipment.sequenceNo)} · ${equipment.serialNumber}`}
-        actions={<StatusBadge status={equipment.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={equipment.status} />
+            {canEdit && (
+              <EquipmentFormDialog
+                coordinators={coordinators}
+                equipment={{
+                  id: equipment.id,
+                  serialNumber: equipment.serialNumber,
+                  name: equipment.name,
+                  category: equipment.category,
+                  make: equipment.make,
+                  model: equipment.model,
+                  condition: equipment.condition,
+                  status: equipment.status,
+                  hourlyRate: equipment.hourlyRate ? Number(equipment.hourlyRate) : null,
+                  dailyRate: equipment.dailyRate ? Number(equipment.dailyRate) : null,
+                  weeklyRate: equipment.weeklyRate ? Number(equipment.weeklyRate) : null,
+                  monthlyRate: equipment.monthlyRate ? Number(equipment.monthlyRate) : null,
+                  ownerCompany: equipment.ownerCompany,
+                  coordinatorId: equipment.coordinatorId,
+                  notes: equipment.notes,
+                }}
+                trigger={<Button variant="outline">Edit</Button>}
+              />
+            )}
+          </div>
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

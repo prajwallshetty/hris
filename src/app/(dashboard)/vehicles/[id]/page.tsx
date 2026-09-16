@@ -24,9 +24,15 @@ import { ReturnVehicleDialog } from "./return-vehicle-dialog";
 import { VehicleExpenseDialog } from "./vehicle-expense-dialog";
 import { VehicleMaintenanceDialog } from "./vehicle-maintenance-dialog";
 
+import { VehicleFormDialog } from "../vehicle-form-dialog";
+
 function formatDate(date: Date | null) {
   if (!date) return "—";
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
+}
+
+function toDateInput(date: Date | null) {
+  return date ? date.toISOString().slice(0, 10) : null;
 }
 
 function formatMoney(value: unknown) {
@@ -45,11 +51,12 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
   const canRecordMaintenance = can(user, "create", "vehicleMaintenance");
   const canUpdateMaintenance = can(user, "update", "vehicleMaintenance");
   const canViewActivity = can(user, "view", "auditLog");
+  const canEdit = can(user, "update", "vehicle");
 
   const [workers, clients, coordinators, expenseTotal, activity] = await Promise.all([
     canAssign ? listWorkersForSelect(user) : Promise.resolve([]),
     canAssign ? listClientHierarchyForSelect() : Promise.resolve([]),
-    canAssign ? listCoordinators() : Promise.resolve([]),
+    canAssign || canEdit ? listCoordinators() : Promise.resolve([]),
     getVehicleExpenseTotal(vehicle.id),
     canViewActivity ? getEntityAuditLog("Vehicle", vehicle.id) : Promise.resolve([]),
   ]);
@@ -74,7 +81,35 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         ]}
         title={vehicle.plateNumber}
         description={`${formatVehicleCode(vehicle.sequenceNo)} · ${vehicle.make} ${vehicle.model}${vehicle.year ? ` (${vehicle.year})` : ""}`}
-        actions={<StatusBadge status={vehicle.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={vehicle.status} />
+            {canEdit && (
+              <VehicleFormDialog
+                coordinators={coordinators}
+                vehicle={{
+                  id: vehicle.id,
+                  plateNumber: vehicle.plateNumber,
+                  make: vehicle.make,
+                  model: vehicle.model,
+                  year: vehicle.year,
+                  color: vehicle.color,
+                  vehicleType: vehicle.vehicleType,
+                  vin: vehicle.vin,
+                  currentMileage: vehicle.currentMileage ? Number(vehicle.currentMileage) : null,
+                  status: vehicle.status,
+                  registrationExpiry: toDateInput(vehicle.registrationExpiry),
+                  insuranceExpiry: toDateInput(vehicle.insuranceExpiry),
+                  inspectionExpiry: toDateInput(vehicle.inspectionExpiry),
+                  ownerCompany: vehicle.ownerCompany,
+                  coordinatorId: vehicle.coordinatorId,
+                  notes: vehicle.notes,
+                }}
+                trigger={<Button variant="outline">Edit</Button>}
+              />
+            )}
+          </div>
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

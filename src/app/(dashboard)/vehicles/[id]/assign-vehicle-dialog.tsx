@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import {
   vehicleAssignFormSchema,
   type VehicleAssignFormInput,
@@ -43,18 +44,25 @@ export function AssignVehicleDialog({
   clients,
   coordinators,
   trigger,
+  defaultOpen,
 }: {
-  vehicleId: string;
+  /** Fixed when opened from a specific vehicle's detail page. Omitted when
+   * opened from the vehicles list (e.g. Quick Create), in which case a
+   * Vehicle field is shown so the user picks one. */
+  vehicleId?: string;
   workers: WorkerOption[];
   clients: ClientTree[];
   coordinators: CoordinatorOption[];
   trigger: React.ReactElement;
+  /** Open immediately on mount — e.g. a `?assign=1` deep link from Quick Create. */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  useClearNewParam(Boolean(defaultOpen));
   const router = useRouter();
 
   const defaults: VehicleAssignFormValues = {
-    vehicleId,
+    vehicleId: vehicleId ?? "",
     workerId: "",
     coordinatorId: "",
     clientId: "",
@@ -106,6 +114,21 @@ export function AssignVehicleDialog({
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FieldGroup className="grid grid-cols-1 gap-4">
+            {!vehicleId && (
+              <Field>
+                <FieldLabel>Vehicle *</FieldLabel>
+                <EntityCombobox
+                  entityType="vehicle"
+                  value={form.watch("vehicleId")}
+                  onChange={(v) => form.setValue("vehicleId", v)}
+                  placeholder="Search vehicle by plate, make, or model..."
+                  error={errors.vehicleId?.message}
+                  required
+                />
+                {errors.vehicleId && <FieldError>{errors.vehicleId.message}</FieldError>}
+              </Field>
+            )}
+
             <Field>
               <FieldLabel>Worker *</FieldLabel>
               <EntityCombobox

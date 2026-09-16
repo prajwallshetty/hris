@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -31,33 +31,59 @@ const PwaContext = createContext<PwaContextType>({
 const DISMISSAL_KEY = "expand_arabia_pwa_install_dismissed_at";
 const DISMISSAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// navigator.onLine can legitimately differ from the server's "assume
+// online" default at the exact moment hydration runs, and a useState
+// lazy initializer reads it during that first client render — causing a
+// real, reproducible hydration mismatch that regenerated the whole header
+// on every page load (§ traced from live testing: the mismatch was
+// ConnectionStatus's badge vs. QuickCreateMenu's trigger swapping places).
+// useSyncExternalStore is the React-sanctioned fix: the server snapshot is
+// used for the client's first render too, then corrected right after
+// hydration commits — same pattern as src/lib/use-is-client.ts.
+function subscribeOnlineStatus(callback: () => void) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+}
+
+function getOnlineSnapshot() {
+  return navigator.onLine;
+}
+
+function getOnlineServerSnapshot() {
+  return true;
+}
+
 export function PwaProvider({ children }: { children: React.ReactNode }) {
-  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+  const isOnline = useSyncExternalStore(subscribeOnlineStatus, getOnlineSnapshot, getOnlineServerSnapshot);
+  const isFirstOnlineRender = useRef(true);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
+  // Toast only on a real transition, never on mount.
   useEffect(() => {
-    // 1. Online/offline event listeners
-    const handleOnline = () => {
-      setIsOnline(true);
+    if (isFirstOnlineRender.current) {
+      isFirstOnlineRender.current = false;
+      return;
+    }
+    if (isOnline) {
       toast.success("Connection restored. Application is online.", {
         id: "connection-status",
         duration: 3000,
       });
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
+    } else {
       toast.warning("You are currently offline. Financial operations are paused.", {
         id: "connection-status",
         duration: 5000,
       });
-    };
+    }
+  }, [isOnline]);
 
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
+  useEffect(() => {
     // 2. Check standalone mode
     const checkStandalone = () => {
       const isStandaloneMode =
@@ -118,8 +144,6 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
       mediaQuery.removeEventListener("change", handleMediaChange);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);

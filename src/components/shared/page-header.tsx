@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 
 import {
   Breadcrumb,
@@ -29,7 +30,7 @@ export function PageHeader({
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumbs.map((crumb, i) => (
-              <li key={i} className="contents">
+              <Fragment key={i}>
                 <BreadcrumbItem>
                   {crumb.href ? (
                     <BreadcrumbLink render={<Link href={crumb.href}>{crumb.label}</Link>} />
@@ -38,7 +39,7 @@ export function PageHeader({
                   )}
                 </BreadcrumbItem>
                 {i < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
-              </li>
+              </Fragment>
             ))}
           </BreadcrumbList>
         </Breadcrumb>

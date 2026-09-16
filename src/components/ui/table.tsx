@@ -24,11 +24,17 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
     <thead
       data-slot="table-header"
       className={cn(
-        // Sticks just below the app's persistent topbar (h-14) once a tall,
-        // unpaginated table (ledgers, LOG grids, payroll rows) scrolls past
-        // it. Harmless no-op on short tables — sticky only engages once the
-        // header would otherwise scroll out of view.
-        "bg-secondary sticky top-14 z-[5] [&_tr]:border-b",
+        // Not `sticky` — this table's wrapper needs `overflow-x-auto` for
+        // horizontal scroll, and the CSS overflow spec unavoidably forces
+        // that wrapper's overflow-y to a real scroll-container value too
+        // (auto/hidden/clip all count), which becomes the nearest sticky
+        // containing block. In Chromium that produces a reproducible
+        // quirk: `position: sticky` on this thead renders offset by its
+        // own `top` value even at scrollTop 0, corrupting the header/body
+        // layout (confirmed by disabling sticky and measuring the exact
+        // offset match). A static header that always corrupts nothing
+        // beats a sticky one that sometimes does.
+        "bg-secondary [&_tr]:border-b",
         className,
       )}
       {...props}

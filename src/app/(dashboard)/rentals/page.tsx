@@ -35,7 +35,7 @@ function formatMoney(value: unknown) {
 export default async function RentalsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string; new?: string }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
@@ -70,6 +70,7 @@ export default async function RentalsPage({
               }))}
               clients={clients}
               coordinators={coordinators}
+              defaultOpen={params.new === "1"}
               trigger={
                 <Button>
                   <Plus className="size-4" />

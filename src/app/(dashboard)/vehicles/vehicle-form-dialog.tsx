@@ -93,7 +93,11 @@ export function VehicleFormDialog({
   async function onSubmit(values: VehicleFormInput) {
     const result = isEdit ? await updateVehicle(vehicle!.id, values) : await createVehicle(values);
     if (result.success) {
-      toast.success(isEdit ? "Vehicle updated." : "Vehicle added.");
+      toast.success(isEdit ? "Vehicle updated." : "Vehicle added.", {
+        action: isEdit
+          ? undefined
+          : { label: "Assign Vehicle", onClick: () => router.push(`/vehicles/${result.data.id}`) },
+      });
       setOpen(false);
       if (!isEdit) form.reset(defaults);
       router.refresh();

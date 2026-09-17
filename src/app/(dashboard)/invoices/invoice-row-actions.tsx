@@ -68,14 +68,10 @@ export function InvoiceRowActions({
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            render={
-              <Link href={`/invoices/${invoiceId}`}>
-                <Eye className="size-4" />
-                View
-              </Link>
-            }
-          />
+          <DropdownMenuItem render={<Link href={`/invoices/${invoiceId}`} />}>
+            <Eye className="size-4" />
+            View
+          </DropdownMenuItem>
           {canCancel && (
             <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>
               <Ban className="size-4" />

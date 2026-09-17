@@ -111,15 +111,10 @@ export function WorkerImportWizard() {
         </div>
 
         <div className="mt-4 flex items-center justify-between">
-          <Button
-            variant="outline"
-            render={
-              <a href="/api/workers/import-template">
-                <Download className="size-4" />
-                Download Excel Template
-              </a>
-            }
-          />
+          <Button variant="outline" render={<a href="/api/workers/import-template" />}>
+            <Download className="size-4" />
+            Download Excel Template
+          </Button>
           <Button onClick={handlePreview} disabled={isPreviewing || !file}>
             {isPreviewing && <Loader2 className="size-4 animate-spin" />}
             Preview Import

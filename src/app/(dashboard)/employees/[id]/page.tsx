@@ -94,15 +94,10 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <>
             <StatusBadge status={employee.status} />
             {canEdit && (
-              <Button
-                variant="outline"
-                render={
-                  <Link href={`/employees/${employee.id}/edit`}>
-                    <Pencil className="size-4" />
-                    Edit
-                  </Link>
-                }
-              />
+              <Button variant="outline" render={<Link href={`/employees/${employee.id}/edit`} />}>
+                <Pencil className="size-4" />
+                Edit
+              </Button>
             )}
             {canArchive &&
               (employee.deletedAt ? (

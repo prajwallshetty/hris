@@ -67,23 +67,15 @@ export function EmployeeRowActions({
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            render={
-              <Link href={`/employees/${employeeId}`}>
-                <Eye className="size-4" />
-                View
-              </Link>
-            }
-          />
+          <DropdownMenuItem render={<Link href={`/employees/${employeeId}`} />}>
+            <Eye className="size-4" />
+            View
+          </DropdownMenuItem>
           {canEdit && !deletedAt && (
-            <DropdownMenuItem
-              render={
-                <Link href={`/employees/${employeeId}/edit`}>
-                  <Pencil className="size-4" />
-                  Edit
-                </Link>
-              }
-            />
+            <DropdownMenuItem render={<Link href={`/employees/${employeeId}/edit`} />}>
+              <Pencil className="size-4" />
+              Edit
+            </DropdownMenuItem>
           )}
           {canArchive && !deletedAt && (
             <DropdownMenuItem variant="destructive" onClick={() => setConfirmMode("archive")}>

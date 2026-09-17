@@ -43,13 +43,11 @@ export function Pagination({
           size="sm"
           disabled={page <= 1}
           nativeButton={false}
-          render={
-            <Link href={hrefForPage(Math.max(1, page - 1))} aria-disabled={page <= 1}>
-              <ChevronLeft className="size-4" />
-              Previous
-            </Link>
-          }
-        />
+          render={<Link href={hrefForPage(Math.max(1, page - 1))} aria-disabled={page <= 1} />}
+        >
+          <ChevronLeft className="size-4" />
+          Previous
+        </Button>
         <span className="text-muted-foreground text-sm">
           Page {page} of {totalPages}
         </span>
@@ -58,13 +56,11 @@ export function Pagination({
           size="sm"
           disabled={page >= totalPages}
           nativeButton={false}
-          render={
-            <Link href={hrefForPage(Math.min(totalPages, page + 1))} aria-disabled={page >= totalPages}>
-              Next
-              <ChevronRight className="size-4" />
-            </Link>
-          }
-        />
+          render={<Link href={hrefForPage(Math.min(totalPages, page + 1))} aria-disabled={page >= totalPages} />}
+        >
+          Next
+          <ChevronRight className="size-4" />
+        </Button>
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export default function Forbidden() {
           this is a mistake.
         </p>
       </div>
-      <Button render={<Link href="/dashboard">Back to dashboard</Link>} />
+      <Button render={<Link href="/dashboard" />}>Back to dashboard</Button>
     </div>
   );
 }

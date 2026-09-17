@@ -54,7 +54,11 @@ export function CoordinatorFormDialog({
   async function onSubmit(values: CoordinatorFormInput) {
     const result = coordinatorId ? await updateCoordinator(coordinatorId, values) : await createCoordinator(values);
     if (result.success) {
-      toast.success(coordinatorId ? "Coordinator updated." : "Coordinator added.");
+      toast.success(coordinatorId ? "Coordinator updated." : "Coordinator added.", {
+        action: coordinatorId
+          ? undefined
+          : { label: "View", onClick: () => router.push(`/coordinators/${result.data.id}`) },
+      });
       setOpen(false);
       if (!coordinatorId) form.reset();
       router.refresh();

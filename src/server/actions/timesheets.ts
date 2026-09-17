@@ -354,7 +354,10 @@ export async function decideTimesheetItem(input: TimesheetItemDecisionInput): Pr
       include: { timesheet: true },
     });
     if (before.timesheet.status === "LOCKED") {
-      return { success: false, error: "This timesheet is locked and can no longer be changed." };
+      return {
+        success: false,
+        error: "This LOG is locked because it's marked ready for payroll — locked entries can't be changed to keep payroll calculations accurate.",
+      };
     }
     if (before.status !== "PENDING") {
       return { success: false, error: "This entry has already been decided." };

@@ -90,7 +90,11 @@ export function EquipmentFormDialog({
   async function onSubmit(values: EquipmentFormInput) {
     const result = isEdit ? await updateEquipment(equipment!.id, values) : await createEquipment(values);
     if (result.success) {
-      toast.success(isEdit ? "Equipment updated." : "Equipment added.");
+      toast.success(isEdit ? "Equipment updated." : "Equipment added.", {
+        action: isEdit
+          ? undefined
+          : { label: "Create Rental", onClick: () => router.push(`/equipment/${result.data.id}`) },
+      });
       setOpen(false);
       if (!isEdit) form.reset(defaults);
       router.refresh();

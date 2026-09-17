@@ -313,15 +313,10 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               />
             )}
             {canEdit && (
-              <Button
-                variant="outline"
-                render={
-                  <Link href={`/workers/${worker.id}/edit`}>
-                    <Pencil className="size-4" />
-                    Edit
-                  </Link>
-                }
-              />
+              <Button variant="outline" render={<Link href={`/workers/${worker.id}/edit`} />}>
+                <Pencil className="size-4" />
+                Edit
+              </Button>
             )}
             {canDemobilize && isDemobilizable && (
               <ConfirmActionButton
@@ -764,16 +759,10 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                                 outstanding: Number(p.netPayable) - paid,
                               }}
                             />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              render={
-                                <Link href={`/payroll/worker/${p.id}/slip`}>
-                                  <FileText className="size-3.5" />
-                                  Salary Slip
-                                </Link>
-                              }
-                            />
+                            <Button variant="outline" size="sm" render={<Link href={`/payroll/worker/${p.id}/slip`} />}>
+                              <FileText className="size-3.5" />
+                              Salary Slip
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>

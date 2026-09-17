@@ -184,23 +184,15 @@ export function WorkersTable({
                         }
                       />
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          render={
-                            <Link href={`/workers/${worker.id}`}>
-                              <Eye className="size-4" />
-                              View
-                            </Link>
-                          }
-                        />
+                        <DropdownMenuItem render={<Link href={`/workers/${worker.id}`} />}>
+                          <Eye className="size-4" />
+                          View
+                        </DropdownMenuItem>
                         {canEdit && (
-                          <DropdownMenuItem
-                            render={
-                              <Link href={`/workers/${worker.id}/edit`}>
-                                <Pencil className="size-4" />
-                                Edit
-                              </Link>
-                            }
-                          />
+                          <DropdownMenuItem render={<Link href={`/workers/${worker.id}/edit`} />}>
+                            <Pencil className="size-4" />
+                            Edit
+                          </DropdownMenuItem>
                         )}
                         {canBulkArchive && worker.status !== "TERMINATED" && (
                           <DropdownMenuItem variant="destructive" onClick={() => setArchiveTarget(worker)}>

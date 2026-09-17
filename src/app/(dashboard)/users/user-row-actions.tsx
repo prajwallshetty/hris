@@ -46,7 +46,7 @@ export function UserRowActions({
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem render={<Link href={`/users/${userId}`}>View</Link>} />
+          <DropdownMenuItem render={<Link href={`/users/${userId}`} />}>View</DropdownMenuItem>
           <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
             Edit

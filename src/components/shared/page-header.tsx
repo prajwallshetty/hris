@@ -33,7 +33,7 @@ export function PageHeader({
               <Fragment key={i}>
                 <BreadcrumbItem>
                   {crumb.href ? (
-                    <BreadcrumbLink render={<Link href={crumb.href}>{crumb.label}</Link>} />
+                    <BreadcrumbLink render={<Link href={crumb.href} />}>{crumb.label}</BreadcrumbLink>
                   ) : (
                     <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                   )}

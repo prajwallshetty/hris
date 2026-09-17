@@ -253,7 +253,7 @@ export function ClientsTable({
                         }
                       />
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem render={<Link href={`/clients/${client.id}`}>View</Link>} />
+                        <DropdownMenuItem render={<Link href={`/clients/${client.id}`} />}>View</DropdownMenuItem>
                         {canEdit && !client.deletedAt && (
                           <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setEditTarget(client)}>
                             <Pencil className="size-4" />

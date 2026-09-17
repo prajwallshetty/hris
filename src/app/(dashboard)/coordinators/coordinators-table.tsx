@@ -204,7 +204,7 @@ export function CoordinatorsTable({
                         }
                       />
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem render={<Link href={`/coordinators/${c.id}`}>View</Link>} />
+                        <DropdownMenuItem render={<Link href={`/coordinators/${c.id}`} />}>View</DropdownMenuItem>
                         {canEdit && (
                           <DropdownMenuItem onClick={() => setEditTarget(c)}>
                             <Pencil className="size-4" />

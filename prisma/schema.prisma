@@ -228,6 +228,7 @@ model User {
   authAttempts               AuthAttempt[]
   uploadedVehicleDocuments   VehicleDocument[]
   uploadedEquipmentDocuments EquipmentDocument[]
+  importRuns                 ImportRun[]
 
   @@index([role])
 }
@@ -458,6 +459,11 @@ model Worker {
 
   status WorkerStatus @default(AVAILABLE)
 
+  // Free-text grouping label for a hiring/mobilization batch (e.g.
+  // "BATCH-001", "JUL-2026") — optional, set at creation or bulk import,
+  // filterable on the Workers list.
+  batchNumber String?
+
   bankName        String?
   bankAccountIban String?
   notes           String? @db.Text
@@ -487,6 +493,7 @@ model Worker {
   @@index([coordinatorId])
   @@index([fullName])
   @@index([designationId])
+  @@index([batchNumber])
 }
 
 model WorkerStatusHistory {
@@ -1368,6 +1375,44 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+enum ImportModule {
+  WORKER
+  TIMESHEET
+}
+
+enum ImportRunStatus {
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+// One row per bulk Excel/CSV upload (Worker or Timesheet), independent of
+// the imported records themselves — gives HR a simple audit trail of who
+// uploaded what and when, without exposing any internal IDs (§7: "Import
+// History").
+model ImportRun {
+  id     String  @id @default(cuid())
+  module ImportModule
+  status ImportRunStatus
+
+  fileName     String
+  totalRows    Int
+  importedRows Int
+  failedRows   Int
+  // Per-row failure detail ({ rowNumber, errors: string[] }[]) — kept so a
+  // failed import's error report can be reviewed/downloaded after the fact
+  // without re-uploading the file.
+  errorReport  Json?
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([module])
   @@index([createdAt])
 }
 

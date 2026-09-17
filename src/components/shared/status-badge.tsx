@@ -76,6 +76,8 @@ const STATUS_TONES: Record<string, Tone> = {
   SCHEDULED: "neutral",
   IN_PROGRESS: "info",
   COMPLETED: "success",
+  PARTIAL: "warning",
+  FAILED: "destructive",
 
   // Equipment / rental lifecycle and charge types
   RENTED: "success",

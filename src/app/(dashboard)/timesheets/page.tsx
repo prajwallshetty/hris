@@ -1,4 +1,4 @@
-import { ClipboardList, ListFilter, Plus } from "lucide-react";
+import { ClipboardList, ListFilter, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -52,6 +52,12 @@ export default async function TimesheetsPage({
               <ListFilter className="size-4" />
               View Log
             </Button>
+            {canCreate && (
+              <Button variant="outline" render={<Link href="/timesheets/upload" />}>
+                <Upload className="size-4" />
+                Import Excel
+              </Button>
+            )}
             {canCreate && (
               <ManualTimesheetEntryDialog
                 clients={clients}

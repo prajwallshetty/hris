@@ -40,6 +40,7 @@ export type WorkerRow = {
   coordinatorName: string | null;
   hourlyRate: number | null;
   status: string;
+  batchNumber: string | null;
 };
 
 export function WorkersTable({
@@ -140,6 +141,7 @@ export function WorkersTable({
                 <TableHead>Client</TableHead>
                 <TableHead>Site</TableHead>
                 <TableHead>Coordinator</TableHead>
+                <TableHead>Batch</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-10 text-right">Actions</TableHead>
@@ -167,6 +169,7 @@ export function WorkersTable({
                   <TableCell>{worker.clientName ?? "—"}</TableCell>
                   <TableCell>{worker.siteName ?? "—"}</TableCell>
                   <TableCell>{worker.coordinatorName ?? "—"}</TableCell>
+                  <TableCell>{worker.batchNumber ?? "—"}</TableCell>
                   <TableCell>{worker.hourlyRate != null ? `SAR ${worker.hourlyRate.toFixed(2)}` : "—"}</TableCell>
                   <TableCell>
                     <StatusBadge status={worker.status} />

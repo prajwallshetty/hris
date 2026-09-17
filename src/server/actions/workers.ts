@@ -1,12 +1,20 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type WorkerStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { workerFormSchema, type WorkerFormInput } from "@/lib/validation/worker";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
+import {
+  detectWorkerBulkColumns,
+  extractWorkerBulkRows,
+  summarizeWorkerBulkImport,
+  validateWorkerBulkRows,
+  type ValidWorkerBulkRow,
+  type WorkerBulkImportSummary,
+} from "@/server/import/worker-bulk-import";
 import { assertCan, type SessionUser } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
@@ -61,6 +69,7 @@ function buildData(data: WorkerFormInput, designationId: string | null, user: Se
     hourlyRate: data.hourlyRate ?? null,
     overtimeRate: data.overtimeRate ?? null,
     status: data.status,
+    batchNumber: data.batchNumber || null,
     bankName: data.bankName || null,
     bankAccountIban: data.bankAccountIban || null,
     notes: data.notes || null,
@@ -263,6 +272,152 @@ export async function demobilizeWorker(id: string): Promise<ActionResult<{ id: s
     revalidatePath(`/workers/${id}`);
     revalidatePath("/assignments");
     return ok({ id: worker.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export type WorkerImportPreview = {
+  summary: WorkerBulkImportSummary;
+  validRows: ValidWorkerBulkRow[];
+};
+
+/**
+ * Step 1 of the bulk-upload flow: Upload -> Validate -> Preview. Nothing is
+ * persisted here — the client holds the returned valid rows and re-submits
+ * them (plus the original summary, for an accurate Import History record) to
+ * `importWorkerRows` to actually write them.
+ */
+export async function previewWorkerImport(formData: FormData): Promise<ActionResult<WorkerImportPreview>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "create", "worker");
+
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { success: false, error: "Please choose a file to upload." };
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { columns, missing } = detectWorkerBulkColumns(buffer);
+    if (missing.length > 0) {
+      return {
+        success: false,
+        error: `The file is missing required column(s): ${missing.join(", ")}. Expected: Name, Iqama Number.`,
+      };
+    }
+
+    const rawRows = extractWorkerBulkRows(buffer, columns);
+    if (rawRows.length === 0) {
+      return { success: false, error: "No data rows were found in the file." };
+    }
+
+    const iqamas = Array.from(new Set(rawRows.map((r) => r.iqama).filter((v): v is string => Boolean(v))));
+    const existingWorkers = await db.worker.findMany({
+      where: { iqamaNumber: { in: iqamas } },
+      select: { id: true, fullName: true, iqamaNumber: true },
+    });
+    const existingByIqama = new Map(existingWorkers.map((w) => [w.iqamaNumber, { id: w.id, fullName: w.fullName }]));
+
+    const results = validateWorkerBulkRows(rawRows, { existingByIqama });
+
+    return ok({
+      summary: summarizeWorkerBulkImport(results),
+      validRows: results.filter((r): r is ValidWorkerBulkRow => r.valid),
+    });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+/** Step 2: creates one worker per valid, previewed row. Each row is written
+ * independently (not one all-or-nothing transaction) so a single unexpected
+ * failure — e.g. a race against another import of the same Iqama — doesn't
+ * discard an otherwise-good batch; ImportRunStatus.PARTIAL exists precisely
+ * for this case. Rows already flagged invalid at preview (including every
+ * conflicting Iqama) are never sent here and never create a worker. */
+export async function importWorkerRows(input: {
+  fileName: string;
+  summary: WorkerBulkImportSummary;
+  items: ValidWorkerBulkRow[];
+}): Promise<ActionResult<{ importedCount: number; failedCount: number }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "create", "worker");
+
+    if (input.items.length === 0) {
+      return { success: false, error: "No valid rows to import." };
+    }
+
+    const designationCache = new Map<string, string | null>();
+    async function resolveCached(title: string | null) {
+      const key = title?.trim().toLowerCase() ?? "";
+      if (!designationCache.has(key)) {
+        designationCache.set(key, await resolveDesignationId(title));
+      }
+      return designationCache.get(key) ?? null;
+    }
+
+    const writeFailures: { rowNumber: number; iqamaNumber: string | null; errors: string[] }[] = [];
+    let importedCount = 0;
+
+    for (const row of input.items) {
+      try {
+        const designationId = await resolveCached(row.designation);
+        const worker = await db.worker.create({
+          data: {
+            iqamaNumber: row.iqamaNumber,
+            fullName: row.fullName,
+            mobile: row.mobile || null,
+            designationId,
+            skillCategory: row.skillCategory || null,
+            joiningDate: row.joiningDate ? new Date(row.joiningDate) : null,
+            status: row.status as WorkerStatus,
+            batchNumber: row.batchNumber || null,
+            notes: row.remarks || null,
+          },
+        });
+        await db.workerStatusHistory.create({
+          data: { workerId: worker.id, previousStatus: null, newStatus: worker.status, changedById: user.id },
+        });
+        importedCount += 1;
+      } catch (error) {
+        writeFailures.push({
+          rowNumber: row.rowNumber,
+          iqamaNumber: row.iqamaNumber,
+          errors: [isDuplicateIqama(error) ? `Duplicate Iqama: ${row.iqamaNumber} was just registered by another import.` : "Could not save this row."],
+        });
+      }
+    }
+
+    const failedCount = input.summary.invalidRows + writeFailures.length;
+    const errorReport = [...input.summary.errorReport, ...writeFailures];
+    const status = failedCount === 0 ? "COMPLETED" : importedCount > 0 ? "PARTIAL" : "FAILED";
+
+    const importRun = await db.importRun.create({
+      data: {
+        module: "WORKER",
+        status,
+        fileName: input.fileName,
+        totalRows: input.summary.totalRows,
+        importedRows: importedCount,
+        failedRows: failedCount,
+        errorReport,
+        uploadedById: user.id,
+      },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "import",
+      entityType: "Worker",
+      entityId: importRun.id,
+      newValue: { fileName: input.fileName, importedCount, failedCount },
+    });
+
+    revalidatePath("/workers");
+    revalidatePath("/import-history");
+    return ok({ importedCount, failedCount });
   } catch (error) {
     return actionError(error);
   }

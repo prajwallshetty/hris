@@ -31,6 +31,7 @@ export const workerFormSchema = z.object({
   hourlyRate: z.coerce.number().nonnegative().optional().nullable(),
   overtimeRate: z.coerce.number().nonnegative().optional().nullable(),
   status: z.enum(WORKER_STATUSES),
+  batchNumber: z.string().trim().optional().or(z.literal("")),
   bankName: z.string().trim().optional().or(z.literal("")),
   bankAccountIban: z.string().trim().optional().or(z.literal("")),
   notes: z.string().trim().optional().or(z.literal("")),

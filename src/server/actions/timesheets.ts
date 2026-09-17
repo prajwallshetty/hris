@@ -164,6 +164,8 @@ export async function importTimesheetRows(input: {
   siteId: string;
   period: string;
   items: ValidTimesheetImportRow[];
+  fileName?: string;
+  summary?: TimesheetImportSummary;
 }): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();
@@ -221,7 +223,24 @@ export async function importTimesheetRows(input: {
       newValue: { siteId: input.siteId, period: input.period, itemCount: input.items.length },
     });
 
+    if (input.fileName && input.summary) {
+      const failedRows = input.summary.invalidRows;
+      await db.importRun.create({
+        data: {
+          module: "TIMESHEET",
+          status: failedRows === 0 ? "COMPLETED" : "PARTIAL",
+          fileName: input.fileName,
+          totalRows: input.summary.totalRows,
+          importedRows: input.items.length,
+          failedRows,
+          errorReport: input.summary.errorReport,
+          uploadedById: user.id,
+        },
+      });
+    }
+
     revalidatePath("/timesheets");
+    revalidatePath("/import-history");
     return ok({ id: timesheet.id });
   } catch (error) {
     return actionError(error);

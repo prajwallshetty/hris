@@ -44,6 +44,7 @@ export default async function EditWorkerPage({ params }: { params: Promise<{ id:
           hourlyRate: worker.hourlyRate ? Number(worker.hourlyRate) : undefined,
           overtimeRate: worker.overtimeRate ? Number(worker.overtimeRate) : undefined,
           status: worker.status,
+          batchNumber: worker.batchNumber ?? "",
           bankName: worker.bankName ?? "",
           bankAccountIban: worker.bankAccountIban ?? "",
           notes: worker.notes ?? "",

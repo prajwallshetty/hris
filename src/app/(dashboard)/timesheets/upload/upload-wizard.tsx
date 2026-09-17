@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -24,6 +24,21 @@ type ClientTree = {
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
+}
+
+function downloadErrorReport(rows: { rowNumber: number; iqamaNumber: string | null; errors: string[] }[]) {
+  const lines = [
+    ["Row", "Iqama", "Issue"],
+    ...rows.map((r) => [String(r.rowNumber), r.iqamaNumber ?? "", r.errors.join(" ")]),
+  ];
+  const csv = lines.map((line) => line.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "timesheet-import-errors.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
@@ -79,6 +94,8 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
         siteId,
         period: `${period}-01`,
         items: preview.validRows,
+        fileName: file?.name,
+        summary: preview.summary,
       });
       if (result.success) {
         toast.success("Timesheet imported.");
@@ -198,7 +215,11 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
           </Field>
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex items-center justify-between">
+          <Button variant="outline" render={<a href="/api/timesheets/import-template">
+            <Download className="size-4" />
+            Download Excel Template
+          </a>} />
           <Button onClick={handlePreview} disabled={isPreviewing || !file || !siteId}>
             {isPreviewing && <Loader2 className="size-4 animate-spin" />}
             Preview Import
@@ -220,6 +241,17 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
               </span>
             )}
             <span className="text-muted-foreground">{preview.summary.totalRows} total rows</span>
+            {preview.summary.errorReport.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                onClick={() => downloadErrorReport(preview.summary.errorReport)}
+              >
+                <AlertTriangle className="size-3.5" />
+                Download Error Report
+              </Button>
+            )}
           </div>
 
           {preview.summary.errorReport.length > 0 && (

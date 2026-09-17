@@ -48,7 +48,7 @@ const CORE_STEPS: { key: string; title: string; fields: (keyof WorkerFormInput)[
   {
     key: "designation",
     title: "Designation",
-    fields: ["designation", "skillCategory", "coordinatorId", "joiningDate", "mobilizationDate", "demobilizationDate"],
+    fields: ["designation", "skillCategory", "coordinatorId", "joiningDate", "mobilizationDate", "demobilizationDate", "batchNumber"],
   },
   { key: "salary", title: "Salary & Rate", fields: ["hourlyRate", "overtimeRate"] },
 ];
@@ -103,6 +103,7 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
       hourlyRate: undefined,
       overtimeRate: undefined,
       status: "AVAILABLE",
+      batchNumber: "",
       bankName: "",
       bankAccountIban: "",
       notes: "",
@@ -411,6 +412,10 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
                 <FieldLabel htmlFor="demobilizationDate">Demobilization Date</FieldLabel>
                 <Input id="demobilizationDate" type="date" {...form.register("demobilizationDate")} />
               </Field>
+              <Field>
+                <FieldLabel htmlFor="batchNumber">Batch Number [Optional]</FieldLabel>
+                <Input id="batchNumber" {...form.register("batchNumber")} placeholder="e.g. BATCH-001, JUL-2026" />
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>
@@ -669,6 +674,10 @@ export function WorkerCreateWizard({ coordinators, clients }: { coordinators: Co
                 <p className="text-muted-foreground">
                   {coordinators.find((c) => c.id === values.coordinatorId)?.name ?? "No coordinator"}
                 </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs font-medium uppercase">Batch Number</p>
+                <p>{values.batchNumber || "—"}</p>
               </div>
               <div>
                 <p className="text-muted-foreground text-xs font-medium uppercase">Salary</p>

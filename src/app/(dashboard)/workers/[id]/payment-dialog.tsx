@@ -43,6 +43,7 @@ export function PaymentDialog({
   employeePayrollId,
   workerName,
   workerMobile,
+  defaultAmount,
   trigger,
 }: {
   workerId?: string;
@@ -51,6 +52,10 @@ export function PaymentDialog({
   employeePayrollId?: string;
   workerName?: string;
   workerMobile?: string;
+  /** Pre-fill the amount with the payroll's current outstanding balance
+   * (§11: "Select Worker for Payment → automatically load outstanding
+   * salary") so the common case — paying it in full — takes no typing. */
+  defaultAmount?: number;
   trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = useState(false);
@@ -63,7 +68,7 @@ export function PaymentDialog({
     workerPayrollId: workerPayrollId ?? "",
     employeeId: employeeId ?? "",
     employeePayrollId: employeePayrollId ?? "",
-    amount: 0,
+    amount: defaultAmount ?? 0,
     paymentType: "SALARY",
     method: "BANK_TRANSFER",
     referenceNumber: "",

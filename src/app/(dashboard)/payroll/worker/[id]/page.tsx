@@ -197,12 +197,13 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
       <div className="rounded-lg border p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Payments</p>
-          {canPay && (payroll.status === "APPROVED" || payroll.status === "PARTIALLY_PAID") && (
+          {canPay && payroll.status !== "PAID" && (
             <PaymentDialog
               workerId={payroll.workerId}
               workerPayrollId={payroll.id}
               workerName={payroll.worker.fullName}
               workerMobile={payroll.worker.mobile ?? undefined}
+              defaultAmount={outstanding}
               trigger={<Button size="sm">Record Payment</Button>}
             />
           )}

@@ -67,9 +67,9 @@ async function main() {
     },
   });
 
-  const existingAssignment = await db.assignment.findFirst({ where: { workerId: worker.id, status: "ACTIVE" } });
-  if (!existingAssignment) {
-    await db.assignment.create({
+  let assignment = await db.assignment.findFirst({ where: { workerId: worker.id, status: "ACTIVE" } });
+  if (!assignment) {
+    assignment = await db.assignment.create({
       data: {
         workerId: worker.id,
         clientId: client.id,
@@ -85,6 +85,45 @@ async function main() {
     console.log("Created test assignment for", worker.fullName);
   } else {
     console.log("Test assignment already exists for", worker.fullName);
+  }
+
+  if (worker.hourlyRate == null) {
+    await db.worker.update({ where: { id: worker.id }, data: { hourlyRate: 10 } });
+    console.log("Set hourlyRate for", worker.fullName);
+  }
+
+  const now = new Date();
+  const period = new Date(now.getFullYear(), now.getMonth(), 1);
+  const existingTimesheet = await db.timesheet.findFirst({
+    where: { siteId: site.id, period, status: "LOCKED" },
+  });
+  if (!existingTimesheet) {
+    const timesheet = await db.timesheet.create({
+      data: {
+        clientId: client.id,
+        projectId: project.id,
+        siteId: site.id,
+        period,
+        status: "LOCKED",
+        items: {
+          create: [
+            {
+              workerId: worker.id,
+              assignmentId: assignment.id,
+              iqamaNumber: worker.iqamaNumber,
+              date: new Date(now.getFullYear(), now.getMonth(), 5),
+              regularHours: 8,
+              overtimeHours: 0,
+              totalHours: 8,
+              status: "APPROVED",
+            },
+          ],
+        },
+      },
+    });
+    console.log("Created locked+approved test timesheet", timesheet.id, "for", worker.fullName);
+  } else {
+    console.log("Test timesheet already exists for", worker.fullName);
   }
 
   console.log("Seed complete.");

@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { toSafeSequenceNo } from "@/lib/codes";
 import {
   can,
   clientScopeWhere,
@@ -493,8 +494,8 @@ export async function searchInvoiceOptions(
   }
 
   if (q.length > 0) {
-    const num = Number(q);
-    if (!isNaN(num)) {
+    const num = toSafeSequenceNo(Number(q));
+    if (num !== null) {
       whereClause.sequenceNo = num;
     } else {
       whereClause.client = { companyName: { contains: q, mode: "insensitive" } };

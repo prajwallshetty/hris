@@ -216,7 +216,7 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
         </div>
 
         <div className="mt-4 flex items-center justify-between">
-          <Button variant="outline" render={<a href="/api/timesheets/import-template" />}>
+          <Button variant="outline" nativeButton={false} render={<a href="/api/timesheets/import-template" />}>
             <Download className="size-4" />
             Download Excel Template
           </Button>

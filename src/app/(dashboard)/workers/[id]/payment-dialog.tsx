@@ -166,7 +166,7 @@ export function PaymentDialog({
 
             <DialogFooter className="sm:justify-between pt-2">
               {workerId && (
-                <Button variant="outline" render={<Link href={`/workers/${workerId}/payments/${receipt.id}/receipt`} />}>
+                <Button variant="outline" nativeButton={false} render={<Link href={`/workers/${workerId}/payments/${receipt.id}/receipt`} />}>
                   View Details
                 </Button>
               )}

@@ -75,7 +75,7 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
         description={payroll.payrollPeriod.name}
         actions={
           <>
-            <Button variant="outline" render={<Link href={`/payroll/worker/${payroll.id}/slip`} />}>
+            <Button variant="outline" nativeButton={false} render={<Link href={`/payroll/worker/${payroll.id}/slip`} />}>
               <FileText className="size-4" />
               Salary Slip
             </Button>

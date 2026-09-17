@@ -60,11 +60,11 @@ export default async function WorkersPage({
         actions={
           can(user, "create", "worker") && (
             <>
-              <Button variant="outline" render={<Link href="/workers/import" />}>
+              <Button variant="outline" nativeButton={false} render={<Link href="/workers/import" />}>
                 <Upload className="size-4" />
                 Bulk Upload
               </Button>
-              <Button render={<Link href="/workers/new" />}>
+              <Button nativeButton={false} render={<Link href="/workers/new" />}>
                 <Plus className="size-4" />
                 Add Worker
               </Button>

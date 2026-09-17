@@ -14,7 +14,7 @@ export function ExportWorkersButton() {
   if (status) params.set("status", status);
 
   return (
-    <Button variant="outline" className="rounded-full" render={<a href={`/api/workers/export?${params.toString()}`} />}>
+    <Button variant="outline" className="rounded-full" nativeButton={false} render={<a href={`/api/workers/export?${params.toString()}`} />}>
       <Download className="size-4" />
       Export CSV
     </Button>

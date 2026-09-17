@@ -48,12 +48,12 @@ export default async function TimesheetsPage({
         description="Manual attendance and timesheets, from entry through approval and locking."
         actions={
           <>
-            <Button variant="outline" render={<Link href="/timesheets/log" />}>
+            <Button variant="outline" nativeButton={false} render={<Link href="/timesheets/log" />}>
               <ListFilter className="size-4" />
               View Log
             </Button>
             {canCreate && (
-              <Button variant="outline" render={<Link href="/timesheets/upload" />}>
+              <Button variant="outline" nativeButton={false} render={<Link href="/timesheets/upload" />}>
                 <Upload className="size-4" />
                 Import Excel
               </Button>

@@ -216,7 +216,7 @@ export function PaymentHistoryTable({
                           payrollPeriodName={r.payrollPeriodName ?? "Direct Payment"}
                         />
                       )}
-                      <Button variant="ghost" size="sm" render={<Link href={`/workers/${workerId}/payments/${r.id}/receipt`} />}>
+                      <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={`/workers/${workerId}/payments/${r.id}/receipt`} />}>
                         View
                       </Button>
                       {canVoid && !r.voidedAt && (

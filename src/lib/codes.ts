@@ -31,7 +31,21 @@ export function formatReceiptNumber(sequenceNo: number): string {
   return `RCP-${String(sequenceNo).padStart(6, "0")}`;
 }
 
+// Postgres `Int` (sequenceNo and similar) columns are 32-bit. Matching a
+// search term against one without bounds-checking crashes the query for
+// any numeric-looking input longer than ~10 digits — a pasted Iqama
+// number, phone number, or serial — throwing
+// `PrismaClientKnownRequestError: value out of range for type integer`
+// and taking down the entire list page. Every "does this search term look
+// like a record number" parser in the app must go through this bound.
+const INT32_MAX = 2147483647;
+const INT32_MIN = -2147483648;
+
+export function toSafeSequenceNo(value: number): number | null {
+  return Number.isInteger(value) && value >= INT32_MIN && value <= INT32_MAX ? value : null;
+}
+
 export function parseWorkerCodeSearch(term: string): number | null {
   const match = term.trim().match(/^w?-?0*(\d+)$/i);
-  return match ? Number(match[1]) : null;
+  return match ? toSafeSequenceNo(Number(match[1])) : null;
 }

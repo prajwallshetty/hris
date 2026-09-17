@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { toSafeSequenceNo } from "@/lib/codes";
 import {
   can,
   clientScopeWhere,
@@ -97,11 +98,11 @@ export async function globalSearch(query: string): Promise<SearchResultGroup[]> 
   }
 
   if (can(user, "view", "invoice")) {
-    const numeric = Number(q);
+    const numeric = toSafeSequenceNo(Number(q));
     const invoices = await db.invoice.findMany({
       where: {
         ...invoiceScopeWhere(user),
-        ...(Number.isInteger(numeric) ? { sequenceNo: numeric } : { client: { companyName: { contains: q, mode: "insensitive" } } }),
+        ...(numeric !== null ? { sequenceNo: numeric } : { client: { companyName: { contains: q, mode: "insensitive" } } }),
       },
       select: { id: true, sequenceNo: true, totalAmount: true, client: { select: { companyName: true } } },
       take: LIMIT,
@@ -188,11 +189,11 @@ export async function globalSearch(query: string): Promise<SearchResultGroup[]> 
   }
 
   if (can(user, "view", "equipmentRental")) {
-    const rentalMatch = Number(q);
+    const rentalMatch = toSafeSequenceNo(Number(q));
     const rentals = await db.equipmentRental.findMany({
       where: {
         ...equipmentRentalScopeWhere(user),
-        ...(Number.isInteger(rentalMatch)
+        ...(rentalMatch !== null
           ? { sequenceNo: rentalMatch }
           : {
               OR: [

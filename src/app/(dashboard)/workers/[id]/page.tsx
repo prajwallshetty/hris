@@ -284,6 +284,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 workerPayrollId={latestPayroll?.id}
                 workerName={worker.fullName}
                 workerMobile={worker.mobile ?? undefined}
+                defaultAmount={latestPayroll ? latestPayrollOutstanding : undefined}
                 trigger={
                   <Button variant="outline">
                     <CreditCard className="size-4" />

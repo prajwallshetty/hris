@@ -12,6 +12,7 @@ function buildWorkerSearchWhere(search?: string): Prisma.WorkerWhereInput {
       { fullName: { contains: search, mode: "insensitive" } },
       { iqamaNumber: { contains: search } },
       { mobile: { contains: search } },
+      { batchNumber: { contains: search, mode: "insensitive" } },
       ...(codeMatch !== null ? [{ sequenceNo: codeMatch }] : []),
     ],
   };

@@ -253,6 +253,12 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 <span>Coordinator: {worker.coordinator.name}</span>
               </>
             )}
+            {worker.batchNumber && (
+              <>
+                <span aria-hidden>·</span>
+                <span>Batch: {worker.batchNumber}</span>
+              </>
+            )}
             <span aria-hidden>·</span>
             <span>Edited {formatRelativeTime(lastEdited)}</span>
           </>
@@ -546,6 +552,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 <Detail label="Joining Date" value={formatDate(worker.joiningDate)} />
                 <Detail label="Mobilization Date" value={formatDate(worker.mobilizationDate)} />
                 <Detail label="Demobilization Date" value={formatDate(worker.demobilizationDate)} />
+                <Detail label="Batch Number" value={worker.batchNumber} />
               </CardContent>
             </Card>
 

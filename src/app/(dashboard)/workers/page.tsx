@@ -1,4 +1,4 @@
-import { Plus, Users } from "lucide-react";
+import { Plus, Upload, Users } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -44,6 +44,7 @@ export default async function WorkersPage({
       coordinatorName: worker.coordinator?.name ?? null,
       hourlyRate: worker.hourlyRate ? Number(worker.hourlyRate) : null,
       status: worker.status,
+      batchNumber: worker.batchNumber,
     };
   });
 
@@ -58,14 +59,25 @@ export default async function WorkersPage({
         description="Manpower roster, identified by Iqama number."
         actions={
           can(user, "create", "worker") && (
-            <Button
-              render={
-                <Link href="/workers/new">
-                  <Plus className="size-4" />
-                  Add Worker
-                </Link>
-              }
-            />
+            <>
+              <Button
+                variant="outline"
+                render={
+                  <Link href="/workers/import">
+                    <Upload className="size-4" />
+                    Bulk Upload
+                  </Link>
+                }
+              />
+              <Button
+                render={
+                  <Link href="/workers/new">
+                    <Plus className="size-4" />
+                    Add Worker
+                  </Link>
+                }
+              />
+            </>
           )
         }
       />
@@ -77,7 +89,7 @@ export default async function WorkersPage({
             placeholder="Status"
             options={WORKER_STATUSES.map((s) => ({ label: s.replaceAll("_", " "), value: s }))}
           />
-          <SearchInput placeholder="Search by name, Iqama, mobile, or worker ID…" />
+          <SearchInput placeholder="Search by name, Iqama, mobile, batch number, or worker ID…" />
         </div>
         <ExportWorkersButton />
       </div>

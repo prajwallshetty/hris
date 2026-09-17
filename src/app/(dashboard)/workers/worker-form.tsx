@@ -53,6 +53,7 @@ export function WorkerForm({
       hourlyRate: undefined,
       overtimeRate: undefined,
       status: "AVAILABLE",
+      batchNumber: "",
       bankName: "",
       bankAccountIban: "",
       notes: "",
@@ -180,6 +181,10 @@ export function WorkerForm({
             <Field>
               <FieldLabel htmlFor="overtimeRate">Overtime Rate (SAR)</FieldLabel>
               <Input id="overtimeRate" type="number" step="0.01" {...form.register("overtimeRate")} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="batchNumber">Batch Number [Optional]</FieldLabel>
+              <Input id="batchNumber" {...form.register("batchNumber")} placeholder="e.g. BATCH-001, JUL-2026" />
             </Field>
           </FieldGroup>
         </CardContent>

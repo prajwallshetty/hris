@@ -18,6 +18,7 @@ import {
   Car,
   Wrench,
   Timer,
+  Upload,
 } from "lucide-react";
 
 export type NavItem = {
@@ -210,6 +211,12 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/audit-log",
         label: "Audit Log",
         icon: History,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"],
+      },
+      {
+        href: "/import-history",
+        label: "Import History",
+        icon: Upload,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"],
       },
       {

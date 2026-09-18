@@ -313,7 +313,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
               />
             )}
             {canEdit && (
-              <Button variant="outline" render={<Link href={`/workers/${worker.id}/edit`} />}>
+              <Button variant="outline" nativeButton={false} render={<Link href={`/workers/${worker.id}/edit`} />}>
                 <Pencil className="size-4" />
                 Edit
               </Button>
@@ -759,7 +759,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                                 outstanding: Number(p.netPayable) - paid,
                               }}
                             />
-                            <Button variant="outline" size="sm" render={<Link href={`/payroll/worker/${p.id}/slip`} />}>
+                            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/payroll/worker/${p.id}/slip`} />}>
                               <FileText className="size-3.5" />
                               Salary Slip
                             </Button>

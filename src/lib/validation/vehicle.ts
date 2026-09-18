@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { toSafeSequenceNo } from "@/lib/codes";
+
 export const VEHICLE_STATUSES = [
   "AVAILABLE",
   "ASSIGNED",
@@ -111,5 +113,5 @@ export type VehicleMaintenanceFormValues = z.input<typeof vehicleMaintenanceForm
 
 export function parseVehicleCodeSearch(term: string): number | null {
   const match = term.trim().match(/^veh-?0*(\d+)$/i);
-  return match ? Number(match[1]) : null;
+  return match ? toSafeSequenceNo(Number(match[1])) : null;
 }

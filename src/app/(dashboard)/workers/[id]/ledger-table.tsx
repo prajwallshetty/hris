@@ -204,7 +204,7 @@ export function LedgerTable({ workerId, rows }: { workerId: string; rows: Ledger
             <Download className="size-4" />
             Export CSV
           </Button>
-          <Button variant="outline" size="sm" render={<Link href={`/workers/${workerId}/ledger`} target="_blank" />}>
+          <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/workers/${workerId}/ledger`} target="_blank" />}>
             <Printer className="size-4" />
             Print / PDF
           </Button>

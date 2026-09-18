@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { toSafeSequenceNo } from "@/lib/codes";
+
 export const EQUIPMENT_STATUSES = ["AVAILABLE", "RENTED", "UNDER_MAINTENANCE", "INACTIVE", "RETIRED"] as const;
 
 export const RENTAL_RATE_TYPES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "CUSTOM"] as const;
@@ -113,10 +115,10 @@ export type EquipmentMaintenanceFormValues = z.input<typeof equipmentMaintenance
 
 export function parseEquipmentCodeSearch(term: string): number | null {
   const match = term.trim().match(/^eqp-?0*(\d+)$/i);
-  return match ? Number(match[1]) : null;
+  return match ? toSafeSequenceNo(Number(match[1])) : null;
 }
 
 export function parseRentalCodeSearch(term: string): number | null {
   const match = term.trim().match(/^rnt-?0*(\d+)$/i);
-  return match ? Number(match[1]) : null;
+  return match ? toSafeSequenceNo(Number(match[1])) : null;
 }

@@ -44,7 +44,7 @@ export default async function EmployeesPage({
         description="Internal staff on fixed monthly salary — kept separate from hourly manpower workers."
         actions={
           canCreate && (
-            <Button render={<Link href="/employees/new" />}>
+            <Button nativeButton={false} render={<Link href="/employees/new" />}>
               <Plus className="size-4" />
               Add Employee
             </Button>

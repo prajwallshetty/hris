@@ -111,7 +111,7 @@ export function WorkerImportWizard() {
         </div>
 
         <div className="mt-4 flex items-center justify-between">
-          <Button variant="outline" render={<a href="/api/workers/import-template" />}>
+          <Button variant="outline" nativeButton={false} render={<a href="/api/workers/import-template" />}>
             <Download className="size-4" />
             Download Excel Template
           </Button>

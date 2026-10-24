@@ -33,11 +33,49 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-// Business-section grouping (§ IA restructure): Overview / Workforce /
-// Payroll / Client Billing / Assets / Operations / Finance & Reports /
-// Administration — a normal HR/admin user shouldn't have to know which of
-// these is "operations" vs "clients" in database terms, just where to find
-// the thing they need.
+// Shared by the top ribbon (desktop) and the overlay menu (mobile): a nav
+// item's href can carry a query string (e.g. "/invoices?status=OVERDUE" for
+// "Outstanding" next to plain "/invoices" for "Invoices") to give two nav
+// entries genuinely distinct destinations on the same page rather than
+// duplicating it. usePathname() alone can't tell them apart — it drops the
+// query string — so the plain item would look active while viewing the
+// filtered one. This checks the current search params too, and treats the
+// plain (query-less) sibling as active only when no more specific
+// query-carrying sibling on the same path currently matches.
+export function isNavItemActive(
+  item: NavItem,
+  group: NavGroup,
+  pathname: string,
+  searchParams: URLSearchParams,
+): boolean {
+  const [itemPath, itemQuery] = item.href.split("?");
+  if (pathname !== itemPath && !pathname.startsWith(`${itemPath}/`)) return false;
+
+  if (!itemQuery) {
+    const moreSpecificSiblingActive = group.items.some((sibling) => {
+      if (sibling === item) return false;
+      const [siblingPath, siblingQuery] = sibling.href.split("?");
+      if (siblingPath !== itemPath || !siblingQuery) return false;
+      const siblingParams = new URLSearchParams(siblingQuery);
+      return Array.from(siblingParams.entries()).every(([key, value]) => searchParams.get(key) === value);
+    });
+    return !moreSpecificSiblingActive;
+  }
+
+  const itemParams = new URLSearchParams(itemQuery);
+  return Array.from(itemParams.entries()).every(([key, value]) => searchParams.get(key) === value);
+}
+
+export function isNavGroupActive(group: NavGroup, pathname: string, searchParams: URLSearchParams): boolean {
+  return group.items.some((item) => isNavItemActive(item, group, pathname, searchParams));
+}
+
+// Business-section grouping (§ ribbon redesign): Overview / Workforce /
+// Payroll / Clients & Billing / Assets / Operations & Reports /
+// Administration — these groups double as the top ribbon's tabs, with each
+// group's items rendered as the icon row under that tab. A normal HR/admin
+// user shouldn't have to know which of these is "operations" vs "clients"
+// in database terms, just where to find the thing they need.
 //
 // This list is the result of an explicit audit against every route that
 // actually exists (see the routes enumerated under src/app/(dashboard)) —
@@ -69,7 +107,7 @@ export type NavGroup = {
 // feature request, not a nav relabel — build the page first, then link it.
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Overview",
+    label: "Dashboard",
     items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
@@ -107,7 +145,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Client Billing",
+    label: "Clients & Billing",
     items: [
       {
         href: "/clients",
@@ -153,7 +191,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Operations",
+    label: "Operations & Reports",
     items: [
       {
         href: "/coordinators",
@@ -167,11 +205,6 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: UserSquare2,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
       },
-    ],
-  },
-  {
-    label: "Finance & Reports",
-    items: [
       {
         href: "/expenses",
         label: "Expenses",

@@ -31,7 +31,13 @@ export const CURRENT_ASSIGNMENT_INCLUDE = {
 
 export async function listWorkers(
   user: SessionUser,
-  params: { search?: string; status?: WorkerStatus | "ALL"; page?: number; pageSize?: number },
+  params: {
+    search?: string;
+    status?: WorkerStatus | "ALL";
+    unassigned?: boolean;
+    page?: number;
+    pageSize?: number;
+  },
 ) {
   assertCan(user, "view", "worker");
   const page = params.page ?? 1;
@@ -41,6 +47,7 @@ export async function listWorkers(
     deletedAt: null,
     ...workerScopeWhere(user),
     ...(params.status && params.status !== "ALL" ? { status: params.status } : {}),
+    ...(params.unassigned ? { assignments: { none: { status: "ACTIVE" } } } : {}),
     ...buildWorkerSearchWhere(params.search),
   };
 

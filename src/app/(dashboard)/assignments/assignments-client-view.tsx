@@ -589,7 +589,7 @@ export function AssignmentsClientView({
               a 10-column table has no room to breathe even with column
               hiding, so 320-1023px (including the 768px tablet breakpoint)
               get the card list below instead. */}
-          <div className="hidden lg:block rounded-xl border bg-card shadow-xs overflow-hidden">
+          <div className="hidden lg:block rounded-xl border bg-card shadow-xs overflow-x-auto">
           <Table className="min-w-[960px]">
               <TableHeader className="bg-muted/40">
                 <TableRow>

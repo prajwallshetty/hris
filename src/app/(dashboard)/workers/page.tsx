@@ -19,15 +19,17 @@ import { WorkersTable, type WorkerRow } from "./workers-table";
 export default async function WorkersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; unassigned?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
   const page = Number(params.page ?? 1) || 1;
+  const unassigned = params.unassigned === "1";
 
   const { workers, total, pageSize } = await listWorkers(user, {
     search: params.q,
     status: (params.status as never) ?? "ALL",
+    unassigned,
     page,
   });
 
@@ -56,7 +58,11 @@ export default async function WorkersPage({
       <PageHeader
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Workforce" }, { label: "Workers" }]}
         title="Workers"
-        description="Manpower roster, identified by Iqama number."
+        description={
+          unassigned
+            ? "Active/available workers with no current site assignment."
+            : "Manpower roster, identified by Iqama number."
+        }
         actions={
           can(user, "create", "worker") && (
             <>

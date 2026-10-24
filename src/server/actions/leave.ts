@@ -37,6 +37,7 @@ export async function createLeaveRequest(input: LeaveRequestFormInput): Promise<
 
     await logAudit({ userId: user.id, action: "create", entityType: "LeaveRequest", entityId: request.id, newValue: data });
     revalidatePath(data.workerId ? `/workers/${data.workerId}` : `/employees/${data.employeeId}`);
+    revalidatePath("/leave");
     return ok({ id: request.id });
   } catch (error) {
     return actionError(error);
@@ -88,6 +89,7 @@ export async function decideLeaveRequest(
     });
 
     revalidatePath(request.workerId ? `/workers/${request.workerId}` : `/employees/${request.employeeId}`);
+    revalidatePath("/leave");
     return ok({ id: request.id });
   } catch (error) {
     return actionError(error);

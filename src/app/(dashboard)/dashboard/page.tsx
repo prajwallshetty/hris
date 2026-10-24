@@ -1,9 +1,11 @@
 import {
+  AlertTriangle,
   Banknote,
   Building2,
   Car,
   CircleCheck,
   Clock,
+  ClipboardCheck,
   ClipboardList,
   HandCoins,
   MapPin,
@@ -12,6 +14,7 @@ import {
   Timer,
   TrendingUp,
   UserCheck,
+  UserX,
   Users,
   Wallet,
   Wrench,
@@ -39,6 +42,7 @@ import {
   getDashboardCounts,
   getFinanceKpis,
   getFleetCounts,
+  getOperationalKpis,
   getRecentAuditLog,
   getRevenueCostTrend,
   getWorkersByClient,
@@ -80,9 +84,10 @@ export default async function DashboardPage() {
   const showFleetKpis = can(user, "view", "vehicle") || can(user, "view", "equipment");
   const showRecentWorkers = can(user, "view", "worker");
 
-  const [counts, workersByStatus, workersByClient, profitability, financeKpis, fleetCounts, trend, auditLog, notifications, recentWorkers] =
+  const [counts, operational, workersByStatus, workersByClient, profitability, financeKpis, fleetCounts, trend, auditLog, notifications, recentWorkers] =
     await Promise.all([
       getDashboardCounts(user),
+      getOperationalKpis(user),
       getWorkersByStatus(user),
       getWorkersByClient(user),
       showFinancials ? getClientProfitabilitySummary(user) : Promise.resolve([]),
@@ -144,6 +149,59 @@ export default async function DashboardPage() {
           />
         </div>
       </section>
+
+      <section id="pending-actions" className="scroll-mt-40 space-y-3">
+        <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Pending Actions</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {showRecentWorkers && (
+            <KpiCard
+              href="/workers?unassigned=1"
+              label="Workers Without Assignments"
+              value={operational.workersWithoutAssignments.toLocaleString()}
+              icon={UserX}
+            />
+          )}
+          {showTimesheetKpi && (
+            <KpiCard
+              href="/timesheets?status=PENDING_REVIEW"
+              label="Pending Attendance / LOG"
+              value={operational.pendingAttendance.toLocaleString()}
+              icon={ClipboardCheck}
+            />
+          )}
+          {showFinancials && (
+            <KpiCard
+              href="/invoices?status=OVERDUE"
+              label="Overdue Invoices"
+              value={operational.overdueInvoices.toLocaleString()}
+              icon={AlertTriangle}
+            />
+          )}
+          {showPayrollKpi && (
+            <KpiCard
+              href="/payroll"
+              label="Current Month Payroll"
+              value={formatMoney(operational.currentMonthPayroll)}
+              icon={Wallet}
+            />
+          )}
+        </div>
+      </section>
+
+      {showPayrollKpi && (operational.paidSalary > 0 || operational.outstandingSalary > 0) && (
+        <section className="space-y-3">
+          <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">This Month&rsquo;s Salary</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-2">
+            <KpiCard href="/payroll" label="Paid" value={formatMoney(operational.paidSalary)} icon={CircleCheck} />
+            <KpiCard
+              href="/payroll"
+              label="Outstanding"
+              value={formatMoney(operational.outstandingSalary)}
+              icon={Banknote}
+            />
+          </div>
+        </section>
+      )}
 
       {financeKpis && (
         <section className="space-y-3">

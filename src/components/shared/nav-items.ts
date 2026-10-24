@@ -2,7 +2,10 @@ import type { Role } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
+  BarChart3,
+  CalendarOff,
   LayoutDashboard,
+  ListTodo,
   Users,
   UserSquare2,
   Building2,
@@ -70,8 +73,8 @@ export function isNavGroupActive(group: NavGroup, pathname: string, searchParams
   return group.items.some((item) => isNavItemActive(item, group, pathname, searchParams));
 }
 
-// Business-section grouping (§ ribbon redesign): Overview / Workforce /
-// Payroll / Clients & Billing / Assets / Operations & Reports /
+// Business-section grouping (§ ribbon redesign v2): Dashboard / Workforce /
+// Payroll / Clients & Billing / Assets / Operations / Reports &
 // Administration — these groups double as the top ribbon's tabs, with each
 // group's items rendered as the icon row under that tab. A normal HR/admin
 // user shouldn't have to know which of these is "operations" vs "clients"
@@ -80,10 +83,14 @@ export function isNavGroupActive(group: NavGroup, pathname: string, searchParams
 // This list is the result of an explicit audit against every route that
 // actually exists (see the routes enumerated under src/app/(dashboard)) —
 // every entry below resolves to a real, working page or a real, working
-// filter on one. The following were deliberately left out because they
-// have no standalone destination of their own — showing them would mean
+// filter on one. Leave got its own standalone page (/leave) because
+// LeaveRequest/LeaveBalance/LeaveType are full models with real decision
+// logic, not just a worker-profile tab — see src/server/queries/leave.ts.
+// The following are still deliberately left out because they have no
+// standalone destination of their own today — showing them would mean
 // either a dead link or a duplicate of an item already listed:
-//   - Leave, Accommodation: tabs on a worker's own 360° page only.
+//   - Accommodation: no model or feature exists anywhere in the schema —
+//     unlike Leave, there is nothing to aggregate into a real page yet.
 //   - Salary, Salary Slips, Payments, Advances, Loans, Final Settlement:
 //     all reachable from Payroll -> a period -> a worker's payroll row
 //     (which is also where Salary Slip/Record Payment/Receipt live), or
@@ -94,8 +101,15 @@ export function isNavGroupActive(group: NavGroup, pathname: string, searchParams
 //     one specific client, so there's nothing meaningful for a top-level
 //     list to show).
 //   - Vehicle Assignments, Vehicle Expenses, Maintenance: tabs on a
-//     vehicle's own detail page. Equipment's Maintenance tab is the same.
+//     vehicle's own detail page today, though VehicleAssignment is a real
+//     standalone model — a cross-vehicle assignments list is a reasonable
+//     follow-up page, just not built yet. Equipment's Maintenance tab is
+//     the same story.
 //   - Sales, Commissions: tabs on a coordinator's own detail page.
+//   - Access Codes: not a separate screen from Users & Access — resetting
+//     a user's access code is an action *on* that same /users page (see
+//     reset-access-code-button.tsx), so a second nav icon for it would
+//     point at the identical page under a different label.
 //   - Roles & Permissions: access levels are defined in code (src/server/
 //     rbac.ts), not an editable admin screen — there is nothing to link to.
 //   - Cost Centres: not a concept this system tracks anywhere.
@@ -108,7 +122,10 @@ export function isNavGroupActive(group: NavGroup, pathname: string, searchParams
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Dashboard",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+    items: [
+      { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+      { href: "/dashboard#pending-actions", label: "Pending Actions", icon: ListTodo },
+    ],
   },
   {
     label: "Workforce",
@@ -127,9 +144,15 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/timesheets",
-        label: "Timesheets (LOG)",
+        label: "Attendance / LOG",
         icon: ClipboardCheck,
         roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
+      {
+        href: "/leave",
+        label: "Leave",
+        icon: CalendarOff,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"],
       },
     ],
   },
@@ -191,7 +214,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Operations & Reports",
+    label: "Operations",
     items: [
       {
         href: "/coordinators",
@@ -211,29 +234,17 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Receipt,
         roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
       },
-      {
-        href: "/reports?tab=payroll",
-        label: "Payroll Reports",
-        icon: Banknote,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
-      {
-        href: "/reports?tab=finance",
-        label: "Client Reports",
-        icon: Building2,
-        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
-      },
-      {
-        href: "/reports?tab=workforce",
-        label: "Worker Reports",
-        icon: Users,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
     ],
   },
   {
-    label: "Administration",
+    label: "Reports & Administration",
     items: [
+      {
+        href: "/reports",
+        label: "Reports",
+        icon: BarChart3,
+        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
+      },
       {
         href: "/users",
         label: "Users & Access",

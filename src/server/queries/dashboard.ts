@@ -170,6 +170,59 @@ export async function getRevenueCostTrend(user: SessionUser, monthsBack = 12) {
   }));
 }
 
+// Operational KPIs + "Pending Actions" (§9 redesign): workers with no
+// active deployment, attendance/LOG still awaiting review, overdue client
+// invoices, and this calendar month's worker payroll split into paid vs
+// outstanding — the paid/outstanding split reuses the exact same
+// payable-minus-live-payments formula as the worker payroll/payment pages
+// (calculateOutstanding), never a separate approximation.
+export async function getOperationalKpis(user: SessionUser) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  const [workersWithoutAssignments, pendingAttendance, overdueInvoices, currentMonthPayrolls] = await Promise.all([
+    can(user, "view", "worker")
+      ? db.worker.count({
+          where: {
+            deletedAt: null,
+            ...workerScopeWhere(user),
+            status: { in: ["ACTIVE", "AVAILABLE"] },
+            assignments: { none: { status: "ACTIVE" } },
+          },
+        })
+      : Promise.resolve(0),
+    can(user, "view", "timesheet")
+      ? db.timesheet.count({ where: { status: { in: ["UPLOADED", "PENDING_REVIEW"] } } })
+      : Promise.resolve(0),
+    can(user, "view", "invoice")
+      ? db.invoice.count({ where: { status: "OVERDUE", client: { ...clientScopeWhere(user) } } })
+      : Promise.resolve(0),
+    can(user, "view", "workerPayroll")
+      ? db.workerPayroll.findMany({
+          where: {
+            payrollPeriod: { periodStart: { gte: monthStart, lte: monthEnd } },
+            worker: { ...workerScopeWhere(user) },
+          },
+          select: { netPayable: true, payments: { select: { amount: true, voidedAt: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  let currentMonthPayroll = 0;
+  let paidSalary = 0;
+  let outstandingSalary = 0;
+  for (const payroll of currentMonthPayrolls) {
+    const netPayable = Number(payroll.netPayable);
+    const paid = payroll.payments.filter((p) => !p.voidedAt).reduce((sum, p) => sum + Number(p.amount), 0);
+    currentMonthPayroll += netPayable;
+    paidSalary += paid;
+    outstandingSalary += netPayable - paid;
+  }
+
+  return { workersWithoutAssignments, pendingAttendance, overdueInvoices, currentMonthPayroll, paidSalary, outstandingSalary };
+}
+
 // Company-wide finance KPIs for the dashboard — same underlying tables as
 // the Payroll/Timesheets/Coordinators/Expenses pages, just summed (§30/§45:
 // one calculation, shown consistently everywhere).

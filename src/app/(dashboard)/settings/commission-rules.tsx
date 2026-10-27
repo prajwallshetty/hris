@@ -74,7 +74,7 @@ export function CommissionRulesSection({ rules, coordinators }: { rules: Rule[];
   return (
     <div className="space-y-4">
       {rules.length > 0 && (
-        <div className="overflow-x-auto rounded-md border">
+        <div className="data-panel overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

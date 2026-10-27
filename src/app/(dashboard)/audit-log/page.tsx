@@ -55,7 +55,7 @@ export default async function AuditLogPage({
       {entries.length === 0 ? (
         <EmptyState icon={History} title="No activity yet" />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

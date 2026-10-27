@@ -61,19 +61,27 @@ export function GlobalSearch({ collapsed = false }: { collapsed?: boolean }) {
 
   return (
     <>
-      {collapsed ? (
-        <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Search">
-          <Search className="size-4.5" />
-        </Button>
-      ) : (
+      {/* One instance, two triggers: a full search field from xl up and an
+          icon button below — a second <GlobalSearch> would register a
+          second ⌘K listener and open two dialogs at once. */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setOpen(true)}
+        aria-label="Search"
+        className={collapsed ? undefined : "xl:hidden"}
+      >
+        <Search className="size-4.5" />
+      </Button>
+      {!collapsed && (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="border-input bg-secondary/60 text-muted-foreground hover:bg-secondary flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
+          className="border-input text-muted-foreground hover:border-border-strong hidden h-10 w-full items-center gap-2 rounded-lg border bg-white px-3 text-sm transition-colors xl:flex"
         >
           <Search className="size-4 shrink-0" />
-          <span className="flex-1 text-left">Search…</span>
-          <kbd className="bg-background text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 text-[11px]">⌘K</kbd>
+          <span className="min-w-0 flex-1 truncate text-left">Search records…</span>
+          <kbd className="bg-muted text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 text-[11px]">⌘K</kbd>
         </button>
       )}
       <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Search workers, clients, sites, invoices, and more">

@@ -390,7 +390,7 @@ export function AssignmentDetailDrawer({
 
             {/* TAB 2: ASSIGNMENT HISTORY */}
             <TabsContent value="history" className="pt-2">
-              <div className="rounded-lg border overflow-hidden">
+              <div className="data-panel overflow-hidden">
                 <Table>
                   <TableHeader className="top-0">
                     <TableRow>
@@ -433,7 +433,7 @@ export function AssignmentDetailDrawer({
                   <p className="text-xs text-muted-foreground">No timesheet records found for this worker during assignment period.</p>
                 </div>
               ) : (
-                <div className="rounded-lg border overflow-hidden">
+                <div className="data-panel overflow-hidden">
                   <Table>
                     <TableHeader className="top-0">
                       <TableRow>
@@ -472,7 +472,7 @@ export function AssignmentDetailDrawer({
                   <p className="text-xs text-muted-foreground">No payroll records logged yet for this worker.</p>
                 </div>
               ) : (
-                <div className="rounded-lg border overflow-hidden">
+                <div className="data-panel overflow-hidden">
                   <Table>
                     <TableHeader className="top-0">
                       <TableRow>

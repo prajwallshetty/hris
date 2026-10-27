@@ -3,279 +3,146 @@ import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
   BarChart3,
-  CalendarOff,
-  LayoutDashboard,
-  ListTodo,
-  Users,
-  UserSquare2,
-  Building2,
   Banknote,
-  ClipboardList,
+  Briefcase,
+  Building2,
+  CalendarOff,
+  Car,
   ClipboardCheck,
+  ClipboardList,
+  FileSpreadsheet,
   FileText,
   Handshake,
-  Receipt,
-  UserCog,
-  UsersRound,
   History,
+  House,
+  LayoutDashboard,
+  ListTodo,
+  PieChart,
+  Receipt,
   Settings,
-  Car,
-  Wrench,
+  ShieldCheck,
   Timer,
+  TrendingUp,
   Upload,
+  UserCog,
+  UserPlus,
+  Users,
+  UserSquare2,
+  UsersRound,
+  Wallet,
+  Wrench,
 } from "lucide-react";
+
+/** Ribbon icon colors — a fixed palette so each shortcut is recognisable at a glance. */
+export type NavColor = "blue" | "green" | "teal" | "orange" | "purple" | "red" | "indigo" | "amber" | "slate";
 
 export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  color: NavColor;
   roles?: Role[]; // omit for "all roles"
 };
 
 export type NavGroup = {
   label: string;
+  icon: LucideIcon;
   items: NavItem[];
 };
 
-// Shared by the top ribbon (desktop) and the overlay menu (mobile): a nav
-// item's href can carry a query string (e.g. "/invoices?status=OVERDUE" for
-// "Outstanding" next to plain "/invoices" for "Invoices") to give two nav
-// entries genuinely distinct destinations on the same page rather than
-// duplicating it. usePathname() alone can't tell them apart — it drops the
-// query string — so the plain item would look active while viewing the
-// filtered one. This checks the current search params too, and treats the
-// plain (query-less) sibling as active only when no more specific
-// query-carrying sibling on the same path currently matches.
-export function isNavItemActive(
-  item: NavItem,
-  group: NavGroup,
-  pathname: string,
-  searchParams: URLSearchParams,
-): boolean {
-  const [itemPath, itemQuery] = item.href.split("?");
-  if (pathname !== itemPath && !pathname.startsWith(`${itemPath}/`)) return false;
-
-  if (!itemQuery) {
-    const moreSpecificSiblingActive = group.items.some((sibling) => {
-      if (sibling === item) return false;
-      const [siblingPath, siblingQuery] = sibling.href.split("?");
-      if (siblingPath !== itemPath || !siblingQuery) return false;
-      const siblingParams = new URLSearchParams(siblingQuery);
-      return Array.from(siblingParams.entries()).every(([key, value]) => searchParams.get(key) === value);
-    });
-    return !moreSpecificSiblingActive;
-  }
-
-  const itemParams = new URLSearchParams(itemQuery);
-  return Array.from(itemParams.entries()).every(([key, value]) => searchParams.get(key) === value);
-}
-
-export function isNavGroupActive(group: NavGroup, pathname: string, searchParams: URLSearchParams): boolean {
-  return group.items.some((item) => isNavItemActive(item, group, pathname, searchParams));
-}
-
-// Business-section grouping (§ ribbon redesign v2): Dashboard / Workforce /
-// Payroll / Clients & Billing / Assets / Operations / Reports &
-// Administration — these groups double as the top ribbon's tabs, with each
-// group's items rendered as the icon row under that tab. A normal HR/admin
-// user shouldn't have to know which of these is "operations" vs "clients"
-// in database terms, just where to find the thing they need.
+// Two-level ERP navigation (§ redesign): each group is a top-bar module tab,
+// and its items are the colorful shortcut ribbon under it.
 //
-// This list is the result of an explicit audit against every route that
-// actually exists (see the routes enumerated under src/app/(dashboard)) —
-// every entry below resolves to a real, working page or a real, working
-// filter on one. Leave got its own standalone page (/leave) because
-// LeaveRequest/LeaveBalance/LeaveType are full models with real decision
-// logic, not just a worker-profile tab — see src/server/queries/leave.ts.
-// The following are still deliberately left out because they have no
-// standalone destination of their own today — showing them would mean
-// either a dead link or a duplicate of an item already listed:
-//   - Accommodation: no model or feature exists anywhere in the schema —
-//     unlike Leave, there is nothing to aggregate into a real page yet.
-//   - Salary, Salary Slips, Payments, Advances, Loans, Final Settlement:
-//     all reachable from Payroll -> a period -> a worker's payroll row
-//     (which is also where Salary Slip/Record Payment/Receipt live), or
-//     from a worker's own 360° page. Final Settlement is a payment type
-//     you pick when recording a payment, not a separate workflow.
-//   - Projects, Sites, Client Payments, Statements: tabs/actions on a
-//     client's own 360° page (a project/site/statement always belongs to
-//     one specific client, so there's nothing meaningful for a top-level
-//     list to show).
-//   - Vehicle Assignments, Vehicle Expenses, Maintenance: tabs on a
-//     vehicle's own detail page today, though VehicleAssignment is a real
-//     standalone model — a cross-vehicle assignments list is a reasonable
-//     follow-up page, just not built yet. Equipment's Maintenance tab is
-//     the same story.
-//   - Sales, Commissions: tabs on a coordinator's own detail page.
-//   - Access Codes: not a separate screen from Users & Access — resetting
-//     a user's access code is an action *on* that same /users page (see
-//     reset-access-code-button.tsx), so a second nav icon for it would
-//     point at the identical page under a different label.
-//   - Roles & Permissions: access levels are defined in code (src/server/
-//     rbac.ts), not an editable admin screen — there is nothing to link to.
-//   - Cost Centres: not a concept this system tracks anywhere.
-//   - Worker/Employee/Client/Vehicle/Equipment Documents as a top-level
-//     "Documents" section: only Worker Documents exist today, as a tab on
-//     the worker's own page — the other three record types have no
-//     document feature built at all.
-// If any of the above should become real top-level workflows, that's a
-// feature request, not a nav relabel — build the page first, then link it.
+// Every entry resolves to a real, working page or a real filter on one.
+// Deliberately NOT listed — no standalone page exists for them yet, and a
+// link would be a dead button or a duplicate of an existing item:
+//   - Accommodation: no model or feature anywhere in the schema.
+//   - Salary Slips, Payments, Advances, Loans, Final Settlement: reachable
+//     per worker (Payroll → period → worker, or the worker's profile).
+//     Final Settlement is a payment type, not a separate workflow.
+//   - Projects, Sites, Client Payments, Statements: per-client tabs.
+//   - Vehicle Assignments, Maintenance: per-vehicle/equipment tabs.
+//   - Commissions: per-coordinator tab.
+//   - Access Codes: an action on the Users & Access page, not a screen.
+//   - Workforce "Overview": no aggregate page beyond the Dashboard.
+const ALL_STAFF: Role[] = ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"];
+const FINANCE: Role[] = ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"];
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Dashboard",
+    icon: House,
     items: [
-      { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-      { href: "/dashboard#pending-actions", label: "Pending Actions", icon: ListTodo },
+      { href: "/dashboard", label: "Overview", icon: LayoutDashboard, color: "blue" },
+      { href: "/dashboard#pending-actions", label: "Pending Actions", icon: ListTodo, color: "orange" },
     ],
   },
   {
     label: "Workforce",
+    icon: Users,
     items: [
-      {
-        href: "/workers",
-        label: "Workers",
-        icon: Users,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
-      },
-      {
-        href: "/assignments",
-        label: "Assignments",
-        icon: ClipboardList,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
-      },
-      {
-        href: "/timesheets",
-        label: "Attendance / LOG",
-        icon: ClipboardCheck,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
-      {
-        href: "/leave",
-        label: "Leave",
-        icon: CalendarOff,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"],
-      },
-      {
-        href: "/suppliers",
-        label: "Suppliers",
-        icon: Handshake,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
+      { href: "/workers", label: "Workers", icon: Users, color: "blue", roles: ALL_STAFF },
+      { href: "/workers/new", label: "Register Manpower", icon: UserPlus, color: "green", roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
+      { href: "/assignments", label: "Assignments", icon: ClipboardList, color: "teal", roles: ALL_STAFF },
+      { href: "/timesheets", label: "Attendance / LOG", icon: ClipboardCheck, color: "orange", roles: FINANCE },
+      { href: "/leave", label: "Leave", icon: CalendarOff, color: "purple", roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"] },
+      { href: "/suppliers", label: "Suppliers", icon: Handshake, color: "indigo", roles: FINANCE },
+      { href: "/workers/import", label: "Bulk Import", icon: FileSpreadsheet, color: "green", roles: ["SUPER_ADMIN", "ADMIN", "HR"] },
     ],
   },
   {
     label: "Payroll",
+    icon: Wallet,
     items: [
-      {
-        href: "/payroll",
-        label: "Payroll",
-        icon: Banknote,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
+      { href: "/payroll", label: "Salary", icon: Banknote, color: "green", roles: FINANCE },
+      { href: "/reports?tab=payroll", label: "Payroll Reports", icon: PieChart, color: "purple", roles: FINANCE },
     ],
   },
   {
     label: "Clients & Billing",
+    icon: Building2,
     items: [
-      {
-        href: "/clients",
-        label: "Clients",
-        icon: Building2,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR"],
-      },
-      {
-        href: "/invoices",
-        label: "Invoices",
-        icon: FileText,
-        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"],
-      },
-      {
-        href: "/invoices?status=OVERDUE",
-        label: "Outstanding",
-        icon: AlertCircle,
-        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
-      },
+      { href: "/clients", label: "Clients", icon: Building2, color: "blue", roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR"] },
+      { href: "/invoices", label: "Invoices", icon: FileText, color: "indigo", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"] },
+      { href: "/invoices?status=OVERDUE", label: "Outstanding", icon: AlertCircle, color: "red", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"] },
+      { href: "/reports?tab=finance", label: "Client Reports", icon: TrendingUp, color: "teal", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"] },
     ],
   },
   {
     label: "Assets",
+    icon: Car,
     items: [
-      {
-        href: "/vehicles",
-        label: "Vehicles",
-        icon: Car,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
-      },
-      {
-        href: "/equipment",
-        label: "Equipment",
-        icon: Wrench,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR", "CLIENT"],
-      },
-      {
-        href: "/rentals",
-        label: "Equipment Rentals",
-        icon: Timer,
-        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "COORDINATOR"],
-      },
+      { href: "/vehicles", label: "Vehicles", icon: Car, color: "blue", roles: ALL_STAFF },
+      { href: "/equipment", label: "Equipment", icon: Wrench, color: "orange", roles: ALL_STAFF },
+      { href: "/rentals", label: "Equipment Rentals", icon: Timer, color: "teal", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "COORDINATOR"] },
     ],
   },
   {
     label: "Operations",
+    icon: Briefcase,
     items: [
-      {
-        href: "/coordinators",
-        label: "Coordinators",
-        icon: UserCog,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"],
-      },
-      {
-        href: "/employees",
-        label: "Internal Employees",
-        icon: UserSquare2,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
-      {
-        href: "/expenses",
-        label: "Expenses",
-        icon: Receipt,
-        roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"],
-      },
+      { href: "/coordinators", label: "Coordinators", icon: UserCog, color: "purple", roles: ["SUPER_ADMIN", "ADMIN", "HR", "COORDINATOR"] },
+      { href: "/employees", label: "Employees", icon: UserSquare2, color: "blue", roles: FINANCE },
+      { href: "/expenses", label: "Expenses", icon: Receipt, color: "red", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"] },
     ],
   },
   {
-    label: "Reports & Administration",
+    label: "Reports",
+    icon: BarChart3,
     items: [
-      {
-        href: "/reports",
-        label: "Reports",
-        icon: BarChart3,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER"],
-      },
-      {
-        href: "/users",
-        label: "Users & Access",
-        icon: UsersRound,
-        roles: ["SUPER_ADMIN"],
-      },
-      {
-        href: "/audit-log",
-        label: "Audit Log",
-        icon: History,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"],
-      },
-      {
-        href: "/import-history",
-        label: "Import History",
-        icon: Upload,
-        roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"],
-      },
-      {
-        href: "/settings",
-        label: "Settings",
-        icon: Settings,
-        roles: ["SUPER_ADMIN", "ADMIN"],
-      },
+      { href: "/reports?tab=workforce", label: "Workforce Reports", icon: Users, color: "blue", roles: FINANCE },
+      { href: "/reports?tab=payroll", label: "Payroll Reports", icon: PieChart, color: "purple", roles: FINANCE },
+      { href: "/reports?tab=finance", label: "Client Reports", icon: TrendingUp, color: "teal", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"] },
+    ],
+  },
+  {
+    label: "Administration",
+    icon: Settings,
+    items: [
+      { href: "/users", label: "Users & Access", icon: UsersRound, color: "indigo", roles: ["SUPER_ADMIN"] },
+      { href: "/audit-log", label: "Audit Log", icon: History, color: "slate", roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"] },
+      { href: "/import-history", label: "Import History", icon: Upload, color: "green", roles: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER"] },
+      { href: "/settings", label: "Settings", icon: ShieldCheck, color: "amber", roles: ["SUPER_ADMIN", "ADMIN"] },
     ],
   },
 ];
@@ -286,3 +153,47 @@ export function navGroupsForRole(role: Role): NavGroup[] {
     items: group.items.filter((item) => !item.roles || item.roles.includes(role)),
   })).filter((group) => group.items.length > 0);
 }
+
+function matchScore(item: NavItem, pathname: string, searchParams: URLSearchParams): number {
+  const [path, query] = item.href.split("?");
+  if (path.includes("#")) return -1; // in-page anchors never represent the current route
+  if (pathname !== path && !pathname.startsWith(`${path}/`)) return -1;
+  if (!query) return path.length * 10;
+  const params = Array.from(new URLSearchParams(query).entries());
+  if (!params.every(([key, value]) => searchParams.get(key) === value)) return -1;
+  return path.length * 10 + params.length;
+}
+
+/**
+ * The single nav item that best represents the current URL — longest path
+ * wins, and a query-carrying item ("/invoices?status=OVERDUE") beats its
+ * plain sibling only when its query actually matches. So /workers/new
+ * highlights "Register Manpower", not also "Workers". Ties go to the first
+ * group, so a shortcut listed in two groups opens the first one.
+ */
+export function findActiveNav(
+  groups: NavGroup[],
+  pathname: string,
+  searchParams: URLSearchParams,
+): { groupIndex: number; href: string } | null {
+  let best: { groupIndex: number; href: string; score: number } | null = null;
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+    for (const item of groups[groupIndex].items) {
+      const score = matchScore(item, pathname, searchParams);
+      if (score >= 0 && (best === null || score > best.score)) best = { groupIndex, href: item.href, score };
+    }
+  }
+  return best;
+}
+
+export const NAV_COLOR_CLASSES: Record<NavColor, string> = {
+  blue: "text-blue-600",
+  green: "text-emerald-600",
+  teal: "text-teal-600",
+  orange: "text-orange-500",
+  purple: "text-violet-600",
+  red: "text-red-500",
+  indigo: "text-indigo-600",
+  amber: "text-amber-500",
+  slate: "text-slate-500",
+};

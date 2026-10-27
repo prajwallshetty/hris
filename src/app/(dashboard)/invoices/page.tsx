@@ -75,7 +75,7 @@ export default async function InvoicesPage({
       {invoices.length === 0 ? (
         <EmptyState icon={FileText} title="No invoices yet" description={canCreate ? "Generate one from approved hours." : undefined} />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

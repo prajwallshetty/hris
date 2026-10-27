@@ -36,7 +36,20 @@ type WorkerListFilters = {
   workerType?: WorkerType | "ALL";
   supplierId?: string;
   unassigned?: boolean;
+  /** Iqama or passport expiring within this many days from today. */
+  expiringWithinDays?: number;
 };
+
+export function expiringDocumentsWhere(days: number): Prisma.WorkerWhereInput {
+  const now = new Date();
+  const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  return {
+    OR: [
+      { iqamaExpiryDate: { gte: now, lte: until } },
+      { passportExpiryDate: { gte: now, lte: until } },
+    ],
+  };
+}
 
 function buildWorkerListWhere(user: SessionUser, params: WorkerListFilters): Prisma.WorkerWhereInput {
   return {
@@ -46,7 +59,10 @@ function buildWorkerListWhere(user: SessionUser, params: WorkerListFilters): Pri
     ...(params.workerType && params.workerType !== "ALL" ? { workerType: params.workerType } : {}),
     ...(params.supplierId ? { supplierId: params.supplierId } : {}),
     ...(params.unassigned ? { assignments: { none: { status: "ACTIVE" } } } : {}),
-    ...buildWorkerSearchWhere(params.search),
+    AND: [
+      buildWorkerSearchWhere(params.search),
+      params.expiringWithinDays ? expiringDocumentsWhere(params.expiringWithinDays) : {},
+    ],
   };
 }
 

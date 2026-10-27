@@ -44,7 +44,7 @@ export default async function LeavePage({
         description="Every worker and employee leave request, in one review queue. File or decide an individual request from a worker's own profile."
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           href="/leave?status=PENDING"
           label="Awaiting Decision"
@@ -75,7 +75,7 @@ export default async function LeavePage({
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -133,7 +133,7 @@ export default async function LeavePage({
               </TableBody>
             </Table>
           </div>
-          <div className="rounded-lg border">
+          <div className="data-panel">
             <Pagination page={page} pageSize={pageSize} total={total} />
           </div>
         </>

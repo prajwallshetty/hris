@@ -93,7 +93,7 @@ export default async function TimesheetsPage({
           description={canCreate ? "Add a manual entry to get started." : undefined}
         />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

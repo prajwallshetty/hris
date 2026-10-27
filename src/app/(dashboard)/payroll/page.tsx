@@ -69,7 +69,7 @@ export default async function PayrollPage({
           description={canCreate ? "Create a payroll period to start generating worker payroll." : undefined}
         />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

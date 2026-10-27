@@ -96,7 +96,7 @@ export default async function RentalsPage({
         <EmptyState icon={Wrench} title="No rentals found" description="Try adjusting your search or filters." />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

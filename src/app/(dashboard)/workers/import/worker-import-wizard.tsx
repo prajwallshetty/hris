@@ -120,7 +120,7 @@ export function WorkerImportWizard() {
 
   if (outcome) {
     return (
-      <div className="space-y-4 rounded-lg border p-5">
+      <div className="data-panel space-y-4 p-5">
         <div className="flex items-start gap-3">
           <CheckCircle2 className="text-success mt-0.5 size-6 shrink-0" />
           <div>
@@ -167,7 +167,7 @@ export function WorkerImportWizard() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <Field>
           <FieldLabel htmlFor="file">Manpower file (.xlsx, .xls or .csv) *</FieldLabel>
           <Input
@@ -205,7 +205,7 @@ export function WorkerImportWizard() {
       </div>
 
       {preview && (
-        <div className="space-y-4 rounded-lg border p-4">
+        <div className="data-panel space-y-4 p-4">
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="text-muted-foreground">{preview.summary.totalRows} rows in file</span>
             <span className="flex items-center gap-1.5 font-medium">

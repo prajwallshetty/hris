@@ -114,7 +114,7 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Net Payable" value={formatMoney(payroll.netPayable)} />
         <KpiCard label="Paid" value={formatMoney(paid)} />
         <KpiCard
@@ -125,12 +125,12 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
         <KpiCard label="Hours" value={`${Number(payroll.regularHours).toFixed(1)} reg / ${Number(payroll.overtimeHours).toFixed(1)} OT`} />
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Calculation Breakdown</p>
           {canUpdate && editable && <PayrollAdjustmentDialog workerPayrollId={payroll.id} />}
         </div>
-        <div className="overflow-x-auto rounded-md border">
+        <div className="data-panel overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -194,7 +194,7 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
         )}
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Payments</p>
           {canPay && payroll.status !== "PAID" && (
@@ -211,7 +211,7 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
         {payroll.payments.length === 0 ? (
           <p className="text-muted-foreground text-sm">No payments recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-md border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -265,7 +265,7 @@ export default async function WorkerPayrollDetailPage({ params }: { params: Prom
       </div>
 
       {canViewActivity && (
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="mb-3 text-sm font-medium">Activity</p>
           <Timeline items={activityItems} emptyMessage="No recorded changes for this payroll record yet" />
         </div>

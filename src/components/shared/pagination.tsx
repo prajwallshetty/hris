@@ -31,13 +31,13 @@ export function Pagination({
   const end = Math.min(page * pageSize, total);
 
   return (
-    <div className="flex items-center justify-between px-2 py-3">
-      <p className="text-muted-foreground text-sm">
-        Showing <span className="font-medium">{start}</span>–
-        <span className="font-medium">{end}</span> of{" "}
-        <span className="font-medium">{total}</span>
+    <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-muted-foreground text-[13px]">
+        Showing <span className="font-semibold text-slate-700">{start}</span>–
+        <span className="font-semibold text-slate-700">{end}</span> of{" "}
+        <span className="font-semibold text-slate-700">{total}</span>
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <Button
           variant="outline"
           size="sm"
@@ -48,9 +48,8 @@ export function Pagination({
           <ChevronLeft className="size-4" />
           Previous
         </Button>
-        <span className="text-muted-foreground text-sm">
-          Page {page} of {totalPages}
-        </span>
+        <span className="bg-primary rounded-md px-2.5 py-1 text-xs font-semibold text-white tabular-nums">{page}</span>
+        <span className="text-muted-foreground text-xs">of {totalPages}</span>
         <Button
           variant="outline"
           size="sm"

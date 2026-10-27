@@ -162,7 +162,7 @@ export function EquipmentFormDialog({
               </Field>
             )}
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Field>
                 <FieldLabel htmlFor="hourlyRate">Hourly Rate</FieldLabel>
                 <Input id="hourlyRate" type="number" step="0.01" {...form.register("hourlyRate")} />

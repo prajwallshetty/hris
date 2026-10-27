@@ -21,12 +21,13 @@ import { WorkersTable, type WorkerRow } from "./workers-table";
 export default async function WorkersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; type?: string; supplier?: string; unassigned?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; type?: string; supplier?: string; unassigned?: string; expiring?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
   const page = Number(params.page ?? 1) || 1;
   const unassigned = params.unassigned === "1";
+  const expiring = params.expiring === "30";
 
   const [{ workers, total, pageSize }, suppliers] = await Promise.all([
     listWorkers(user, {
@@ -35,6 +36,7 @@ export default async function WorkersPage({
       workerType: (params.type as never) ?? "ALL",
       supplierId: params.supplier,
       unassigned,
+      expiringWithinDays: expiring ? 30 : undefined,
       page,
     }),
     can(user, "view", "supplier") ? listSuppliersForSelect() : Promise.resolve([]),
@@ -70,7 +72,9 @@ export default async function WorkersPage({
         description={
           unassigned
             ? "Active/available workers with no current site assignment."
-            : "Manpower roster, identified by Iqama number."
+            : expiring
+              ? "Workers whose Iqama or passport expires within the next 30 days."
+              : "Manpower roster — FRL, HRD and OWN workers."
         }
         actions={
           can(user, "create", "worker") && (

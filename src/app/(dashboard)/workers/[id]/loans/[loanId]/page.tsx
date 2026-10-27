@@ -101,14 +101,14 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Original Loan" value={formatMoney(loan.principalAmount)} />
         <KpiCard label="Paid" value={formatMoney(paid)} />
         <KpiCard label="Remaining" value={formatMoney(remaining)} className={remaining > 0 ? "text-warning-foreground" : undefined} />
         <KpiCard label="Monthly Deduction" value={installmentAmount ? formatMoney(installmentAmount) : "—"} />
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="font-medium">Repayment Progress</span>
           <span className="text-muted-foreground">{progressPct}%</span>
@@ -141,7 +141,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             description="Repayments are applied automatically when this loan is deducted during payroll processing."
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

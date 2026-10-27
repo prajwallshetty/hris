@@ -94,7 +94,7 @@ export default async function RecurringChargeDetailPage({
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Rate" value={`${formatMoney(Number(charge.amount))} / ${charge.frequency.toLowerCase().replace("_", "-")}`} />
         <KpiCard label="Due to Date" value={formatMoney(due)} />
         <KpiCard label="Paid" value={formatMoney(paid)} />
@@ -102,7 +102,7 @@ export default async function RecurringChargeDetailPage({
       </div>
 
       {charge.depositAmount != null && (
-        <div className="rounded-lg border p-4 text-sm">
+        <div className="data-panel p-4 text-sm">
           <span className="text-muted-foreground">Deposit: </span>
           <span className="font-medium">{formatMoney(Number(charge.depositAmount))}</span>
           <span className="ml-2">
@@ -119,7 +119,7 @@ export default async function RecurringChargeDetailPage({
         {charge.deductions.length === 0 ? (
           <EmptyState icon={Receipt} title="No deductions recorded yet" />
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

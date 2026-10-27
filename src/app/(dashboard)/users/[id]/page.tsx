@@ -115,19 +115,19 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Role" value={ROLE_LABELS[user.role] ?? user.role} />
         <KpiCard label="Linked To" value={linkedTo} />
         <KpiCard label="Access Code" value={user.accessCodeSetAt ? "Set" : "Not Set"} />
         <KpiCard label="Account Created" value={formatDateTime(user.createdAt).split(",")[0]} />
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <p className="mb-3 text-sm font-medium">Recent Sign-In Activity</p>
         {authAttempts.length === 0 ? (
           <p className="text-muted-foreground text-sm">No sign-in attempts recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-md border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -154,7 +154,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         )}
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <p className="mb-3 text-sm font-medium">Activity Timeline</p>
         <Timeline items={activityItems} emptyMessage="No activity recorded yet" />
       </div>

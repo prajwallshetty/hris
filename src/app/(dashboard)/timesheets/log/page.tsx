@@ -109,7 +109,7 @@ export default async function TimesheetLogPage({
         <EmptyState icon={ClipboardList} title="No log entries found" description="Try adjusting your filters." />
       ) : (
         <>
-          <div className="rounded-lg border">
+          <div className="data-panel">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>

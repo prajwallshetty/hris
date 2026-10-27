@@ -151,7 +151,7 @@ export function ExpensesTable({
       {filtered.length === 0 ? (
         <EmptyState icon={Receipt} title="No expenses match your search" />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

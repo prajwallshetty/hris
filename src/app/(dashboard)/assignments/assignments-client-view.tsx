@@ -273,7 +273,7 @@ export function AssignmentsClientView({
       />
 
       {/* 2. KPI Summary Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <button
           type="button"
           onClick={() => updateQueryParams({ status: "ALL" })}
@@ -589,7 +589,7 @@ export function AssignmentsClientView({
               a 10-column table has no room to breathe even with column
               hiding, so 320-1023px (including the 768px tablet breakpoint)
               get the card list below instead. */}
-          <div className="hidden lg:block rounded-xl border bg-card shadow-xs overflow-x-auto">
+          <div className="data-panel hidden overflow-x-auto lg:block">
           <Table className="min-w-[960px]">
               <TableHeader className="bg-muted/40">
                 <TableRow>
@@ -842,7 +842,7 @@ export function AssignmentsClientView({
               return (
                 <div
                   key={a.id}
-                  className={`rounded-xl border bg-card shadow-xs p-4 space-y-3 ${isSelected ? "ring-2 ring-primary/40 bg-primary/5" : ""}`}
+                  className={`data-panel p-4 space-y-3 ${isSelected ? "ring-2 ring-primary/40 bg-primary/5" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2.5 min-w-0">
@@ -935,7 +935,7 @@ export function AssignmentsClientView({
           </div>
 
           {/* 5. Pagination Footer (shared by table and card layouts) */}
-          <div className="rounded-xl border p-3 bg-muted/20">
+          <div className="data-panel">
             <Pagination page={page} pageSize={pageSize} total={total} />
           </div>
         </>

@@ -72,7 +72,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Total" value={formatMoney(total)} />
         <KpiCard label="Paid" value={formatMoney(paid)} />
         <KpiCard
@@ -84,13 +84,13 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 text-sm">
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="text-muted-foreground mb-2 text-xs font-medium uppercase">Equipment</p>
           <Link href={`/equipment/${rental.equipmentId}`} className="font-medium hover:underline">
             {rental.equipment.name} — {rental.equipment.serialNumber}
           </Link>
         </div>
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="text-muted-foreground mb-2 text-xs font-medium uppercase">Deployment</p>
           <p>
             {rental.client.companyName}
@@ -110,7 +110,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
         {rental.charges.length === 0 ? (
           <p className="text-muted-foreground text-sm">No charges recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -145,7 +145,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
         {rental.payments.length === 0 ? (
           <p className="text-muted-foreground text-sm">No payments recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

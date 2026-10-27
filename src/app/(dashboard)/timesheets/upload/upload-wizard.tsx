@@ -110,7 +110,7 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field>
             <FieldLabel>Client *</FieldLabel>
@@ -228,7 +228,7 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
       </div>
 
       {preview && (
-        <div className="space-y-4 rounded-lg border p-4">
+        <div className="data-panel space-y-4 p-4">
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="text-success size-4" />
@@ -255,7 +255,7 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
           </div>
 
           {preview.summary.errorReport.length > 0 && (
-            <div className="overflow-x-auto rounded-md border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

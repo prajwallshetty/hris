@@ -112,7 +112,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Status" value={vehicle.status.replaceAll("_", " ")} />
         <KpiCard label="Current Mileage" value={vehicle.currentMileage ? `${Number(vehicle.currentMileage).toLocaleString()} km` : "—"} />
         <KpiCard label="Current Driver" value={activeAssignment?.worker.fullName ?? "Unassigned"} />
@@ -142,7 +142,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           {vehicle.assignments.length === 0 ? (
             <EmptyState icon={Car} title="No assignments yet" description="This vehicle has never been assigned to a worker." />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -203,7 +203,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           {vehicle.expenses.length === 0 ? (
             <EmptyState icon={Receipt} title="No expenses recorded yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -239,7 +239,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           {vehicle.maintenance.length === 0 ? (
             <EmptyState icon={Wrench} title="No maintenance records yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

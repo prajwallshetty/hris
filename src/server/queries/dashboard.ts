@@ -1,251 +1,201 @@
 import type { Prisma, WorkerStatus } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { getClientFinancials } from "@/server/queries/client-detail";
-import {
-  workerScopeWhere,
-  clientScopeWhere,
-  siteScopeWhere,
-  assignmentScopeWhere,
-  vehicleScopeWhere,
-  equipmentScopeWhere,
-  equipmentRentalScopeWhere,
-  can,
-  type SessionUser,
-} from "@/server/rbac";
+import { expiringDocumentsWhere } from "@/server/queries/workers";
+import { assignmentScopeWhere, can, clientScopeWhere, siteScopeWhere, workerScopeWhere, type SessionUser } from "@/server/rbac";
 
-export async function getDashboardCounts(user: SessionUser) {
-  const [totalWorkers, activeWorkers, totalClients, totalSites, activeAssignments] = await Promise.all([
-    db.worker.count({ where: { deletedAt: null, ...workerScopeWhere(user) } }),
-    db.worker.count({ where: { deletedAt: null, status: "ACTIVE", ...workerScopeWhere(user) } }),
-    db.client.count({ where: { deletedAt: null, ...clientScopeWhere(user) } }),
-    db.site.count({ where: { deletedAt: null, ...siteScopeWhere(user) } }),
-    db.assignment.count({ where: { status: "ACTIVE", ...assignmentScopeWhere(user) } }),
-  ]);
+// ---------------------------------------------------------------------------
+// Dashboard (§ redesign reference): one month- and site-aware data load for
+// the KPI row, analytics row and Pending Actions table. Every figure is a
+// live query — nothing here is a placeholder.
+// ---------------------------------------------------------------------------
 
-  return { totalWorkers, activeWorkers, totalClients, totalSites, activeAssignments };
+const MONTH_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
+const MONTH_LABEL = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" });
+const MONTH_LONG = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+
+export type DashboardMonth = { key: string; start: Date; end: Date; label: string };
+
+function monthFromParts(year: number, monthIndex: number): DashboardMonth {
+  const start = new Date(Date.UTC(year, monthIndex, 1));
+  const end = new Date(Date.UTC(year, monthIndex + 1, 1));
+  return {
+    key: `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, "0")}`,
+    start,
+    end,
+    label: MONTH_LONG.format(start),
+  };
 }
 
-// Fleet KPIs — drillable to /vehicles, /equipment, /rentals (§4/§20).
-export async function getFleetCounts(user: SessionUser) {
-  const [totalVehicles, vehiclesDeployed, totalEquipment, equipmentRented, activeRentals] = await Promise.all([
-    can(user, "view", "vehicle")
-      ? db.vehicle.count({ where: { deletedAt: null, ...vehicleScopeWhere(user) } })
-      : Promise.resolve(0),
-    can(user, "view", "vehicle")
-      ? db.vehicle.count({ where: { deletedAt: null, status: "ASSIGNED", ...vehicleScopeWhere(user) } })
-      : Promise.resolve(0),
-    can(user, "view", "equipment")
-      ? db.equipment.count({ where: { deletedAt: null, ...equipmentScopeWhere(user) } })
-      : Promise.resolve(0),
-    can(user, "view", "equipment")
-      ? db.equipment.count({ where: { deletedAt: null, status: "RENTED", ...equipmentScopeWhere(user) } })
-      : Promise.resolve(0),
-    can(user, "view", "equipmentRental")
-      ? db.equipmentRental.count({ where: { status: { in: ["ACTIVE", "EXTENDED"] }, ...equipmentRentalScopeWhere(user) } })
-      : Promise.resolve(0),
-  ]);
-
-  return { totalVehicles, vehiclesDeployed, totalEquipment, equipmentRented, activeRentals };
-}
-
-const WORKER_STATUS_ORDER: WorkerStatus[] = [
-  "ACTIVE",
-  "AVAILABLE",
-  "ON_LEAVE",
-  "SUSPENDED",
-  "DEMOBILIZED",
-  "RESIGNED",
-  "TERMINATED",
-];
-
-export async function getWorkersByStatus(user: SessionUser) {
-  const rows = await db.worker.groupBy({
-    by: ["status"],
-    where: { deletedAt: null, ...workerScopeWhere(user) },
-    _count: { _all: true },
-  });
-  const counts = new Map(rows.map((r) => [r.status, r._count._all]));
-  return WORKER_STATUS_ORDER.map((status) => ({ status, count: counts.get(status) ?? 0 })).filter(
-    (row) => row.count > 0,
-  );
-}
-
-export async function getWorkersByClient(user: SessionUser, limit = 8) {
-  const rows = await db.assignment.groupBy({
-    by: ["clientId"],
-    where: { status: "ACTIVE", ...assignmentScopeWhere(user) },
-    _count: { _all: true },
-  });
-  const clients = await db.client.findMany({
-    where: { id: { in: rows.map((r) => r.clientId) } },
-    select: { id: true, companyName: true },
-  });
-  const nameById = new Map(clients.map((c) => [c.id, c.companyName]));
-
-  return rows
-    .map((r) => ({ client: nameById.get(r.clientId) ?? "Unknown", count: r._count._all }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
-}
-
-// Per-client profitability for the dashboard summary chart — reuses the
-// exact same calc-engine-backed logic as the client detail page's Billing
-// tab (one source of truth), not a separate/simplified formula.
-export async function getClientProfitabilitySummary(user: SessionUser) {
-  if (!can(user, "view", "invoice") && !can(user, "view", "workerPayroll")) return [];
-
-  const clients = await db.client.findMany({
-    where: { deletedAt: null, ...clientScopeWhere(user) },
-    select: { id: true, companyName: true },
-    orderBy: { companyName: "asc" },
-  });
-
-  const results = await Promise.all(
-    clients.map(async (client) => ({
-      client: client.companyName,
-      ...(await getClientFinancials(client.id)),
-    })),
-  );
-
-  return results.filter((r) => r.revenue > 0 || r.workerCost > 0);
-}
-
-const TREND_MONTH_FORMAT = new Intl.DateTimeFormat("en-GB", { month: "short", year: "2-digit" });
-
-function monthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-// Monthly revenue-vs-worker-cost trend for the dashboard's primary chart
-// (§ redesign reference "Consolidated budget" chart) — bucketed in JS from
-// the same Invoice/WorkerPayroll rows the rest of the app already reads,
-// scoped exactly like every other client/worker query. Real data only: a
-// month with nothing billed or paid still appears, at zero.
-export async function getRevenueCostTrend(user: SessionUser, monthsBack = 12) {
+/** "2026-09" → that month; anything else → the current month. */
+export function resolveDashboardMonth(value?: string): DashboardMonth {
+  const match = value?.match(MONTH_PATTERN);
+  if (match) return monthFromParts(Number(match[1]), Number(match[2]) - 1);
   const now = new Date();
-  const rangeStart = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1), 1);
-
-  const [invoices, payrolls] = await Promise.all([
-    can(user, "view", "invoice")
-      ? db.invoice.findMany({
-          where: {
-            billingPeriodStart: { gte: rangeStart },
-            status: { not: "CANCELLED" },
-            client: { ...clientScopeWhere(user) },
-          },
-          select: { subtotal: true, billingPeriodStart: true },
-        })
-      : Promise.resolve([]),
-    can(user, "view", "workerPayroll")
-      ? db.workerPayroll.findMany({
-          where: {
-            payrollPeriod: { periodStart: { gte: rangeStart } },
-            worker: { ...workerScopeWhere(user) },
-          },
-          select: { grossPay: true, payrollPeriod: { select: { periodStart: true } } },
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const buckets = new Map<string, { label: string; date: Date; revenue: number; workerCost: number }>();
-  for (let i = 0; i < monthsBack; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1 - i), 1);
-    buckets.set(monthKey(date), { label: TREND_MONTH_FORMAT.format(date), date, revenue: 0, workerCost: 0 });
-  }
-
-  for (const inv of invoices) {
-    const bucket = buckets.get(monthKey(inv.billingPeriodStart));
-    if (bucket) bucket.revenue += Number(inv.subtotal);
-  }
-  for (const p of payrolls) {
-    const bucket = buckets.get(monthKey(p.payrollPeriod.periodStart));
-    if (bucket) bucket.workerCost += Number(p.grossPay);
-  }
-
-  return Array.from(buckets.values()).map(({ label, revenue, workerCost }) => ({
-    month: label,
-    revenue,
-    workerCost,
-  }));
+  return monthFromParts(now.getUTCFullYear(), now.getUTCMonth());
 }
 
-// Operational KPIs + "Pending Actions" (§9 redesign): workers with no
-// active deployment, attendance/LOG still awaiting review, overdue client
-// invoices, and this calendar month's worker payroll split into paid vs
-// outstanding — the paid/outstanding split reuses the exact same
-// payable-minus-live-payments formula as the worker payroll/payment pages
-// (calculateOutstanding), never a separate approximation.
-export async function getOperationalKpis(user: SessionUser) {
+/** The selectable months: the last 12, newest first. */
+export function recentDashboardMonths(count = 12): DashboardMonth[] {
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  return Array.from({ length: count }, (_, i) => monthFromParts(now.getUTCFullYear(), now.getUTCMonth() - i));
+}
 
-  const [workersWithoutAssignments, pendingAttendance, overdueInvoices, currentMonthPayrolls] = await Promise.all([
-    can(user, "view", "worker")
+export async function listDashboardSites(user: SessionUser) {
+  if (!can(user, "view", "site")) return [];
+  return db.site.findMany({
+    where: { deletedAt: null, ...siteScopeWhere(user) },
+    select: { id: true, name: true, project: { select: { client: { select: { companyName: true } } } } },
+    orderBy: { name: "asc" },
+  });
+}
+
+function sumPaid(payments: { amount: Prisma.Decimal; voidedAt: Date | null }[]) {
+  return payments.filter((p) => !p.voidedAt).reduce((sum, p) => sum + Number(p.amount), 0);
+}
+
+const WORKER_STATUS_ORDER: WorkerStatus[] = ["ACTIVE", "AVAILABLE", "ON_LEAVE", "SUSPENDED", "DEMOBILIZED", "RESIGNED", "TERMINATED"];
+
+export async function getDashboardData(user: SessionUser, params: { month: DashboardMonth; siteId?: string }) {
+  const { month, siteId } = params;
+  const canWorkers = can(user, "view", "worker");
+  const canPayroll = can(user, "view", "workerPayroll");
+  const canInvoices = can(user, "view", "invoice");
+  const canTimesheets = can(user, "view", "timesheet");
+  const canLeave = can(user, "view", "leaveRequest");
+
+  // Site filter: a worker "belongs" to a site through an active assignment
+  // there; an invoice through any of its line items billed to that site.
+  const workerSite: Prisma.WorkerWhereInput = siteId ? { assignments: { some: { siteId, status: "ACTIVE" } } } : {};
+  const workerBase: Prisma.WorkerWhereInput = { deletedAt: null, ...workerScopeWhere(user) };
+  const invoiceSite: Prisma.InvoiceWhereInput = siteId ? { items: { some: { siteId } } } : {};
+
+  const trendStart = new Date(Date.UTC(month.start.getUTCFullYear(), month.start.getUTCMonth() - 8, 1));
+
+  const [
+    activeWorkers,
+    workersWithoutAssignment,
+    statusRows,
+    clientRows,
+    monthPayrolls,
+    trendPayrolls,
+    overdueInvoices,
+    attendanceInReview,
+    attendanceUploaded,
+    pendingLeave,
+    expiringDocuments,
+    payrollPeriod,
+  ] = await Promise.all([
+    canWorkers ? db.worker.count({ where: { AND: [workerBase, workerSite, { status: "ACTIVE" }] } }) : 0,
+    canWorkers
       ? db.worker.count({
-          where: {
-            deletedAt: null,
-            ...workerScopeWhere(user),
-            status: { in: ["ACTIVE", "AVAILABLE"] },
-            assignments: { none: { status: "ACTIVE" } },
-          },
+          where: { AND: [workerBase, { status: { in: ["ACTIVE", "AVAILABLE"] }, assignments: { none: { status: "ACTIVE" } } }] },
         })
-      : Promise.resolve(0),
-    can(user, "view", "timesheet")
-      ? db.timesheet.count({ where: { status: { in: ["UPLOADED", "PENDING_REVIEW"] } } })
-      : Promise.resolve(0),
-    can(user, "view", "invoice")
-      ? db.invoice.count({ where: { status: "OVERDUE", client: { ...clientScopeWhere(user) } } })
-      : Promise.resolve(0),
-    can(user, "view", "workerPayroll")
+      : 0,
+    canWorkers ? db.worker.groupBy({ by: ["status"], where: { AND: [workerBase, workerSite] }, _count: { _all: true } }) : [],
+    canWorkers
+      ? db.assignment.groupBy({
+          by: ["clientId"],
+          where: { status: "ACTIVE", ...(siteId ? { siteId } : {}), ...assignmentScopeWhere(user) },
+          _count: { _all: true },
+        })
+      : [],
+    canPayroll
       ? db.workerPayroll.findMany({
-          where: {
-            payrollPeriod: { periodStart: { gte: monthStart, lte: monthEnd } },
-            worker: { ...workerScopeWhere(user) },
-          },
+          where: { payrollPeriod: { periodStart: { gte: month.start, lt: month.end } }, worker: { AND: [workerBase, workerSite] } },
           select: { netPayable: true, payments: { select: { amount: true, voidedAt: true } } },
         })
-      : Promise.resolve([]),
+      : [],
+    canPayroll
+      ? db.workerPayroll.findMany({
+          where: { payrollPeriod: { periodStart: { gte: trendStart, lt: month.end } }, worker: { AND: [workerBase, workerSite] } },
+          select: { netPayable: true, payrollPeriod: { select: { periodStart: true } }, payments: { select: { amount: true, voidedAt: true } } },
+        })
+      : [],
+    canInvoices
+      ? db.invoice.findMany({
+          where: { status: "OVERDUE", client: { ...clientScopeWhere(user) }, ...invoiceSite },
+          select: { totalAmount: true, payments: { select: { amount: true } } },
+        })
+      : [],
+    canTimesheets ? db.timesheet.count({ where: { status: "PENDING_REVIEW", ...(siteId ? { siteId } : {}) } }) : 0,
+    canTimesheets ? db.timesheet.count({ where: { status: "UPLOADED", ...(siteId ? { siteId } : {}) } }) : 0,
+    canLeave ? db.leaveRequest.count({ where: { status: "PENDING", ...(workerScopeWhere(user) ? { worker: workerScopeWhere(user) } : {}) } }) : 0,
+    canWorkers ? db.worker.count({ where: { AND: [workerBase, workerSite, expiringDocumentsWhere(30)] } }) : 0,
+    db.payrollPeriod.findFirst({ where: { periodStart: { gte: month.start, lt: month.end } }, select: { id: true } }),
   ]);
 
-  let currentMonthPayroll = 0;
-  let paidSalary = 0;
-  let outstandingSalary = 0;
-  for (const payroll of currentMonthPayrolls) {
-    const netPayable = Number(payroll.netPayable);
-    const paid = payroll.payments.filter((p) => !p.voidedAt).reduce((sum, p) => sum + Number(p.amount), 0);
-    currentMonthPayroll += netPayable;
-    paidSalary += paid;
-    outstandingSalary += netPayable - paid;
+  let payroll = 0;
+  let paid = 0;
+  let unpaidSlips = 0;
+  for (const row of monthPayrolls) {
+    const net = Number(row.netPayable);
+    const rowPaid = sumPaid(row.payments);
+    payroll += net;
+    paid += rowPaid;
+    if (net - rowPaid > 0.005) unpaidSlips += 1;
+  }
+  const outstanding = Math.max(0, payroll - paid);
+
+  const trend = Array.from({ length: 9 }, (_, i) => {
+    const start = new Date(Date.UTC(trendStart.getUTCFullYear(), trendStart.getUTCMonth() + i, 1));
+    return { key: start.toISOString().slice(0, 7), month: MONTH_LABEL.format(start), paid: 0, outstanding: 0 };
+  });
+  for (const row of trendPayrolls) {
+    const bucket = trend.find((b) => b.key === row.payrollPeriod.periodStart.toISOString().slice(0, 7));
+    if (!bucket) continue;
+    const net = Number(row.netPayable);
+    const rowPaid = sumPaid(row.payments);
+    bucket.paid += rowPaid;
+    bucket.outstanding += Math.max(0, net - rowPaid);
   }
 
-  return { workersWithoutAssignments, pendingAttendance, overdueInvoices, currentMonthPayroll, paidSalary, outstandingSalary };
-}
+  const statusCounts = new Map(statusRows.map((r) => [r.status, r._count._all]));
+  const workerStatus = WORKER_STATUS_ORDER.map((status) => ({ status, count: statusCounts.get(status) ?? 0 })).filter((r) => r.count > 0);
 
-// Company-wide finance KPIs for the dashboard — same underlying tables as
-// the Payroll/Timesheets/Coordinators/Expenses pages, just summed (§30/§45:
-// one calculation, shown consistently everywhere).
-export async function getFinanceKpis() {
-  const [hours, workerPayroll, employeePayroll, commission, expenses] = await Promise.all([
-    db.timesheetItem.aggregate({
-      where: { status: "APPROVED" },
-      _sum: { regularHours: true, overtimeHours: true },
-    }),
-    db.workerPayroll.aggregate({ _sum: { netPayable: true } }),
-    db.employeePayroll.aggregate({ _sum: { netPayable: true } }),
-    db.commission.aggregate({ _sum: { amount: true } }),
-    db.expense.aggregate({ where: { deletedAt: null }, _sum: { amount: true } }),
-  ]);
+  const clients = await db.client.findMany({
+    where: { id: { in: clientRows.map((r) => r.clientId) } },
+    select: { id: true, companyName: true },
+  });
+  const clientName = new Map(clients.map((c) => [c.id, c.companyName]));
+  const topClients = clientRows
+    .map((r) => ({ id: r.clientId, name: clientName.get(r.clientId) ?? "Unknown client", count: r._count._all }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
 
-  const totalHours = Number(hours._sum.regularHours ?? 0) + Number(hours._sum.overtimeHours ?? 0);
-  const totalPayroll = Number(workerPayroll._sum.netPayable ?? 0) + Number(employeePayroll._sum.netPayable ?? 0);
+  const overdueAmount = overdueInvoices.reduce(
+    (sum, inv) => sum + Math.max(0, Number(inv.totalAmount) - inv.payments.reduce((s, p) => s + Number(p.amount), 0)),
+    0,
+  );
+
+  const payrollHref = payrollPeriod ? `/payroll/${payrollPeriod.id}` : "/payroll";
+  const pendingActions = [
+    canTimesheets && { key: "review", label: "Attendance awaiting review", count: attendanceInReview, href: "/timesheets?status=PENDING_REVIEW", tone: "red" as const },
+    canTimesheets && { key: "uploaded", label: "Attendance uploaded, not yet submitted", count: attendanceUploaded, href: "/timesheets?status=UPLOADED", tone: "orange" as const },
+    canWorkers && { key: "unassigned", label: "Workers without assignment", count: workersWithoutAssignment, href: "/workers?unassigned=1", tone: "orange" as const },
+    canPayroll && { key: "salary", label: `Salary slips not fully paid — ${month.label}`, count: unpaidSlips, href: payrollHref, tone: "blue" as const },
+    canInvoices && { key: "overdue", label: "Overdue client invoices", count: overdueInvoices.length, href: "/invoices?status=OVERDUE", tone: "purple" as const },
+    canLeave && { key: "leave", label: "Leave requests awaiting decision", count: pendingLeave, href: "/leave?status=PENDING", tone: "teal" as const },
+    canWorkers && { key: "expiring", label: "Iqama / passport expiring in 30 days", count: expiringDocuments, href: "/workers?expiring=30", tone: "green" as const },
+  ].filter((a): a is Exclude<typeof a, false> => Boolean(a));
 
   return {
-    totalHours,
-    totalPayroll,
-    totalCommission: Number(commission._sum.amount ?? 0),
-    totalExpenses: Number(expenses._sum.amount ?? 0),
+    permissions: { canWorkers, canPayroll, canInvoices },
+    kpis: {
+      activeWorkers,
+      payroll,
+      paid,
+      outstanding,
+      paidPercent: payroll > 0 ? (paid / payroll) * 100 : 0,
+      workersWithoutAssignment,
+      overdueInvoices: overdueInvoices.length,
+      overdueAmount,
+    },
+    payrollHref,
+    trend: trend.map(({ month: label, paid: p, outstanding: o }) => ({ month: label, paid: p, outstanding: o })),
+    workerStatus,
+    topClients,
+    pendingActions,
   };
 }
 

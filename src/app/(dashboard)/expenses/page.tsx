@@ -91,7 +91,7 @@ export default async function ExpensesPage({
       />
 
       {expenses.length > 0 && (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <Pagination page={page} pageSize={pageSize} total={total} />
         </div>
       )}

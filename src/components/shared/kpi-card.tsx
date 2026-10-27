@@ -20,6 +20,20 @@ const TREND_TONE_CLASSES = {
   neutral: "text-muted-foreground",
 } as const;
 
+export type KpiAccent = "blue" | "green" | "purple" | "red" | "orange" | "teal";
+
+// Per-card accent icon chip (§ dashboard redesign reference) — opt-in via
+// `accent`; cards that don't pass one keep the original neutral/primary-on-
+// hover treatment used everywhere else KpiCard appears.
+const ACCENT_CLASSES: Record<KpiAccent, string> = {
+  blue: "bg-blue-50 text-blue-600",
+  green: "bg-emerald-50 text-emerald-600",
+  purple: "bg-violet-50 text-violet-600",
+  red: "bg-red-50 text-red-600",
+  orange: "bg-orange-50 text-orange-600",
+  teal: "bg-teal-50 text-teal-600",
+};
+
 /**
  * The one KPI/stat-card implementation for the whole app (§9/§40) — icon,
  * label, number, optional trend, optional supporting text. Used in place of
@@ -33,6 +47,7 @@ export function KpiCard({
   trend,
   description,
   className,
+  accent,
 }: {
   href?: string;
   label: string;
@@ -41,6 +56,7 @@ export function KpiCard({
   trend?: KpiTrend;
   description?: string;
   className?: string;
+  accent?: KpiAccent;
 }) {
   const TrendIcon = trend ? TREND_ICON[trend.direction] : null;
   const trendTone = trend?.tone ?? (trend?.direction === "down" ? "negative" : trend?.direction === "up" ? "positive" : "neutral");
@@ -64,7 +80,14 @@ export function KpiCard({
           )}
         </div>
         {Icon && (
-          <div className="bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors">
+          <div
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+              accent
+                ? ACCENT_CLASSES[accent]
+                : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary",
+            )}
+          >
             <Icon className="size-4.5" />
           </div>
         )}

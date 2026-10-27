@@ -9,7 +9,7 @@ export function ExportWorkersButton() {
   const searchParams = useSearchParams();
   const params = new URLSearchParams();
   // Export exactly what the list is currently filtered to.
-  for (const key of ["q", "status", "type", "supplier", "unassigned"]) {
+  for (const key of ["q", "status", "type", "supplier", "unassigned", "expiring"]) {
     const value = searchParams.get(key);
     if (value) params.set(key, value);
   }

@@ -134,7 +134,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Base Salary" value={formatMoney(employee.baseSalary)} />
         <KpiCard label="Department" value={employee.department?.name ?? "—"} />
         <KpiCard label="Coordinator" value={employee.coordinator?.name ?? "—"} />
@@ -160,7 +160,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           {attendance.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No attendance recorded yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -214,7 +214,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           {leave.requests.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No leave requests yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -258,7 +258,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           {advances.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No advances given" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -300,7 +300,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           {loans.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No loans given" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -337,7 +337,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           {payrollHistory.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No payroll history yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

@@ -122,7 +122,7 @@ export function PaymentDialog({
               <DialogDescription>The payment has been recorded and the balance updated.</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2 rounded-lg border p-4 text-sm">
+            <div className="data-panel space-y-2 p-4 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Receipt Number</span>
                 <span className="font-mono font-semibold">{receipt.receiptNumber}</span>

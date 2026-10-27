@@ -59,7 +59,7 @@ export function GeneratePayrollForm({
   }
 
   return (
-    <div className="rounded-lg border p-4">
+    <div className="data-panel p-4">
       <p className="mb-3 text-sm font-medium">Generate Payroll</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <Field>

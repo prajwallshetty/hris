@@ -64,7 +64,7 @@ export default async function EmployeesPage({
       {employees.length === 0 ? (
         <EmptyState icon={Users} title="No employees yet" description={canCreate ? "Add your first internal employee." : undefined} />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

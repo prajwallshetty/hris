@@ -211,7 +211,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           {contacts.length === 0 ? (
             <EmptyState icon={Users} title="No contacts yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -245,7 +245,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           {contracts.length === 0 ? (
             <EmptyState icon={FileText} title="No contracts on file" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -434,7 +434,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           {workers.length === 0 ? (
             <EmptyState icon={Users} title="No workers currently assigned" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -470,7 +470,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         {canViewFinancials && (
           <TabsContent value="billing" className="space-y-4">
             {financials && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-8">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
                 <KpiCard label="Revenue" value={formatMoney(financials.revenue)} />
                 <KpiCard label="Invoiced" value={formatMoney(financials.totalInvoiced)} />
                 <KpiCard label="Paid" value={formatMoney(financials.totalPaid)} />
@@ -501,7 +501,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             {invoices.length === 0 ? (
               <EmptyState icon={FileText} title="No invoices yet" />
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="data-panel overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -545,7 +545,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             {rentals.length === 0 ? (
               <EmptyState icon={MapPin} title="No equipment rentals yet" />
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="data-panel overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>

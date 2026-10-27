@@ -108,7 +108,7 @@ export default async function TimesheetDetailPage({ params }: { params: Promise<
         )}
       </div>
 
-      <div className="rounded-lg border">
+      <div className="data-panel">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

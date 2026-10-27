@@ -101,7 +101,7 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard label="Base Salary" value={formatMoney(payroll.baseSalary)} />
         <KpiCard
           label="Deductions"
@@ -118,12 +118,12 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
         />
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Calculation Breakdown</p>
           {canUpdate && editable && <EmployeePayrollAdjustmentDialog employeePayrollId={payroll.id} />}
         </div>
-        <div className="overflow-x-auto rounded-md border">
+        <div className="data-panel overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -157,7 +157,7 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
         </div>
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Payments</p>
           {canPay && payroll.status !== "PAID" && (
@@ -172,7 +172,7 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
         {payroll.payments.length === 0 ? (
           <p className="text-muted-foreground text-sm">No payments recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-md border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -198,7 +198,7 @@ export default async function EmployeePayrollDetailPage({ params }: { params: Pr
       </div>
 
       {canViewActivity && (
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="mb-3 text-sm font-medium">Activity</p>
           <Timeline items={activityItems} emptyMessage="No recorded changes for this payroll record yet" />
         </div>

@@ -96,7 +96,7 @@ export function UsersTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
+      <div className="data-panel flex flex-wrap items-center gap-2 p-2">
         <Input
           placeholder="Search by name or email…"
           value={search}
@@ -147,7 +147,7 @@ export function UsersTable({
       {filtered.length === 0 ? (
         <EmptyState icon={UsersIcon} title="No users match your search" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div className="data-panel overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

@@ -166,7 +166,7 @@ export function ClientsTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
+      <div className="data-panel flex flex-wrap items-center gap-2 p-2">
         <Input
           placeholder="Search by company, contact, phone, or email…"
           value={search}
@@ -202,7 +202,7 @@ export function ClientsTable({
       {filtered.length === 0 ? (
         <EmptyState icon={Building2} title="No clients match your search" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div className="data-panel overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

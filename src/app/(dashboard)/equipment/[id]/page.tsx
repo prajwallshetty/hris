@@ -107,7 +107,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Status" value={equipment.status.replaceAll("_", " ")} />
         <KpiCard label="Current Client" value={currentRental?.client.companyName ?? "Unrented"} />
         <KpiCard label="Total Rentals" value={String(equipment.rentals.length)} />
@@ -135,7 +135,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
           {equipment.rentals.length === 0 ? (
             <EmptyState icon={Timer} title="No rentals yet" description="This equipment has never been rented out." />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -187,7 +187,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
           {equipment.maintenance.length === 0 ? (
             <EmptyState icon={Wrench} title="No maintenance records yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

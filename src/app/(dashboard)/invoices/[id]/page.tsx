@@ -137,30 +137,30 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border p-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="data-panel p-4">
           <p className="text-muted-foreground text-xs font-medium">Total</p>
           <p className="mt-1 text-xl font-semibold tabular-nums">{formatMoney(invoice.totalAmount)}</p>
         </div>
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="text-muted-foreground text-xs font-medium">Paid</p>
           <p className="mt-1 text-lg font-medium tabular-nums">{formatMoney(paid)}</p>
         </div>
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="text-muted-foreground text-xs font-medium">Outstanding</p>
           <p className={`mt-1 text-lg font-medium tabular-nums ${outstanding > 0 ? "text-warning-foreground" : ""}`}>
             {formatMoney(outstanding)}
           </p>
         </div>
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="text-muted-foreground text-xs font-medium">Due Date</p>
           <p className="mt-1 text-lg font-medium">{formatDate(invoice.dueDate)}</p>
         </div>
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <p className="mb-3 text-sm font-medium">Line Items</p>
-        <div className="overflow-x-auto rounded-md border">
+        <div className="data-panel overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -199,7 +199,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Payments</p>
           {canPay && (invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID") && (
@@ -209,7 +209,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         {invoice.payments.length === 0 ? (
           <p className="text-muted-foreground text-sm">No payments recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-md border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -235,7 +235,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {canViewActivity && (
-        <div className="rounded-lg border p-4">
+        <div className="data-panel p-4">
           <p className="mb-3 text-sm font-medium">Activity</p>
           <Timeline items={activityItems} emptyMessage="No recorded changes for this invoice yet" />
         </div>

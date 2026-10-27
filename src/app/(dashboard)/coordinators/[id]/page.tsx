@@ -150,7 +150,7 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Active Assignments" value={String(coordinator._count.assignments)} />
         <KpiCard label="Total Sales" value={formatMoney(totalSales)} />
         <KpiCard label="Commission Earned" value={formatMoney(totalCommission)} />
@@ -174,7 +174,7 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
           {sales.length === 0 ? (
             <EmptyState icon={DollarSign} title="No sales recorded yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -239,7 +239,7 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
           {commissions.length === 0 ? (
             <EmptyState icon={HandCoins} title="No commissions generated yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -277,7 +277,7 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
               {vehicles.length === 0 ? (
                 <EmptyState icon={Car} title="No vehicles assigned to this coordinator" />
               ) : (
-                <div className="overflow-x-auto rounded-lg border">
+                <div className="data-panel overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -321,7 +321,7 @@ export default async function CoordinatorDetailPage({ params }: { params: Promis
               {equipment.length === 0 ? (
                 <EmptyState icon={Car} title="No equipment assigned to this coordinator" />
               ) : (
-                <div className="overflow-x-auto rounded-lg border">
+                <div className="data-panel overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>

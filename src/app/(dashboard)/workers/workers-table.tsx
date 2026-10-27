@@ -126,7 +126,7 @@ export function WorkersTable({
           />
         </div>
       )}
-      <div className="rounded-lg border">
+      <div className="data-panel">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

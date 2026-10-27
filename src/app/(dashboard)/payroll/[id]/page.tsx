@@ -82,7 +82,7 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
       />
 
       {totalWorkers > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard label="Workers" value={totalWorkers.toLocaleString()} />
           <KpiCard label="Gross" value={formatMoney(grossTotal)} />
           <KpiCard label="Deductions" value={formatMoney(deductionsTotal)} />
@@ -100,7 +100,7 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
       {period.workerPayrolls.length === 0 ? (
         <EmptyState icon={Lock} title="No worker payroll generated yet" />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -142,7 +142,7 @@ export default async function PayrollPeriodPage({ params }: { params: Promise<{ 
       )}
 
       {period.employeePayrolls.length > 0 && (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

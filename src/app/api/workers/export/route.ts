@@ -27,8 +27,9 @@ export async function GET(request: NextRequest) {
   const workerType = (searchParams.get("type") as WorkerType | "ALL" | null) ?? "ALL";
   const supplierId = searchParams.get("supplier") ?? undefined;
   const unassigned = searchParams.get("unassigned") === "1";
+  const expiringWithinDays = searchParams.get("expiring") === "30" ? 30 : undefined;
 
-  const workers = await listWorkersForExport(user, { search, status, workerType, supplierId, unassigned });
+  const workers = await listWorkersForExport(user, { search, status, workerType, supplierId, unassigned, expiringWithinDays });
 
   const csv = toCsv(
     [

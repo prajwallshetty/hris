@@ -383,7 +383,7 @@ export default async function WorkerDetailPage({
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         <KpiCard label="Hourly Rate" value={formatMoney(worker.hourlyRate)} />
         <KpiCard label="Overtime Rate" value={formatMoney(worker.overtimeRate)} />
         {latestPayroll ? (
@@ -398,7 +398,7 @@ export default async function WorkerDetailPage({
             <KpiCard label="Active Loan" value={activeLoan ? formatMoney(activeLoanRemaining!.toNumber()) : "None"} />
           </>
         ) : (
-          <KpiCard label="Payroll" value="No payroll yet" className="col-span-4" />
+          <KpiCard label="Payroll" value="No payroll yet" className="col-span-full" />
         )}
       </div>
 
@@ -607,7 +607,7 @@ export default async function WorkerDetailPage({
           {worker.documents.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No documents uploaded yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -674,7 +674,7 @@ export default async function WorkerDetailPage({
               description="Deploy this worker to a client site to start tracking their assignment history."
             />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -714,7 +714,7 @@ export default async function WorkerDetailPage({
           {payrollHistory.length === 0 ? (
             <EmptyState icon={Receipt} title="No salary history yet" description="Salary slips will appear here once calculated." />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -820,7 +820,7 @@ export default async function WorkerDetailPage({
           {leave.requests.length === 0 ? (
             <EmptyState icon={Calendar} title="No leave requests yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -864,7 +864,7 @@ export default async function WorkerDetailPage({
           {advances.length === 0 ? (
             <EmptyState icon={HandCoins} title="No advances given" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -915,7 +915,7 @@ export default async function WorkerDetailPage({
           {loans.length === 0 ? (
             <EmptyState icon={Landmark} title="No loans given" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -988,7 +988,7 @@ export default async function WorkerDetailPage({
           {vehicleAssignments.length === 0 ? (
             <EmptyState icon={Car} title="No vehicle assignments yet" />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="data-panel overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1038,7 +1038,7 @@ export default async function WorkerDetailPage({
             {recurringCharges.length === 0 ? (
               <EmptyState icon={Home} title="No recurring charges set up" description="Track rent, housing, or other periodic worker deductions here." />
             ) : (
-              <div className="overflow-x-auto rounded-lg border bg-white">
+              <div className="data-panel overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>

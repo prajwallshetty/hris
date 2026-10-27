@@ -96,7 +96,7 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Original Advance" value={formatMoney(advance.amount)} />
         <KpiCard label="Recovered" value={formatMoney(paid)} />
         <KpiCard
@@ -107,7 +107,7 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
         <KpiCard label="Status" value={advance.status.replaceAll("_", " ")} />
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="data-panel p-4">
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="font-medium">Recovery Progress</span>
           <span className="text-muted-foreground">{progressPct}%</span>
@@ -124,7 +124,7 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
             description="Recoveries are applied automatically when this advance is deducted during payroll processing."
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

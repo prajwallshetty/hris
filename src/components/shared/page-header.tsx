@@ -25,7 +25,7 @@ export function PageHeader({
   breadcrumbs?: BreadcrumbTrailItem[];
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Breadcrumb>
           <BreadcrumbList>
@@ -44,12 +44,12 @@ export function PageHeader({
           </BreadcrumbList>
         </Breadcrumb>
       )}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
-          {description && <p className="text-muted-foreground text-sm">{description}</p>}
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-[26px] leading-tight font-bold tracking-tight text-slate-900 sm:text-[30px]">{title}</h1>
+          {description && <p className="max-w-3xl text-sm text-slate-600 sm:text-[15px]">{description}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-2 md:shrink-0 md:justify-end">{actions}</div>}
       </div>
     </div>
   );

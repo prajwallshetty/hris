@@ -74,32 +74,32 @@ export function RecordHeader({
         </Breadcrumb>
       )}
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          {avatar}
-          <div className="min-w-0 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
-              {badges}
+      <div className="data-panel p-4 sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-3.5">
+            {avatar}
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="min-w-0 text-xl font-bold tracking-tight break-words text-slate-900 sm:text-2xl">{title}</h1>
+                {badges}
+              </div>
+              {meta && <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">{meta}</div>}
             </div>
-            {meta && <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">{meta}</div>}
           </div>
+          {actions && <div className="flex flex-wrap items-center gap-2 xl:max-w-[60%] xl:justify-end">{actions}</div>}
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 lg:shrink-0">
-          {indicators && indicators.length > 0 && (
-            <div className="flex flex-wrap items-center gap-4 border-r pr-4 last:border-r-0 last:pr-0">
-              {indicators.map((ind) => (
-                <div key={ind.label} className="flex items-center gap-1.5">
-                  <span className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT_CLASSES[ind.tone ?? "neutral"])} />
-                  <span className="text-muted-foreground text-xs">{ind.label}</span>
-                  <span className="text-sm font-semibold tabular-nums">{ind.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-        </div>
+        {indicators && indicators.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 pt-3.5">
+            {indicators.map((ind) => (
+              <div key={ind.label} className="flex items-center gap-1.5">
+                <span className={cn("size-2 shrink-0 rounded-full", TONE_DOT_CLASSES[ind.tone ?? "neutral"])} />
+                <span className="text-muted-foreground text-xs">{ind.label}</span>
+                <span className="text-sm font-semibold text-slate-900 tabular-nums">{ind.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -108,8 +108,8 @@ export function RecordHeader({
 /** 44px square icon block — for entities without a photo (vehicles, equipment, coordinators…). */
 export function RecordAvatarIcon({ icon: Icon, className }: { icon: React.ComponentType<{ className?: string }>; className?: string }) {
   return (
-    <div className={cn("bg-foreground text-background flex size-11 shrink-0 items-center justify-center rounded-xl", className)}>
-      <Icon className="size-5" />
+    <div className={cn("bg-primary flex size-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm", className)}>
+      <Icon className="size-6" />
     </div>
   );
 }
@@ -126,7 +126,7 @@ export function RecordAvatarInitials({ name, className }: { name: string; classN
   return (
     <div
       className={cn(
-        "bg-accent text-accent-foreground flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+        "bg-navy flex size-12 shrink-0 items-center justify-center rounded-full text-base font-semibold text-white shadow-sm",
         className,
       )}
     >

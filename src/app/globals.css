@@ -46,6 +46,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-navy: var(--navy);
 
   /* Expand Arabia brand accent (teal/green, sampled from the logo mark) —
      a second interactive color reserved for positive trend highlights,
@@ -98,27 +99,31 @@
      laid over the same restrained neutral ground as before: a single brand
      color for primary actions/selected states/links (§35), not a rainbow of
      module colors. */
-  --background: #f7f8fa;
-  --foreground: #0b1220;
+  --background: #eef2f7;
+  --foreground: #0f1b2d;
   --card: #ffffff;
   --card-foreground: #0b1220;
   --popover: #ffffff;
   --popover-foreground: #0b1220;
-  --primary: #003189;
-  --primary-hover: #00266b;
-  --primary-active: #001d54;
+  /* Action blue (buttons, active nav, links) — brighter than the logo navy so
+     interactive elements read clearly against white; navy stays the brand/
+     heading color via --navy. */
+  --primary: #1660d6;
+  --primary-hover: #0f51bb;
+  --primary-active: #0b4299;
   --primary-foreground: #ffffff;
-  --secondary: #f2f4f7;
+  --secondary: #f1f4f9;
   --secondary-foreground: #0b1220;
-  --muted: #f2f4f7;
-  --muted-foreground: #64748b;
-  --accent: #eaf1fb;
-  --accent-foreground: #003189;
+  --muted: #f3f6fa;
+  --muted-foreground: #5e6b7e;
+  --accent: #e8f0fd;
+  --accent-foreground: #1660d6;
   --destructive: #b42318;
-  --border: #e5e8ec;
-  --border-strong: #d6dbe2;
-  --input: #d6dbe2;
-  --ring: #003189;
+  --border: #e2e8f0;
+  --border-strong: #cfd8e3;
+  --input: #d3dbe6;
+  --ring: #1660d6;
+  --navy: #0b2a6b;
 
   /* Brand accent — the logo's teal/green, reserved for positive trend
      highlights, the primary chart series, and small on-brand callouts. */
@@ -139,11 +144,11 @@
   /* Categorical chart palette — brand teal/navy lead (the two-series
      revenue-vs-cost dashboard chart), then a fixed rotation for anything
      wider, never cycled arbitrarily. */
-  --chart-1: #00c295;
-  --chart-2: #003189;
-  --chart-3: #eb6834;
-  --chart-4: #6b5bd2;
-  --chart-5: #eda100;
+  --chart-1: #1f6fe5;
+  --chart-2: #00b386;
+  --chart-3: #f08a24;
+  --chart-4: #8b5cf6;
+  --chart-5: #ef4444;
 
   --radius: 0.625rem;
   --sidebar: #ffffff;
@@ -176,5 +181,13 @@
   }
   to {
     background-position: -50% 0;
+  }
+}
+/* Design-system surfaces (§ redesign). One definition for every white
+   workspace panel — table containers, toolbars, form sections — instead of
+   per-page border/radius/shadow combinations. */
+@layer components {
+  .data-panel {
+    @apply rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,27,45,0.04),0_1px_3px_rgba(15,27,45,0.04)];
   }
 }

@@ -34,7 +34,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
         // layout (confirmed by disabling sticky and measuring the exact
         // offset match). A static header that always corrupts nothing
         // beats a sticky one that sometimes does.
-        "bg-secondary [&_tr]:border-b",
+        "bg-slate-50/80 [&_tr]:border-b [&_tr]:hover:bg-transparent",
         className,
       )}
       {...props}
@@ -70,7 +70,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-accent",
+        "border-b border-slate-100 transition-colors hover:bg-blue-50/40 has-aria-expanded:bg-blue-50/40 data-[state=selected]:bg-accent",
         className
       )}
       {...props}
@@ -83,7 +83,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-11 px-3 text-left align-middle text-xs font-semibold whitespace-nowrap text-muted-foreground uppercase tracking-wide [&:has([role=checkbox])]:pr-0",
+        "h-10 px-3 text-left align-middle text-[11px] font-semibold whitespace-nowrap text-slate-500 uppercase tracking-wider first:pl-4 last:pr-4 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -96,7 +96,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "px-3 py-3.5 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "px-3 py-3 align-middle text-[13.5px] whitespace-nowrap text-slate-700 first:pl-4 last:pr-4 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

@@ -7,12 +7,12 @@ const CARD_VARIANT_CLASSES = {
   // every piece of information into a card").
   standard: "",
   // Raised above the page for emphasis (summary panels, highlighted totals).
-  elevated: "shadow-sm ring-foreground/8",
+  elevated: "shadow-md",
   // Clickable card rows — a hover lift instead of a static ring.
   interactive:
-    "cursor-pointer transition-shadow hover:shadow-sm hover:ring-foreground/15",
+    "cursor-pointer transition-shadow hover:border-primary/30 hover:shadow-md",
   // Callout / attention card — primary-tinted left accent.
-  highlight: "border-l-2 border-l-primary ring-foreground/8",
+  highlight: "border-l-4 border-l-primary",
 } as const;
 
 function Card({
@@ -30,7 +30,7 @@ function Card({
       data-size={size}
       data-variant={variant}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-lg bg-card py-(--card-spacing) text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10 [--card-spacing:--spacing(6)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-lg *:[img:last-child]:rounded-b-lg",
+        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl border border-border bg-card py-(--card-spacing) text-sm text-card-foreground shadow-[0_1px_2px_rgba(15,27,45,0.04),0_1px_3px_rgba(15,27,45,0.04)] [--card-spacing:--spacing(5)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-lg *:[img:last-child]:rounded-b-lg",
         CARD_VARIANT_CLASSES[variant],
         className
       )}
@@ -57,7 +57,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-snug font-semibold group-data-[size=sm]/card:text-sm",
+        "font-heading text-[15px] leading-snug font-bold text-slate-900 group-data-[size=sm]/card:text-sm",
         className
       )}
       {...props}

@@ -12,7 +12,7 @@ const SIZES = {
   collapsed: 24,
   login: 64,
   document: 48,
-  ribbon: 32,
+  ribbon: 40,
 } as const;
 
 export type LogoSize = keyof typeof SIZES;

@@ -165,21 +165,49 @@ export function DetailSkeleton() {
   );
 }
 
-/** Full dashboard composition — greeting header, KPI rows, chart row, activity. */
+/** Mirrors the dashboard: header + filters, 6 KPIs, 3 analytics panels, 3 workspace panels. */
 export function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="h-4 w-80" />
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-44" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-11 w-52" />
+          <Skeleton className="h-11 w-52" />
+        </div>
       </div>
-      <KpiGridSkeleton count={4} />
-      <KpiGridSkeleton count={4} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartSkeleton height="h-56" />
-        <ChartSkeleton height="h-56" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="data-panel flex items-center gap-3.5 p-4">
+            <Skeleton className="size-12 rounded-xl" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-6 w-28" />
+            </div>
+          </div>
+        ))}
       </div>
-      <ListSkeleton rows={5} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[1.3fr_1fr_0.95fr]">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="data-panel space-y-4 p-5">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-56 w-full" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[1.15fr_1fr_0.95fr]">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="data-panel space-y-3 p-5">
+            <Skeleton className="h-5 w-36" />
+            {Array.from({ length: 5 }, (_, j) => (
+              <Skeleton key={j} className="h-9 w-full" />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

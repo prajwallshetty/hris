@@ -75,7 +75,7 @@ export default async function SuppliersPage({
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="data-panel overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -127,7 +127,7 @@ export default async function SuppliersPage({
               </TableBody>
             </Table>
           </div>
-          <div className="rounded-lg border">
+          <div className="data-panel">
             <Pagination page={page} pageSize={pageSize} total={total} />
           </div>
         </>

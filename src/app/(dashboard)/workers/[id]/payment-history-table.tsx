@@ -172,7 +172,7 @@ export function PaymentHistoryTable({
       {filtered.length === 0 ? (
         <EmptyState icon={Receipt} title="No payments match your search" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div className="data-panel overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

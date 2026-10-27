@@ -78,7 +78,7 @@ export default async function ReportsPage({
             {workforce.length === 0 ? (
               <EmptyState icon={BarChart3} title="No active assignments yet" />
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="data-panel overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -107,7 +107,7 @@ export default async function ReportsPage({
             {attendance.length === 0 ? (
               <EmptyState icon={BarChart3} title="No approved timesheet hours yet" />
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="data-panel overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -140,7 +140,7 @@ export default async function ReportsPage({
             {payroll.length === 0 ? (
               <EmptyState icon={BarChart3} title="No payroll periods yet" />
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="data-panel overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -183,7 +183,7 @@ export default async function ReportsPage({
             {coordinator.length === 0 ? (
               <EmptyState icon={BarChart3} title="No sales or commission activity yet" />
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="data-panel overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -213,7 +213,7 @@ export default async function ReportsPage({
 
         {showFinance && finance && (
           <TabsContent value="finance">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <KpiCard label="Revenue" value={formatMoney(finance.revenue)} />
               <KpiCard label="Worker Cost" value={formatMoney(finance.workerCost)} />
               <KpiCard label="Vehicle Cost" value={formatMoney(finance.vehicleExpenseTotal)} />

@@ -57,7 +57,7 @@ export default async function ImportHistoryPage({
       {runs.length === 0 ? (
         <EmptyState icon={Upload} title="No imports yet" description="Bulk uploads will appear here once you run one." />
       ) : (
-        <div className="rounded-lg border">
+        <div className="data-panel">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

@@ -101,7 +101,7 @@ function toLabel(status: string) {
 export function StatusBadge({ status }: { status: string }) {
   const tone = STATUS_TONES[status] ?? "neutral";
   return (
-    <Badge variant="outline" className={cn("gap-1.5 rounded-full border-transparent font-medium", TONE_CLASSES[tone])}>
+    <Badge variant="outline" className={cn("h-6 gap-1.5 rounded-md border-transparent px-2 text-xs font-semibold", TONE_CLASSES[tone])}>
       <span className={cn("size-1.5 shrink-0 rounded-full", DOT_CLASSES[tone])} />
       {toLabel(status)}
     </Badge>

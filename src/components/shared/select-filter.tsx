@@ -30,7 +30,9 @@ export function SelectFilter({
   }
 
   return (
-    <Select value={value} onValueChange={handleChange}>
+    // `items` lets the trigger show the option's label — without it Base UI
+    // renders the raw value, i.e. a database ID for entity filters.
+    <Select value={value} onValueChange={handleChange} items={[{ value: "ALL", label: "All" }, ...options]}>
       <SelectTrigger className="bg-secondary/60 w-full rounded-full border-transparent sm:w-auto">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

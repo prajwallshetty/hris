@@ -16,7 +16,7 @@ import { getSessionUser } from "@/server/session";
 export type WorkerOption = {
   id: string;
   fullName: string;
-  iqamaNumber: string;
+  iqamaNumber: string | null;
   hourlyRate?: number | null;
   designationTitle?: string | null;
   status: string;
@@ -523,6 +523,20 @@ export async function searchInvoiceOptions(
   }));
 }
 
+export type SupplierOption = { id: string; name: string; contactPerson: string | null };
+
+export async function searchSupplierOptions(query: string = "", filters?: { limit?: number }): Promise<SupplierOption[]> {
+  const user = await getSessionUser();
+  if (!can(user, "view", "supplier")) return [];
+  const q = query.trim();
+  return db.supplier.findMany({
+    where: { status: "ACTIVE", ...(q ? { name: { contains: q, mode: "insensitive" } } : {}) },
+    select: { id: true, name: true, contactPerson: true },
+    orderBy: { name: "asc" },
+    take: Math.min(filters?.limit ?? DEFAULT_LIMIT, 50),
+  });
+}
+
 export async function getEntityLabel(
   type:
     | "worker"
@@ -533,19 +547,24 @@ export async function getEntityLabel(
     | "vehicle"
     | "equipment"
     | "employee"
-    | "invoice",
+    | "invoice"
+    | "supplier",
   id: string
 ): Promise<{ title: string; subtitle?: string } | null> {
   if (!id) return null;
 
   try {
     switch (type) {
+      case "supplier": {
+        const sup = await db.supplier.findUnique({ where: { id }, select: { name: true } });
+        return sup ? { title: sup.name } : null;
+      }
       case "worker": {
         const w = await db.worker.findUnique({
           where: { id },
           select: { fullName: true, iqamaNumber: true },
         });
-        return w ? { title: w.fullName, subtitle: `Iqama: ${w.iqamaNumber}` } : null;
+        return w ? { title: w.fullName, subtitle: w.iqamaNumber ? `Iqama: ${w.iqamaNumber}` : "No Iqama yet" } : null;
       }
       case "client": {
         const c = await db.client.findUnique({

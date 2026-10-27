@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   type WorkerFormInput,
   type WorkerFormValues,
 } from "@/lib/validation/worker";
+import { WORKER_TYPE_LABELS, WORKER_TYPES } from "@/lib/validation/manpower";
 import { createWorker, updateWorker } from "@/server/actions/workers";
 
 type Coordinator = { id: string; name: string };
@@ -37,6 +38,8 @@ export function WorkerForm({
     resolver: zodResolver(workerFormSchema),
     defaultValues: {
       iqamaNumber: "",
+      workerType: "",
+      supplierId: "",
       fullName: "",
       mobile: "",
       passportNumber: "",
@@ -73,6 +76,7 @@ export function WorkerForm({
   }
 
   const { errors, isSubmitting } = form.formState;
+  const [workerType, supplierId] = useWatch({ control: form.control, name: ["workerType", "supplierId"] });
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -83,8 +87,8 @@ export function WorkerForm({
         <CardContent>
           <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="iqamaNumber">Iqama Number *</FieldLabel>
-              <Input id="iqamaNumber" {...form.register("iqamaNumber")} placeholder="10 digits" />
+              <FieldLabel htmlFor="iqamaNumber">Iqama Number</FieldLabel>
+              <Input id="iqamaNumber" {...form.register("iqamaNumber")} placeholder="10 digits, if available" />
               {errors.iqamaNumber && <FieldError>{errors.iqamaNumber.message}</FieldError>}
             </Field>
             <Field>
@@ -126,6 +130,43 @@ export function WorkerForm({
         </CardHeader>
         <CardContent>
           <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field>
+              <FieldLabel htmlFor="workerType">Worker Type</FieldLabel>
+              <Select
+                value={workerType || "NONE"}
+                onValueChange={(value) => {
+                  const next = value === "NONE" || !value ? "" : (value as (typeof WORKER_TYPES)[number]);
+                  form.setValue("workerType", next);
+                  if (next !== "HRD") form.setValue("supplierId", "");
+                }}
+                items={[{ value: "NONE", label: "Not set" }, ...WORKER_TYPES.map((t) => ({ value: t, label: WORKER_TYPE_LABELS[t] }))]}
+              >
+                <SelectTrigger id="workerType" className="w-full">
+                  <SelectValue placeholder="Not set" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Not set</SelectItem>
+                  {WORKER_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {WORKER_TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            {workerType === "HRD" && (
+              <Field>
+                <FieldLabel htmlFor="supplierId">Supplier *</FieldLabel>
+                <EntityCombobox
+                  id="supplierId"
+                  entityType="supplier"
+                  value={supplierId}
+                  onChange={(id) => form.setValue("supplierId", id, { shouldValidate: form.formState.isSubmitted })}
+                  error={errors.supplierId?.message}
+                />
+                {errors.supplierId && <FieldError>{errors.supplierId.message}</FieldError>}
+              </Field>
+            )}
             <Field>
               <FieldLabel htmlFor="designation">Designation</FieldLabel>
               <Input id="designation" {...form.register("designation")} placeholder="e.g. Scaffolder" />

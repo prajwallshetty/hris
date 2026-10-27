@@ -45,7 +45,7 @@ export async function globalSearch(query: string): Promise<SearchResultGroup[]> 
     if (workers.length > 0) {
       groups.push({
         label: "Workers",
-        items: workers.map((w) => ({ id: w.id, label: w.fullName, sublabel: w.iqamaNumber, href: `/workers/${w.id}` })),
+        items: workers.map((w) => ({ id: w.id, label: w.fullName, sublabel: w.iqamaNumber ?? undefined, href: `/workers/${w.id}` })),
       });
     }
   }

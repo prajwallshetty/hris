@@ -42,6 +42,16 @@ enum WorkerStatus {
   TERMINATED
 }
 
+// How a worker is engaged: FRL = freelance, HRD = supplied by a manpower
+// supplier (supplierId required), OWN = company-owned manpower. Nullable on
+// Worker only because records created before this field existed can't be
+// classified retroactively — every new registration must set it.
+enum WorkerType {
+  FRL
+  HRD
+  OWN
+}
+
 enum AssignmentStatus {
   ACTIVE
   ENDED
@@ -278,6 +288,24 @@ model Coordinator {
   equipmentRentals   EquipmentRental[]
 }
 
+// Manpower supplier master — the agency an HRD worker is sourced from.
+model Supplier {
+  id            String       @id @default(cuid())
+  name          String       @unique
+  contactPerson String?
+  phone         String?
+  email         String?
+  notes         String?      @db.Text
+  status        EntityStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workers Worker[]
+
+  @@index([status])
+}
+
 // ---------------------------------------------------------------------------
 // Client hierarchy: Client -> Project -> Site
 // ---------------------------------------------------------------------------
@@ -433,9 +461,15 @@ model Holiday {
 // ---------------------------------------------------------------------------
 
 model Worker {
-  id          String @id @default(cuid())
-  sequenceNo  Int    @unique @default(autoincrement())
-  iqamaNumber String @unique
+  id          String  @id @default(cuid())
+  sequenceNo  Int     @unique @default(autoincrement())
+  // Optional: newly mobilized manpower often has no Iqama yet. Still unique
+  // when present (Postgres allows any number of NULLs under a unique index).
+  iqamaNumber String? @unique
+
+  workerType WorkerType?
+  supplierId String?
+  supplier   Supplier?   @relation(fields: [supplierId], references: [id], onDelete: Restrict)
 
   fullName           String
   mobile             String?
@@ -494,6 +528,8 @@ model Worker {
   @@index([fullName])
   @@index([designationId])
   @@index([batchNumber])
+  @@index([workerType])
+  @@index([supplierId])
 }
 
 model WorkerStatusHistory {
@@ -757,8 +793,9 @@ model TimesheetItem {
   assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
 
   // Snapshot of the Iqama at import time — the primary matching key for
-  // Excel/CSV imports, kept even if the worker record later changes.
-  iqamaNumber String
+  // Excel/CSV imports, kept even if the worker record later changes. Null
+  // for manually entered attendance of a worker who has no Iqama yet.
+  iqamaNumber String?
 
   date          DateTime
   loginTime     DateTime?

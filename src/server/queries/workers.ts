@@ -1,4 +1,4 @@
-import type { Prisma, WorkerStatus } from "@prisma/client";
+import type { Prisma, WorkerStatus, WorkerType } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { parseWorkerCodeSearch } from "@/lib/codes";
@@ -27,29 +27,37 @@ export const CURRENT_ASSIGNMENT_INCLUDE = {
   },
   coordinator: true,
   designation: true,
+  supplier: { select: { id: true, name: true } },
 };
+
+type WorkerListFilters = {
+  search?: string;
+  status?: WorkerStatus | "ALL";
+  workerType?: WorkerType | "ALL";
+  supplierId?: string;
+  unassigned?: boolean;
+};
+
+function buildWorkerListWhere(user: SessionUser, params: WorkerListFilters): Prisma.WorkerWhereInput {
+  return {
+    deletedAt: null,
+    ...workerScopeWhere(user),
+    ...(params.status && params.status !== "ALL" ? { status: params.status } : {}),
+    ...(params.workerType && params.workerType !== "ALL" ? { workerType: params.workerType } : {}),
+    ...(params.supplierId ? { supplierId: params.supplierId } : {}),
+    ...(params.unassigned ? { assignments: { none: { status: "ACTIVE" } } } : {}),
+    ...buildWorkerSearchWhere(params.search),
+  };
+}
 
 export async function listWorkers(
   user: SessionUser,
-  params: {
-    search?: string;
-    status?: WorkerStatus | "ALL";
-    unassigned?: boolean;
-    page?: number;
-    pageSize?: number;
-  },
+  params: WorkerListFilters & { page?: number; pageSize?: number },
 ) {
   assertCan(user, "view", "worker");
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 25;
-
-  const where: Prisma.WorkerWhereInput = {
-    deletedAt: null,
-    ...workerScopeWhere(user),
-    ...(params.status && params.status !== "ALL" ? { status: params.status } : {}),
-    ...(params.unassigned ? { assignments: { none: { status: "ACTIVE" } } } : {}),
-    ...buildWorkerSearchWhere(params.search),
-  };
+  const where = buildWorkerListWhere(user, params);
 
   const [workers, total] = await Promise.all([
     db.worker.findMany({
@@ -72,6 +80,7 @@ export async function getWorker(user: SessionUser, id: string) {
     include: {
       coordinator: true,
       designation: true,
+      supplier: { select: { id: true, name: true } },
       documents: { orderBy: { uploadedAt: "desc" } },
       assignments: {
         orderBy: { startDate: "desc" },
@@ -86,15 +95,10 @@ export async function getWorker(user: SessionUser, id: string) {
 // not just the current page.
 export async function listWorkersForExport(
   user: SessionUser,
-  params: { search?: string; status?: WorkerStatus | "ALL" },
+  params: WorkerListFilters,
 ) {
   assertCan(user, "view", "worker");
-  const where: Prisma.WorkerWhereInput = {
-    deletedAt: null,
-    ...workerScopeWhere(user),
-    ...(params.status && params.status !== "ALL" ? { status: params.status } : {}),
-    ...buildWorkerSearchWhere(params.search),
-  };
+  const where = buildWorkerListWhere(user, params);
 
   return db.worker.findMany({
     where,

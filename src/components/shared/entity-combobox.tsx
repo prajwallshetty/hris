@@ -17,6 +17,7 @@ import {
   searchEquipmentOptions,
   searchEmployeeOptions,
   searchInvoiceOptions,
+  searchSupplierOptions,
   getEntityLabel,
 } from "@/server/actions/entity-search";
 
@@ -29,7 +30,8 @@ export type EntityType =
   | "vehicle"
   | "equipment"
   | "employee"
-  | "invoice";
+  | "invoice"
+  | "supplier";
 
 export type EntityOption = {
   id: string;
@@ -100,6 +102,8 @@ export function EntityCombobox({
         return "Search employee...";
       case "invoice":
         return "Search invoice number...";
+      case "supplier":
+        return "Search supplier...";
     }
   }, [entityType, placeholder]);
 
@@ -160,7 +164,7 @@ export function EntityCombobox({
             results = list.map((w) => ({
               id: w.id,
               title: w.fullName,
-              subtitle: `Iqama: ${w.iqamaNumber}`,
+              subtitle: w.iqamaNumber ? `Iqama: ${w.iqamaNumber}` : "No Iqama yet",
               badge: w.designationTitle || w.status,
               raw: w,
             }));
@@ -243,6 +247,16 @@ export function EntityCombobox({
               subtitle: emp.departmentName || undefined,
               badge: emp.designationTitle || undefined,
               raw: emp,
+            }));
+            break;
+          }
+          case "supplier": {
+            const list = await searchSupplierOptions(query);
+            results = list.map((sup) => ({
+              id: sup.id,
+              title: sup.name,
+              subtitle: sup.contactPerson ? `Contact: ${sup.contactPerson}` : undefined,
+              raw: sup,
             }));
             break;
           }

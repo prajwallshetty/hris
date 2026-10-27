@@ -46,7 +46,7 @@ export function QuickCreateMenu({ role }: { role: Role }) {
   const user = { id: "", role, coordinatorId: null, clientId: null };
 
   const items = [
-    can(user, "create", "worker") && { href: "/workers/new", label: "Add Worker", icon: UserPlus },
+    can(user, "create", "worker") && { href: "/workers/new", label: "Register Manpower", icon: UserPlus },
     can(user, "create", "employee") && { href: "/employees/new", label: "Add Employee", icon: UserSquare2 },
     can(user, "create", "assignment") && { href: "/assignments?new=1", label: "New Assignment", icon: ClipboardList },
     can(user, "create", "timesheet") && { href: "/timesheets/upload", label: "Attendance / LOG", icon: ClipboardCheck },

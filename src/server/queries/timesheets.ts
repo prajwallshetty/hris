@@ -52,7 +52,9 @@ export async function findWorkersByIqamas(iqamas: string[]) {
     where: { iqamaNumber: { in: iqamas }, deletedAt: null },
     select: { id: true, fullName: true, iqamaNumber: true },
   });
-  workers.forEach((w) => map.set(w.iqamaNumber, { id: w.id, fullName: w.fullName }));
+  workers.forEach((w) => {
+    if (w.iqamaNumber) map.set(w.iqamaNumber, { id: w.id, fullName: w.fullName });
+  });
   return map;
 }
 
@@ -62,7 +64,7 @@ export async function getAssignedIqamasForSite(siteId: string): Promise<Set<stri
     where: { siteId, status: "ACTIVE" },
     select: { worker: { select: { iqamaNumber: true } } },
   });
-  return new Set(assignments.map((a) => a.worker.iqamaNumber));
+  return new Set(assignments.flatMap((a) => (a.worker.iqamaNumber ? [a.worker.iqamaNumber] : [])));
 }
 
 /** `${workerId}:${yyyy-mm-dd}` keys already recorded, for the duplicate-attendance check. */

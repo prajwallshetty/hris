@@ -36,7 +36,7 @@ type ClientTree = {
   projects: { id: string; name: string; sites: { id: string; name: string }[] }[];
 };
 
-type WorkerOption = { id: string; fullName: string; iqamaNumber: string; hourlyRate?: number | null };
+type WorkerOption = { id: string; fullName: string; iqamaNumber: string | null; hourlyRate?: number | null };
 type Coordinator = { id: string; name: string };
 
 export function AssignmentFormDialog({

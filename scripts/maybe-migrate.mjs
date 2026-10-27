@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Brings the deployment's database up to the schema this build's code
-// expects, before `next build` runs. Wired in as part of `vercel-build`.
+// expects, before `next build` runs. Wired into `npm run build` (the Build Command pinned in vercel.json).
 //
 // Why this runs on Preview too: a Preview deployment of a branch that adds
 // a migration otherwise ships code that selects columns its database does
@@ -60,8 +60,8 @@ function destructiveStatements(sql) {
     .map((s) => s.replace(/\s+/g, " ").slice(0, 160));
 }
 
-function deploy() {
-  execSync("npx prisma migrate deploy", { stdio: "inherit" });
+function deploy(url) {
+  execSync("npx prisma migrate deploy", { stdio: "inherit", env: { ...process.env, DATABASE_URL: url } });
 }
 
 const env = process.env.VERCEL_ENV;
@@ -71,12 +71,17 @@ if (env !== "production" && env !== "preview") {
   process.exit(0);
 }
 
-if (!process.env.DATABASE_URL) {
+// Migrations need a direct (non-pooled) connection: PgBouncer-style poolers
+// break the advisory lock `migrate deploy` takes. Vercel's Neon integration
+// provides DATABASE_URL_UNPOOLED; DIRECT_URL is the common manual name.
+const migrationUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
+
+if (!migrationUrl) {
   console.error(`[migrate] DATABASE_URL is not set for the ${env} environment — cannot verify the schema. Failing the build.`);
   process.exit(1);
 }
 
-const applied = await appliedMigrations(process.env.DATABASE_URL);
+const applied = await appliedMigrations(migrationUrl);
 const pending = localMigrations().filter((name) => !applied.has(name));
 
 if (pending.length === 0) {
@@ -98,4 +103,4 @@ if (env === "preview") {
   }
 }
 
-deploy();
+deploy(migrationUrl);

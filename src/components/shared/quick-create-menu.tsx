@@ -4,6 +4,7 @@ import type { Role } from "@prisma/client";
 import {
   Banknote,
   Building2,
+  CalendarOff,
   Car,
   ClipboardCheck,
   ClipboardList,
@@ -48,7 +49,7 @@ export function QuickCreateMenu({ role }: { role: Role }) {
     can(user, "create", "worker") && { href: "/workers/new", label: "Add Worker", icon: UserPlus },
     can(user, "create", "employee") && { href: "/employees/new", label: "Add Employee", icon: UserSquare2 },
     can(user, "create", "assignment") && { href: "/assignments?new=1", label: "New Assignment", icon: ClipboardList },
-    can(user, "create", "timesheet") && { href: "/timesheets/upload", label: "Upload Timesheet (LOG)", icon: ClipboardCheck },
+    can(user, "create", "timesheet") && { href: "/timesheets/upload", label: "Attendance / LOG", icon: ClipboardCheck },
     // Salary slips and worker payments are always tied to one worker — the
     // real create form lives on that worker's own profile page (the
     // Create Salary Slip / Record Payment buttons), so Quick Create routes
@@ -64,6 +65,10 @@ export function QuickCreateMenu({ role }: { role: Role }) {
     can(user, "create", "expense") && { href: "/expenses?new=1", label: "Add Expense", icon: Receipt },
     can(user, "create", "coordinator") && { href: "/coordinators?new=1", label: "Add Coordinator", icon: UserCog },
     can(user, "create", "payrollPeriod") && { href: "/payroll?new=1", label: "New Payroll Period", icon: Banknote },
+    // Leave, like Salary Slip/Payment, is always filed from the worker's
+    // own profile (or the Leave review queue to decide one already filed)
+    // — Quick Create routes to Workers to find the worker first.
+    can(user, "create", "leaveRequest") && { href: "/workers", label: "Leave", icon: CalendarOff },
   ].filter((item): item is { href: string; label: string; icon: typeof UserPlus } => Boolean(item));
 
   if (items.length === 0) return null;

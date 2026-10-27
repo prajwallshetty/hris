@@ -131,13 +131,14 @@ export default async function DashboardPage() {
 
       <section className="space-y-3">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Workforce</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <KpiCard href="/workers" label="Total Workers" value={counts.totalWorkers.toLocaleString()} icon={Users} />
           <KpiCard
             href="/workers?status=ACTIVE"
             label="Active Workers"
             value={counts.activeWorkers.toLocaleString()}
             icon={UserCheck}
+            accent="blue"
           />
           <KpiCard href="/clients" label="Clients" value={counts.totalClients.toLocaleString()} icon={Building2} />
           <KpiCard href="/clients" label="Sites" value={counts.totalSites.toLocaleString()} icon={MapPin} />
@@ -152,13 +153,14 @@ export default async function DashboardPage() {
 
       <section id="pending-actions" className="scroll-mt-40 space-y-3">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Pending Actions</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {showRecentWorkers && (
             <KpiCard
               href="/workers?unassigned=1"
               label="Workers Without Assignments"
               value={operational.workersWithoutAssignments.toLocaleString()}
               icon={UserX}
+              accent="orange"
             />
           )}
           {showTimesheetKpi && (
@@ -167,6 +169,7 @@ export default async function DashboardPage() {
               label="Pending Attendance / LOG"
               value={operational.pendingAttendance.toLocaleString()}
               icon={ClipboardCheck}
+              accent="teal"
             />
           )}
           {showFinancials && (
@@ -175,6 +178,7 @@ export default async function DashboardPage() {
               label="Overdue Invoices"
               value={operational.overdueInvoices.toLocaleString()}
               icon={AlertTriangle}
+              accent="blue"
             />
           )}
           {showPayrollKpi && (
@@ -183,6 +187,7 @@ export default async function DashboardPage() {
               label="Current Month Payroll"
               value={formatMoney(operational.currentMonthPayroll)}
               icon={Wallet}
+              accent="green"
             />
           )}
         </div>
@@ -191,13 +196,20 @@ export default async function DashboardPage() {
       {showPayrollKpi && (operational.paidSalary > 0 || operational.outstandingSalary > 0) && (
         <section className="space-y-3">
           <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">This Month&rsquo;s Salary</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-2">
-            <KpiCard href="/payroll" label="Paid" value={formatMoney(operational.paidSalary)} icon={CircleCheck} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2">
+            <KpiCard
+              href="/payroll"
+              label="Paid"
+              value={formatMoney(operational.paidSalary)}
+              icon={CircleCheck}
+              accent="purple"
+            />
             <KpiCard
               href="/payroll"
               label="Outstanding"
               value={formatMoney(operational.outstandingSalary)}
               icon={Banknote}
+              accent="red"
             />
           </div>
         </section>
@@ -206,7 +218,7 @@ export default async function DashboardPage() {
       {financeKpis && (
         <section className="space-y-3">
           <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Finance</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {showTimesheetKpi && (
               <KpiCard href="/timesheets" label="Approved Hours" value={financeKpis.totalHours.toLocaleString(undefined, { maximumFractionDigits: 0 })} icon={Clock} />
             )}
@@ -222,7 +234,7 @@ export default async function DashboardPage() {
       {showFinancials && profitability.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Profitability</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard href="/invoices" label="Revenue" value={formatMoney(totals.revenue)} icon={TrendingUp} />
             <KpiCard href="/payroll" label="Worker Cost" value={formatMoney(totals.workerCost)} icon={Wallet} />
             <KpiCard href="/invoices" label="Outstanding" value={formatMoney(totals.outstanding)} icon={Banknote} />
@@ -234,7 +246,7 @@ export default async function DashboardPage() {
       {fleetCounts && (
         <section className="space-y-3">
           <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Fleet</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <KpiCard href="/vehicles" label="Vehicles" value={fleetCounts.totalVehicles.toLocaleString()} icon={Car} />
             <KpiCard
               href="/vehicles?status=ASSIGNED"

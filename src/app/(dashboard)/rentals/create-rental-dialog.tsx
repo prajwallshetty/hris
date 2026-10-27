@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { useClearNewParam } from "@/lib/use-clear-new-param";
+import { formatEnumLabel } from "@/lib/format-enum";
 import {
   RENTAL_RATE_TYPES,
   equipmentRentalFormSchema,
@@ -106,6 +107,14 @@ export function CreateRentalDialog({
     selectedEquipment && selectedRateType in RATE_FIELD
       ? selectedEquipment[RATE_FIELD[selectedRateType]]
       : null;
+
+  // Pre-fill the agreed rate from the equipment's rate card until the user
+  // types their own, so the form doesn't open on a rejected 0.
+  useEffect(() => {
+    if (suggestedRate != null && !form.getFieldState("rateAmount").isDirty) {
+      form.setValue("rateAmount", Number(suggestedRate), { shouldValidate: form.formState.isSubmitted });
+    }
+  }, [suggestedRate, form]);
 
   async function onSubmit(values: EquipmentRentalFormInput) {
     const result = await createRental(values);
@@ -207,22 +216,21 @@ export function CreateRentalDialog({
                   onValueChange={(v) => v && form.setValue("rateType", v as EquipmentRentalFormInput["rateType"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {RENTAL_RATE_TYPES.map((t) => (
                       <SelectItem key={t} value={t}>
-                        {t}
+                        {formatEnumLabel(t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
               <Field>
-                <FieldLabel htmlFor="rateAmount">
-                  Rate Amount (SAR) * {suggestedRate != null && <span className="text-muted-foreground font-normal">(card: {suggestedRate})</span>}
-                </FieldLabel>
+                <FieldLabel htmlFor="rateAmount">Rate (SAR) *</FieldLabel>
                 <Input id="rateAmount" type="number" step="0.01" {...form.register("rateAmount")} />
+                {suggestedRate != null && <p className="text-muted-foreground text-xs">Rate card: SAR {Number(suggestedRate).toLocaleString()}</p>}
                 {errors.rateAmount && <FieldError>{errors.rateAmount.message}</FieldError>}
               </Field>
               <Field>

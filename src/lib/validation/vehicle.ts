@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { optionalNumber } from "./number";
+
 import { toSafeSequenceNo } from "@/lib/codes";
 
 export const VEHICLE_STATUSES = [
@@ -30,7 +32,7 @@ export const vehicleFormSchema = z.object({
   plateNumber: z.string().trim().min(1, "Plate number is required"),
   make: z.string().trim().min(1, "Make is required"),
   model: z.string().trim().min(1, "Model is required"),
-  year: z.coerce.number().int().optional().nullable(),
+  year: optionalNumber(z.coerce.number().int().min(1950, "Enter a valid year").max(2100, "Enter a valid year")).nullable(),
   color: z.string().trim().optional().or(z.literal("")),
   vehicleType: z.string().trim().optional().or(z.literal("")),
   vin: z.string().trim().optional().or(z.literal("")),

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Textarea } from "@/components/ui/textarea";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
@@ -108,12 +109,12 @@ export function EmployeeForm({
               <FieldLabel>Status</FieldLabel>
               <Select value={form.watch("status")} onValueChange={(value) => form.setValue("status", value as EmployeeFormInput["status"])}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue format={formatEnumLabel} />
                 </SelectTrigger>
                 <SelectContent>
                   {EMPLOYEE_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {status.replaceAll("_", " ")}
+                      {formatEnumLabel(status)}
                     </SelectItem>
                   ))}
                 </SelectContent>

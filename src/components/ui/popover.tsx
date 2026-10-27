@@ -10,7 +10,9 @@ function Popover({ ...props }: PopoverPrimitive.Root.Props) {
 }
 
 function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
+  // With a `render` element, that element keeps its own data-slot; setting ours
+  // too merges in a different order on server and client (hydration mismatch).
+  return <PopoverPrimitive.Trigger {...(props.render ? {} : { "data-slot": "popover-trigger" })} {...props} />
 }
 
 function PopoverContent({

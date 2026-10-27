@@ -19,6 +19,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Textarea } from "@/components/ui/textarea";
 import {
   RENTAL_CHARGE_TYPES,
@@ -82,12 +83,12 @@ export function RecordChargeDialog({ rentalId }: { rentalId: string }) {
                   onValueChange={(v) => v && form.setValue("type", v as RentalChargeFormInput["type"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {RENTAL_CHARGE_TYPES.map((t) => (
                       <SelectItem key={t} value={t}>
-                        {t.replaceAll("_", " ")}
+                        {formatEnumLabel(t)}
                       </SelectItem>
                     ))}
                   </SelectContent>

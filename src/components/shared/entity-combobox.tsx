@@ -371,7 +371,7 @@ export function EntityCombobox({
           }
         />
 
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50 shadow-md border" align="start">
+        <PopoverContent className="w-(--anchor-width) min-w-64 p-0 z-50 shadow-md border" align="start">
           <div className="p-2 border-b flex items-center gap-2 bg-muted/20">
             <Search className="size-4 shrink-0 text-muted-foreground" />
             <input
@@ -385,7 +385,7 @@ export function EntityCombobox({
             {loading && <Loader2 className="size-4 animate-spin text-primary shrink-0" />}
           </div>
 
-          <div className="max-h-60 overflow-y-auto p-1 divide-y divide-border/30">
+          <div role="listbox" className="max-h-60 overflow-y-auto p-1 divide-y divide-border/30">
             {loading && options.length === 0 ? (
               <div className="p-4 space-y-2">
                 <Skeleton className="h-4 w-full" />
@@ -403,6 +403,8 @@ export function EntityCombobox({
                   <button
                     key={opt.id}
                     type="button"
+                    role="option"
+                    aria-selected={isSelected}
                     onClick={() => handleSelect(opt)}
                     className={cn(
                       "w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors flex items-center justify-between hover:bg-accent/80 focus:bg-accent focus:outline-none cursor-pointer",

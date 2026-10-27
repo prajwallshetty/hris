@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatReceiptNumber } from "@/lib/codes";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { WORKER_PAYMENT_TYPES } from "@/lib/validation/finance";
 import { voidWorkerPayment } from "@/server/actions/finance";
 
@@ -151,13 +152,13 @@ export function PaymentHistoryTable({
           />
           <Select value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)}>
             <SelectTrigger className="w-full sm:w-44">
-              <SelectValue placeholder="Type" />
+              <SelectValue format={(v) => (v === "ALL" ? "All types" : formatEnumLabel(v))} placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All types</SelectItem>
               {WORKER_PAYMENT_TYPES.map((t) => (
                 <SelectItem key={t} value={t}>
-                  {t}
+                  {formatEnumLabel(t)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -1,11 +1,16 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { auth } from "@/auth";
 import { Logo } from "@/components/shared/logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await auth();
+  if (session?.user) redirect("/dashboard");
+
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="items-center text-center">

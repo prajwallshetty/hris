@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { useClearNewParam } from "@/lib/use-clear-new-param";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -116,12 +117,12 @@ export function ExpenseFormDialog({
               <FieldLabel>Category *</FieldLabel>
               <Select value={form.watch("category")} onValueChange={(v) => v && form.setValue("category", v as ExpenseFormInput["category"])}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue format={formatEnumLabel} />
                 </SelectTrigger>
                 <SelectContent>
                   {EXPENSE_CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {c.replaceAll("_", " ")}
+                      {formatEnumLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectContent>

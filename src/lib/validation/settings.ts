@@ -1,9 +1,11 @@
 import { z } from "zod";
 
+import { optionalNumber } from "./number";
+
 export const overtimeRuleFormSchema = z.object({
   dailyRegularHoursThreshold: z.coerce.number().positive("Must be greater than 0"),
   overtimeMultiplier: z.coerce.number().positive("Must be greater than 0"),
-  maxDailyHours: z.coerce.number().positive().optional().nullable(),
+  maxDailyHours: optionalNumber(z.coerce.number().positive("Must be greater than 0")).nullable(),
   minPayableHours: z.coerce.number().nonnegative().optional().nullable(),
 });
 export type OvertimeRuleFormInput = z.infer<typeof overtimeRuleFormSchema>;

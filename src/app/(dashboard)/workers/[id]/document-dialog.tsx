@@ -19,6 +19,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DOCUMENT_TYPES } from "@/lib/validation/document";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { uploadWorkerDocument } from "@/server/actions/documents";
 
 export function DocumentDialog({ workerId }: { workerId: string }) {
@@ -92,13 +93,13 @@ export function DocumentDialog({ workerId }: { workerId: string }) {
             <FieldLabel>Document Type</FieldLabel>
             <Select value={documentType || "NONE"} onValueChange={(v) => setDocumentType(v === "NONE" ? "" : (v ?? ""))}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="None" />
+                <SelectValue format={formatEnumLabel} placeholder="None" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="NONE">None</SelectItem>
                 {DOCUMENT_TYPES.map((t) => (
                   <SelectItem key={t} value={t}>
-                    {t}
+                    {formatEnumLabel(t)}
                   </SelectItem>
                 ))}
               </SelectContent>

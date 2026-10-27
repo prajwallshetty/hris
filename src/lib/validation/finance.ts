@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { optionalNumber } from "./number";
+
 export const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "CHEQUE", "OTHER"] as const;
 export const WORKER_PAYMENT_TYPES = ["SALARY", "ADVANCE", "LOAN", "SETTLEMENT", "ADJUSTMENT", "OTHER"] as const;
 
@@ -44,8 +46,8 @@ export const loanFormSchema = z
     employeeId: z.string().optional().or(z.literal("")),
     principalAmount: z.coerce.number().positive("Must be greater than 0"),
     dateGiven: z.string().min(1, "Date is required"),
-    installments: z.coerce.number().int().positive().optional(),
-    installmentAmount: z.coerce.number().positive().optional(),
+    installments: optionalNumber(z.coerce.number().int().positive("Must be greater than 0")),
+    installmentAmount: optionalNumber(z.coerce.number().positive("Must be greater than 0")),
     reason: z.string().trim().optional().or(z.literal("")),
   })
   .refine((data) => Boolean(data.workerId) !== Boolean(data.employeeId), {

@@ -55,6 +55,7 @@ export function OvertimeRuleForm({ defaultValues }: { defaultValues: OvertimeRul
         <Field>
           <FieldLabel htmlFor="maxDailyHours">Max daily hours (optional)</FieldLabel>
           <Input id="maxDailyHours" type="number" step="0.5" {...form.register("maxDailyHours")} />
+          {errors.maxDailyHours && <FieldError>{errors.maxDailyHours.message}</FieldError>}
         </Field>
         <Field>
           <FieldLabel htmlFor="minPayableHours">Min payable hours (optional)</FieldLabel>

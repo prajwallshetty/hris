@@ -45,7 +45,7 @@ type AssignmentDetailData = {
     worker: {
       id: string;
       fullName: string;
-      iqamaNumber: string;
+      iqamaNumber: string | null;
       sequenceNo: number;
       status: string;
       designation: { title: string } | null;

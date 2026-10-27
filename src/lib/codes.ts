@@ -49,3 +49,8 @@ export function parseWorkerCodeSearch(term: string): number | null {
   const match = term.trim().match(/^w?-?0*(\d+)$/i);
   return match ? toSafeSequenceNo(Number(match[1])) : null;
 }
+
+/** Iqama for display — newly mobilized manpower may not have one yet. */
+export function formatIqama(iqamaNumber: string | null | undefined): string {
+  return iqamaNumber || "No Iqama yet";
+}

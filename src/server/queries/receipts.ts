@@ -120,7 +120,7 @@ export async function getPaymentReceiptData(paymentId: string, user: SessionUser
       recipientType: "WORKER",
       recipientName: w.fullName,
       recipientCode: formatWorkerCode(w.sequenceNo),
-      iqamaOrId: w.iqamaNumber,
+      iqamaOrId: w.iqamaNumber ?? "—",
       designation: w.designation?.title ?? "—",
       mobileNumber: w.mobile ?? "",
       clientOrDepartment: activeAssignment?.client.companyName ?? "—",

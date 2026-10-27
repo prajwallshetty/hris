@@ -33,7 +33,9 @@ export type WorkerRow = {
   id: string;
   code: string;
   fullName: string;
-  iqamaNumber: string;
+  iqamaNumber: string | null;
+  workerType: string | null;
+  supplierName: string | null;
   designationTitle: string | null;
   clientName: string | null;
   siteName: string | null;
@@ -136,6 +138,8 @@ export function WorkersTable({
                 )}
                 <TableHead>Worker ID</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Supplier</TableHead>
                 <TableHead>Iqama Number</TableHead>
                 <TableHead>Designation</TableHead>
                 <TableHead>Client</TableHead>
@@ -164,7 +168,15 @@ export function WorkersTable({
                       {worker.fullName}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{worker.iqamaNumber}</TableCell>
+                  <TableCell>
+                    {worker.workerType ? (
+                      <span className="bg-secondary rounded px-1.5 py-0.5 font-mono text-xs font-semibold">{worker.workerType}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell>{worker.supplierName ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-sm">{worker.iqamaNumber ?? "—"}</TableCell>
                   <TableCell>{worker.designationTitle ?? "—"}</TableCell>
                   <TableCell>{worker.clientName ?? "—"}</TableCell>
                   <TableCell>{worker.siteName ?? "—"}</TableCell>

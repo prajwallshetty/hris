@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { formatWorkerCode } from "@/lib/codes";
 import { toCsv } from "@/lib/csv";
-import type { WorkerStatus } from "@prisma/client";
+import type { WorkerStatus, WorkerType } from "@prisma/client";
 import { listWorkersForExport } from "@/server/queries/workers";
 import { getSessionUser } from "@/server/session";
 
@@ -24,14 +24,21 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("q") ?? undefined;
   const status = (searchParams.get("status") as WorkerStatus | "ALL" | null) ?? "ALL";
+  const workerType = (searchParams.get("type") as WorkerType | "ALL" | null) ?? "ALL";
+  const supplierId = searchParams.get("supplier") ?? undefined;
+  const unassigned = searchParams.get("unassigned") === "1";
 
-  const workers = await listWorkersForExport(user, { search, status });
+  const workers = await listWorkersForExport(user, { search, status, workerType, supplierId, unassigned });
 
   const csv = toCsv(
     [
       "Worker ID",
       "Iqama Number",
       "Full Name",
+      "Worker Type",
+      "Supplier",
+      "Nationality",
+      "Mobile",
       "Designation",
       "Client",
       "Site",
@@ -47,8 +54,12 @@ export async function GET(request: NextRequest) {
       const assignment = w.assignments[0];
       return [
         formatWorkerCode(w.sequenceNo),
-        w.iqamaNumber,
+        w.iqamaNumber ?? "",
         w.fullName,
+        w.workerType ?? "",
+        w.supplier?.name ?? "",
+        w.nationality ?? "",
+        w.mobile ?? "",
         w.designation?.title ?? "",
         assignment?.client.companyName ?? "",
         assignment?.site.name ?? "",

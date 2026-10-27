@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 export function ExportWorkersButton() {
   const searchParams = useSearchParams();
   const params = new URLSearchParams();
-  const q = searchParams.get("q");
-  const status = searchParams.get("status");
-  if (q) params.set("q", q);
-  if (status) params.set("status", status);
+  // Export exactly what the list is currently filtered to.
+  for (const key of ["q", "status", "type", "supplier", "unassigned"]) {
+    const value = searchParams.get(key);
+    if (value) params.set(key, value);
+  }
 
   return (
     <Button variant="outline" className="rounded-full" nativeButton={false} render={<a href={`/api/workers/export?${params.toString()}`} />}>

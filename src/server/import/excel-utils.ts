@@ -6,8 +6,15 @@ import * as XLSX from "xlsx";
  * header — its own row is included as `rows[0]` for callers that want to
  * inspect/validate column headers before mapping by index).
  */
-export function readWorksheetRows(buffer: Buffer, headerRowIndex: number): unknown[][] {
-  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false });
+export function readWorksheetRows(
+  buffer: Buffer,
+  headerRowIndex: number,
+  options: { rawText?: boolean } = {},
+): unknown[][] {
+  // rawText: for CSV input, keep cell text exactly as typed. Without it
+  // SheetJS auto-parses "01/09/2026" as a US-style date (9 January) before
+  // our own DD/MM/YYYY parser ever sees it. No effect on .xlsx cells.
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false, raw: options.rawText ?? false });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   return XLSX.utils.sheet_to_json<unknown[]>(sheet, {
     header: 1,
@@ -30,10 +37,15 @@ export function parseExcelDate(value: unknown): Date | null {
     return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
   }
   if (typeof value === "string") {
-    const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (match) {
-      const [, dd, mm, yyyy] = match;
-      return new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd)));
+    const trimmed = value.trim();
+    const dmy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    const ymd = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    const [y, m, d] = dmy ? [dmy[3], dmy[2], dmy[1]] : ymd ? [ymd[1], ymd[2], ymd[3]] : [];
+    if (y) {
+      const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+      // Reject impossible dates like 31/02/2026 instead of letting JS roll
+      // them over into March.
+      if (date.getUTCMonth() === Number(m) - 1 && date.getUTCDate() === Number(d)) return date;
     }
   }
   return null;

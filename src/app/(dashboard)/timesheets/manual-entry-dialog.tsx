@@ -33,7 +33,7 @@ type ClientTree = {
   companyName: string;
   projects: { id: string; name: string; sites: { id: string; name: string }[] }[];
 };
-type WorkerOption = { id: string; fullName: string; iqamaNumber: string };
+type WorkerOption = { id: string; fullName: string; iqamaNumber: string | null };
 
 export function ManualTimesheetEntryDialog({
   trigger,

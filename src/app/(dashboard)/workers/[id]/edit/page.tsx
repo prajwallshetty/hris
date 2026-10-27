@@ -1,5 +1,6 @@
 import { forbidden, notFound } from "next/navigation";
 
+import { formatIqama } from "@/lib/codes";
 import { PageHeader } from "@/components/shared/page-header";
 import { can } from "@/server/rbac";
 import { listCoordinators } from "@/server/queries/workers";
@@ -22,12 +23,14 @@ export default async function EditWorkerPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="max-w-3xl space-y-6">
-      <PageHeader title={`Edit ${worker.fullName}`} description={`Iqama: ${worker.iqamaNumber}`} />
+      <PageHeader title={`Edit ${worker.fullName}`} description={`Iqama: ${formatIqama(worker.iqamaNumber)}`} />
       <WorkerForm
         workerId={worker.id}
         coordinators={coordinators}
         defaultValues={{
-          iqamaNumber: worker.iqamaNumber,
+          iqamaNumber: worker.iqamaNumber ?? "",
+          workerType: worker.workerType ?? "",
+          supplierId: worker.supplierId ?? "",
           fullName: worker.fullName,
           mobile: worker.mobile ?? "",
           passportNumber: worker.passportNumber ?? "",

@@ -9,6 +9,7 @@ export type SessionUser = {
 
 export type Resource =
   | "worker"
+  | "supplier"
   | "client"
   | "project"
   | "site"
@@ -59,6 +60,7 @@ const VIEW: Action[] = ["view"];
 const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
   SUPER_ADMIN: {
     worker: FULL,
+    supplier: FULL,
     client: FULL,
     project: FULL,
     site: FULL,
@@ -100,6 +102,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
   // account management, which stays reserved for SUPER_ADMIN.
   ADMIN: {
     worker: FULL,
+    supplier: FULL,
     client: FULL,
     project: FULL,
     site: FULL,
@@ -139,6 +142,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
   // Workers, internal employees, leave, attendance (§21).
   HR: {
     worker: FULL,
+    supplier: FULL,
     client: FULL,
     project: FULL,
     site: FULL,
@@ -163,6 +167,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
   // Payroll, payments, invoices, expenses (§21).
   ACCOUNTS: {
     worker: VIEW,
+    supplier: VIEW,
     client: VIEW,
     project: VIEW,
     site: VIEW,
@@ -195,6 +200,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Resource, Action[]>>> = {
   // Reports and approvals — broad view, no master-data editing (§21).
   MANAGER: {
     worker: VIEW,
+    supplier: VIEW,
     client: VIEW,
     project: VIEW,
     site: VIEW,

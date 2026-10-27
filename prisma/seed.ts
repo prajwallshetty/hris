@@ -105,7 +105,9 @@ async function seedWorkersFromExcel() {
   const buffer = fs.readFileSync(filePath);
   const rawRows = extractWorkerRows(buffer);
 
-  const existingIqamas = new Set((await db.worker.findMany({ select: { iqamaNumber: true } })).map((w) => w.iqamaNumber));
+  const existingIqamas = new Set(
+    (await db.worker.findMany({ select: { iqamaNumber: true } })).flatMap((w) => (w.iqamaNumber ? [w.iqamaNumber] : [])),
+  );
   const results = validateWorkerImportRows(rawRows, existingIqamas);
   const summary = summarizeWorkerImport(results);
 

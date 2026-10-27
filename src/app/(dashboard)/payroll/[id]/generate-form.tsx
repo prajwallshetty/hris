@@ -1,5 +1,6 @@
 "use client";
 
+import { formatIqama } from "@/lib/codes";
 import { Loader2, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,7 +16,7 @@ type ClientTree = {
   companyName: string;
   projects: { id: string; name: string; sites: { id: string; name: string }[] }[];
 };
-type WorkerOption = { id: string; fullName: string; iqamaNumber: string };
+type WorkerOption = { id: string; fullName: string; iqamaNumber: string | null };
 
 export function GeneratePayrollForm({
   payrollPeriodId,
@@ -110,7 +111,7 @@ export function GeneratePayrollForm({
           <Select
             value={workerId || "ALL"}
             onValueChange={(v) => setWorkerId(v === "ALL" ? "" : (v ?? ""))}
-            items={[{ value: "ALL", label: "All workers" }, ...workers.map((w) => ({ value: w.id, label: `${w.fullName} — ${w.iqamaNumber}` }))]}
+            items={[{ value: "ALL", label: "All workers" }, ...workers.map((w) => ({ value: w.id, label: `${w.fullName} — ${formatIqama(w.iqamaNumber)}` }))]}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All workers" />

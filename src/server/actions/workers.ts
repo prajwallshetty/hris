@@ -1,20 +1,26 @@
 "use server";
 
-import { Prisma, type WorkerStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { workerFormSchema, type WorkerFormInput } from "@/lib/validation/worker";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
+import { manpowerRegistrationSchema } from "@/lib/validation/manpower";
 import {
   detectWorkerBulkColumns,
   extractWorkerBulkRows,
+  naturalKey,
   summarizeWorkerBulkImport,
   validateWorkerBulkRows,
+  type RawWorkerBulkRow,
   type ValidWorkerBulkRow,
+  type WorkerBulkImportContext,
   type WorkerBulkImportSummary,
 } from "@/server/import/worker-bulk-import";
+import { createManpowerRecord, ManpowerRecordError } from "@/server/manpower";
+import { resolveDesignationId } from "@/server/designations";
 import { assertCan, type SessionUser } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
@@ -29,24 +35,13 @@ function isDuplicateIqama(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-// Worker.designation is normalized into a Designation lookup table, but the
-// form keeps a plain free-text field rather than forcing a pre-populated
-// dropdown — find-or-create by title keeps the data normalized without
-// requiring a separate Designation management screen before this form works.
-async function resolveDesignationId(title?: string | null): Promise<string | null> {
-  const trimmed = title?.trim();
-  if (!trimmed) return null;
-  const designation = await db.designation.upsert({
-    where: { title: trimmed },
-    update: {},
-    create: { title: trimmed },
-  });
-  return designation.id;
-}
-
 function buildData(data: WorkerFormInput, designationId: string | null, user: SessionUser) {
   return {
-    iqamaNumber: data.iqamaNumber,
+    iqamaNumber: data.iqamaNumber || null,
+    workerType: data.workerType || null,
+    // Only HRD manpower is supplier-provided — never keep a stale supplier
+    // on a worker whose type was changed away from HRD.
+    supplierId: data.workerType === "HRD" ? data.supplierId || null : null,
     fullName: data.fullName,
     mobile: data.mobile || null,
     passportNumber: data.passportNumber || null,
@@ -282,11 +277,76 @@ export type WorkerImportPreview = {
   validRows: ValidWorkerBulkRow[];
 };
 
+function groupByName<T extends { id: string; name: string }>(items: T[], keyOf: (item: T) => string) {
+  const map = new Map<string, { id: string; name: string }[]>();
+  for (const item of items) {
+    const key = keyOf(item);
+    map.set(key, [...(map.get(key) ?? []), { id: item.id, name: item.name }]);
+  }
+  return map;
+}
+
+function distinct(values: (string | null)[]) {
+  return Array.from(new Set(values.filter((v): v is string => Boolean(v))));
+}
+
+/** Loads only the records the file actually references, for validateWorkerBulkRows. */
+async function loadWorkerImportContext(rawRows: RawWorkerBulkRow[]): Promise<WorkerBulkImportContext> {
+  const iqamas = distinct(rawRows.map((r) => r.iqama?.replace(/\s+/g, "") ?? null));
+  const names = distinct(rawRows.map((r) => r.fullName));
+  const insensitiveIn = (values: string[]) => ({ in: values, mode: "insensitive" as const });
+
+  const [byIqama, sameNames, suppliers, clients] = await Promise.all([
+    db.worker.findMany({ where: { iqamaNumber: { in: iqamas } }, select: { fullName: true, iqamaNumber: true } }),
+    db.worker.findMany({
+      where: { deletedAt: null, fullName: insensitiveIn(names) },
+      select: { fullName: true, mobile: true, mobilizationDate: true },
+    }),
+    db.supplier.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true } }),
+    db.client.findMany({
+      where: { deletedAt: null, companyName: insensitiveIn(distinct(rawRows.map((r) => r.client))) },
+      select: { id: true, companyName: true },
+    }),
+  ]);
+  const projects = await db.project.findMany({
+    where: {
+      deletedAt: null,
+      clientId: { in: clients.map((c) => c.id) },
+      name: insensitiveIn(distinct(rawRows.map((r) => r.project))),
+    },
+    select: { id: true, name: true, clientId: true },
+  });
+  const sites = await db.site.findMany({
+    where: {
+      deletedAt: null,
+      projectId: { in: projects.map((p) => p.id) },
+      name: insensitiveIn(distinct(rawRows.map((r) => r.site))),
+    },
+    select: { id: true, name: true, projectId: true },
+  });
+
+  return {
+    existingByIqama: new Map(byIqama.flatMap((w) => (w.iqamaNumber ? [[w.iqamaNumber, { fullName: w.fullName }] as const] : []))),
+    existingNaturalKeys: new Set(
+      sameNames.flatMap((w) =>
+        w.mobile && w.mobilizationDate ? [naturalKey(w.fullName, w.mobile, w.mobilizationDate.toISOString().slice(0, 10))] : [],
+      ),
+    ),
+    suppliersByName: groupByName(suppliers, (s) => s.name.toLowerCase()),
+    clientsByName: groupByName(
+      clients.map((c) => ({ id: c.id, name: c.companyName })),
+      (c) => c.name.toLowerCase(),
+    ),
+    projectsByKey: groupByName(projects, (p) => `${p.clientId}|${p.name.toLowerCase()}`),
+    sitesByKey: groupByName(sites, (s) => `${s.projectId}|${s.name.toLowerCase()}`),
+  };
+}
+
 /**
  * Step 1 of the bulk-upload flow: Upload -> Validate -> Preview. Nothing is
  * persisted here — the client holds the returned valid rows and re-submits
  * them (plus the original summary, for an accurate Import History record) to
- * `importWorkerRows` to actually write them.
+ * `importWorkerRows`, which re-validates each one before writing.
  */
 export async function previewWorkerImport(formData: FormData): Promise<ActionResult<WorkerImportPreview>> {
   try {
@@ -303,7 +363,7 @@ export async function previewWorkerImport(formData: FormData): Promise<ActionRes
     if (missing.length > 0) {
       return {
         success: false,
-        error: `The file is missing required column(s): ${missing.join(", ")}. Expected: Name, Iqama Number.`,
+        error: `The file is missing required column(s): ${missing.join(", ")}. Download the template to see the expected headers.`,
       };
     }
 
@@ -312,15 +372,7 @@ export async function previewWorkerImport(formData: FormData): Promise<ActionRes
       return { success: false, error: "No data rows were found in the file." };
     }
 
-    const iqamas = Array.from(new Set(rawRows.map((r) => r.iqama).filter((v): v is string => Boolean(v))));
-    const existingWorkers = await db.worker.findMany({
-      where: { iqamaNumber: { in: iqamas } },
-      select: { id: true, fullName: true, iqamaNumber: true },
-    });
-    const existingByIqama = new Map(existingWorkers.map((w) => [w.iqamaNumber, { id: w.id, fullName: w.fullName }]));
-
-    const results = validateWorkerBulkRows(rawRows, { existingByIqama });
-
+    const results = validateWorkerBulkRows(rawRows, await loadWorkerImportContext(rawRows));
     return ok({
       summary: summarizeWorkerBulkImport(results),
       validRows: results.filter((r): r is ValidWorkerBulkRow => r.valid),
@@ -330,17 +382,19 @@ export async function previewWorkerImport(formData: FormData): Promise<ActionRes
   }
 }
 
-/** Step 2: creates one worker per valid, previewed row. Each row is written
- * independently (not one all-or-nothing transaction) so a single unexpected
+/** Step 2: creates one worker (and optional placement) per previewed row.
+ * Each row is its own transaction (not all-or-nothing) so one unexpected
  * failure — e.g. a race against another import of the same Iqama — doesn't
- * discard an otherwise-good batch; ImportRunStatus.PARTIAL exists precisely
- * for this case. Rows already flagged invalid at preview (including every
- * conflicting Iqama) are never sent here and never create a worker. */
+ * discard an otherwise-good batch; ImportRunStatus.PARTIAL exists for this.
+ * Rows come back from the browser, so each is re-validated with the same
+ * schema Quick Register uses, and createManpowerRecord re-checks every
+ * referenced record against the database. Re-running the same import is
+ * safe: already-registered rows are reported as skipped, not duplicated. */
 export async function importWorkerRows(input: {
   fileName: string;
   summary: WorkerBulkImportSummary;
   items: ValidWorkerBulkRow[];
-}): Promise<ActionResult<{ importedCount: number; failedCount: number }>> {
+}): Promise<ActionResult<{ importedCount: number; skippedCount: number; failedCount: number }>> {
   try {
     const user = await getSessionUser();
     assertCan(user, "create", "worker");
@@ -348,51 +402,56 @@ export async function importWorkerRows(input: {
     if (input.items.length === 0) {
       return { success: false, error: "No valid rows to import." };
     }
+    if (input.items.some((item) => item.data.clientId)) assertCan(user, "create", "assignment");
 
-    const designationCache = new Map<string, string | null>();
-    async function resolveCached(title: string | null) {
-      const key = title?.trim().toLowerCase() ?? "";
-      if (!designationCache.has(key)) {
-        designationCache.set(key, await resolveDesignationId(title));
-      }
-      return designationCache.get(key) ?? null;
-    }
-
-    const writeFailures: { rowNumber: number; iqamaNumber: string | null; errors: string[] }[] = [];
+    const writeFailures: WorkerBulkImportSummary["errorReport"] = [];
     let importedCount = 0;
+    let skippedCount = 0;
 
-    for (const row of input.items) {
-      try {
-        const designationId = await resolveCached(row.designation);
-        const worker = await db.worker.create({
-          data: {
-            iqamaNumber: row.iqamaNumber,
-            fullName: row.fullName,
-            mobile: row.mobile || null,
-            designationId,
-            skillCategory: row.skillCategory || null,
-            joiningDate: row.joiningDate ? new Date(row.joiningDate) : null,
-            status: row.status as WorkerStatus,
-            batchNumber: row.batchNumber || null,
-            notes: row.remarks || null,
-          },
+    for (const item of input.items) {
+      const parsed = manpowerRegistrationSchema.safeParse(item.data);
+      if (!parsed.success) {
+        writeFailures.push({
+          rowNumber: item.rowNumber,
+          fullName: item.data.fullName ?? null,
+          iqamaNumber: item.data.iqamaNumber || null,
+          errors: parsed.error.issues.map((issue) => issue.message),
         });
-        await db.workerStatusHistory.create({
-          data: { workerId: worker.id, previousStatus: null, newStatus: worker.status, changedById: user.id },
+        continue;
+      }
+      try {
+        const created = await db.$transaction((tx) =>
+          createManpowerRecord(tx, user, parsed.data, { batchNumber: item.batchNumber }),
+        );
+        await logAudit({
+          userId: user.id,
+          action: "create",
+          entityType: "Worker",
+          entityId: created.workerId,
+          newValue: { ...parsed.data, source: "bulk-import", fileName: input.fileName },
         });
         importedCount += 1;
       } catch (error) {
+        const alreadyRegistered = error instanceof ManpowerRecordError && /already registered/.test(error.message);
+        if (alreadyRegistered || isDuplicateIqama(error)) skippedCount += 1;
         writeFailures.push({
-          rowNumber: row.rowNumber,
-          iqamaNumber: row.iqamaNumber,
-          errors: [isDuplicateIqama(error) ? `Duplicate Iqama: ${row.iqamaNumber} was just registered by another import.` : "Could not save this row."],
+          rowNumber: item.rowNumber,
+          fullName: parsed.data.fullName,
+          iqamaNumber: parsed.data.iqamaNumber || null,
+          errors: [
+            error instanceof ManpowerRecordError
+              ? error.message
+              : isDuplicateIqama(error)
+                ? `Iqama ${parsed.data.iqamaNumber} was just registered by another import.`
+                : "Could not save this row.",
+          ],
         });
       }
     }
 
-    const failedCount = input.summary.invalidRows + writeFailures.length;
+    const failedCount = input.summary.invalidRows + writeFailures.length - skippedCount;
     const errorReport = [...input.summary.errorReport, ...writeFailures];
-    const status = failedCount === 0 ? "COMPLETED" : importedCount > 0 ? "PARTIAL" : "FAILED";
+    const status = failedCount + skippedCount === 0 ? "COMPLETED" : importedCount > 0 ? "PARTIAL" : "FAILED";
 
     const importRun = await db.importRun.create({
       data: {
@@ -401,7 +460,7 @@ export async function importWorkerRows(input: {
         fileName: input.fileName,
         totalRows: input.summary.totalRows,
         importedRows: importedCount,
-        failedRows: failedCount,
+        failedRows: failedCount + skippedCount,
         errorReport,
         uploadedById: user.id,
       },
@@ -412,12 +471,13 @@ export async function importWorkerRows(input: {
       action: "import",
       entityType: "Worker",
       entityId: importRun.id,
-      newValue: { fileName: input.fileName, importedCount, failedCount },
+      newValue: { fileName: input.fileName, importedCount, skippedCount, failedCount },
     });
 
     revalidatePath("/workers");
+    revalidatePath("/assignments");
     revalidatePath("/import-history");
-    return ok({ importedCount, failedCount });
+    return ok({ importedCount, skippedCount, failedCount });
   } catch (error) {
     return actionError(error);
   }

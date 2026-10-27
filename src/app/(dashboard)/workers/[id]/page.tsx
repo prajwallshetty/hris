@@ -29,6 +29,8 @@ import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { RecordAvatarInitials, RecordHeader } from "@/components/shared/record-header";
+import { formatIqama } from "@/lib/codes";
+import { WORKER_TYPE_LABELS } from "@/lib/validation/manpower";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import { Button } from "@/components/ui/button";
@@ -90,8 +92,15 @@ function isExpired(date: Date | null) {
   return new Date(date).getTime() < new Date().getTime();
 }
 
-export default async function WorkerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WorkerDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ assign?: string }>;
+}) {
   const { id } = await params;
+  const { assign } = await searchParams;
   const user = await getSessionUser();
   const worker = await getWorker(user, id);
   if (!worker) notFound();
@@ -229,6 +238,9 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         badges={
           <div className="flex items-center gap-2">
             <StatusBadge status={worker.status} />
+            {worker.workerType && (
+              <span className="bg-secondary rounded-md px-2 py-1 font-mono text-xs font-semibold">{worker.workerType}</span>
+            )}
             {iqamaExpired && <StatusBadge status="EXPIRED" />}
             {!iqamaExpired && iqamaExpiring && (
               <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20 ring-inset">
@@ -240,7 +252,8 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
         }
         meta={
           <>
-            <span>Iqama: {worker.iqamaNumber}</span>
+            <span>Iqama: {formatIqama(worker.iqamaNumber)}</span>
+            {worker.supplier && <span>Supplier: {worker.supplier.name}</span>}
             {worker.designation?.title && (
               <>
                 <span aria-hidden>·</span>
@@ -304,6 +317,7 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 clients={clients}
                 coordinators={[]}
                 presetWorkerId={worker.id}
+                defaultOpen={assign === "1"}
                 trigger={
                   <Button variant="outline">
                     <Briefcase className="size-4" />
@@ -541,6 +555,8 @@ export default async function WorkerDetailPage({ params }: { params: Promise<{ i
                 <CardTitle className="text-base font-semibold">Employment Details</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-sm">
+                <Detail label="Worker Type" value={worker.workerType ? WORKER_TYPE_LABELS[worker.workerType] : null} />
+                <Detail label="Supplier" value={worker.supplier?.name} />
                 <Detail label="Designation" value={worker.designation?.title} />
                 <Detail label="Skill / Category" value={worker.skillCategory} />
                 <Detail label="Coordinator" value={worker.coordinator?.name} />

@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { assertCan, clientScopeWhere, type SessionUser } from "@/server/rbac";
+import { assertCan, clientScopeWhere, projectScopeWhere, type SessionUser } from "@/server/rbac";
 
 export async function listClients(user: SessionUser, params: { search?: string } = {}) {
   assertCan(user, "view", "client");
@@ -30,6 +30,7 @@ export async function getClient(user: SessionUser, id: string) {
       projects: {
         orderBy: { name: "asc" },
         include: {
+          coordinator: { select: { id: true, name: true } },
           sites: {
             orderBy: { name: "asc" },
             include: {
@@ -79,6 +80,42 @@ export async function listClientHierarchyForSelect() {
         },
       },
     },
+  });
+}
+
+// Standalone Projects overview (§Quick Access shortcut) — every project
+// across every client in one list, reusing the same Project/Client/Site/
+// Coordinator relations and RBAC scoping as the per-client tab, not a
+// separate read model.
+export async function listProjectsOverview(user: SessionUser, params: { search?: string } = {}) {
+  assertCan(user, "view", "project");
+
+  const where: Prisma.ProjectWhereInput = {
+    deletedAt: null,
+    ...projectScopeWhere(user),
+    ...(params.search
+      ? {
+          OR: [
+            { name: { contains: params.search, mode: "insensitive" } },
+            { client: { companyName: { contains: params.search, mode: "insensitive" } } },
+          ],
+        }
+      : {}),
+  };
+
+  return db.project.findMany({
+    where,
+    include: {
+      client: { select: { id: true, companyName: true } },
+      coordinator: { select: { id: true, name: true } },
+      _count: {
+        select: {
+          sites: { where: { deletedAt: null } },
+          assignments: { where: { status: "ACTIVE" } },
+        },
+      },
+    },
+    orderBy: [{ client: { companyName: "asc" } }, { name: "asc" }],
   });
 }
 

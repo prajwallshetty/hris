@@ -19,6 +19,7 @@ export const projectFormSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   name: z.string().trim().min(2, "Project name is required"),
   status: z.enum(ENTITY_STATUSES),
+  coordinatorId: z.string().optional().or(z.literal("")),
 });
 export type ProjectFormInput = z.infer<typeof projectFormSchema>;
 

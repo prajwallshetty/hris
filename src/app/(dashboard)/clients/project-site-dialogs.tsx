@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { useClearNewParam } from "@/lib/use-clear-new-param";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +20,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { ENTITY_STATUSES, projectFormSchema, siteFormSchema, type ProjectFormInput, type SiteFormInput } from "@/lib/validation/client";
 import { formatEnumLabel } from "@/lib/format-enum";
 import { createProject, createSite, updateProject, updateSite } from "@/server/actions/clients";
@@ -30,21 +32,30 @@ export function AddProjectDialog({
   defaultValues,
   open: openProp,
   onOpenChange: onOpenChangeProp,
+  defaultOpen,
 }: {
-  clientId: string;
+  // Omit when there's no single parent client to default to — e.g. the
+  // standalone /projects overview's "Add Project" action, where the admin
+  // picks the client as part of the form instead of it being fixed by the
+  // page it's opened from.
+  clientId?: string;
   trigger?: React.ReactElement;
   projectId?: string;
   defaultValues?: ProjectFormInput;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Open immediately on mount — e.g. a `?new=1` deep link from Quick Access. */
+  defaultOpen?: boolean;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false);
   const open = openProp ?? internalOpen;
   const setOpen = onOpenChangeProp ?? setInternalOpen;
+  useClearNewParam(Boolean(defaultOpen));
   const router = useRouter();
+  const showClientPicker = !clientId;
   const form = useForm<ProjectFormInput>({
     resolver: zodResolver(projectFormSchema),
-    defaultValues: defaultValues ?? { clientId, name: "", status: "ACTIVE" },
+    defaultValues: defaultValues ?? { clientId: clientId ?? "", name: "", status: "ACTIVE", coordinatorId: "" },
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -53,7 +64,7 @@ export function AddProjectDialog({
     if (result.success) {
       toast.success(projectId ? "Project updated." : "Project created.");
       setOpen(false);
-      if (!projectId) form.reset({ clientId, name: "", status: "ACTIVE" });
+      if (!projectId) form.reset({ clientId: clientId ?? "", name: "", status: "ACTIVE", coordinatorId: "" });
       router.refresh();
     } else {
       toast.error(result.error);
@@ -69,6 +80,20 @@ export function AddProjectDialog({
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FieldGroup>
+            {showClientPicker && (
+              <Field>
+                <FieldLabel>Client *</FieldLabel>
+                <EntityCombobox
+                  entityType="client"
+                  value={form.watch("clientId")}
+                  onChange={(v) => form.setValue("clientId", v)}
+                  placeholder="Select Client"
+                  error={errors.clientId?.message}
+                  required
+                />
+                {errors.clientId && <FieldError>{errors.clientId.message}</FieldError>}
+              </Field>
+            )}
             <Field>
               <FieldLabel htmlFor="projectName">Project Name *</FieldLabel>
               <Input id="projectName" {...form.register("name")} />
@@ -88,6 +113,15 @@ export function AddProjectDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </Field>
+            <Field>
+              <FieldLabel>Coordinator</FieldLabel>
+              <EntityCombobox
+                entityType="coordinator"
+                value={form.watch("coordinatorId") ?? ""}
+                onChange={(v) => form.setValue("coordinatorId", v)}
+                placeholder="Select Coordinator (Optional)"
+              />
             </Field>
           </FieldGroup>
           <DialogFooter>

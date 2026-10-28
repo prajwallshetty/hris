@@ -12,6 +12,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   FileText,
+  FolderKanban,
   Handshake,
   History,
   House,
@@ -60,7 +61,8 @@ export type NavGroup = {
 //   - Salary Slips, Payments, Advances, Loans, Final Settlement: reachable
 //     per worker (Payroll → period → worker, or the worker's profile).
 //     Final Settlement is a payment type, not a separate workflow.
-//   - Projects, Sites, Client Payments, Statements: per-client tabs.
+//   - Sites, Client Payments, Statements: per-client tabs (Projects now has
+//     its own cross-client overview page below).
 //   - Vehicle Assignments, Maintenance: per-vehicle/equipment tabs.
 //   - Commissions: per-coordinator tab.
 //   - Access Codes: an action on the Users & Access page, not a screen.
@@ -103,6 +105,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Building2,
     items: [
       { href: "/clients", label: "Clients", icon: Building2, color: "blue", roles: ["SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTS", "MANAGER", "COORDINATOR"] },
+      { href: "/projects", label: "Projects", icon: FolderKanban, color: "green", roles: ALL_STAFF },
       { href: "/invoices", label: "Invoices", icon: FileText, color: "indigo", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER", "CLIENT"] },
       { href: "/invoices?status=OVERDUE", label: "Outstanding", icon: AlertCircle, color: "red", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"] },
       { href: "/reports?tab=finance", label: "Client Reports", icon: TrendingUp, color: "teal", roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTS", "MANAGER"] },

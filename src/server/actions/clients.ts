@@ -123,7 +123,12 @@ export async function createProject(input: ProjectFormInput): Promise<ActionResu
     const data = projectFormSchema.parse(input);
 
     const project = await db.project.create({
-      data: { clientId: data.clientId, name: data.name, status: data.status },
+      data: {
+        clientId: data.clientId,
+        name: data.name,
+        status: data.status,
+        coordinatorId: data.coordinatorId || null,
+      },
     });
 
     await logAudit({ userId: user.id, action: "create", entityType: "Project", entityId: project.id, newValue: data });
@@ -141,7 +146,10 @@ export async function updateProject(id: string, input: ProjectFormInput): Promis
     const data = projectFormSchema.parse(input);
 
     const before = await db.project.findUniqueOrThrow({ where: { id } });
-    const project = await db.project.update({ where: { id }, data: { name: data.name, status: data.status } });
+    const project = await db.project.update({
+      where: { id },
+      data: { name: data.name, status: data.status, coordinatorId: data.coordinatorId || null },
+    });
 
     await logAudit({
       userId: user.id,

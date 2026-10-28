@@ -61,8 +61,18 @@ function formatMoney(value: number) {
   return `SAR ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
 
-export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const VALID_TABS = new Set(["overview", "contacts", "contracts", "sites", "workers", "billing", "equipment", "activity"]);
+
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
+  const defaultTab = tab && VALID_TABS.has(tab) ? tab : "overview";
   const user = await getSessionUser();
   const client = await getClient(user, id);
   if (!client) notFound();
@@ -176,7 +186,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         }
       />
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
@@ -294,7 +304,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               {client.projects.map((project) => (
                 <Card key={project.id} className={project.deletedAt ? "opacity-60" : undefined}>
                   <CardHeader className="flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-base">{project.name}</CardTitle>
+                    <div>
+                      <CardTitle className="text-base">{project.name}</CardTitle>
+                      <p className="text-muted-foreground text-xs mt-0.5">
+                        Coordinator: {project.coordinator?.name ?? "Unassigned"}
+                      </p>
+                    </div>
                     <div className="flex items-center gap-2">
                       {project.deletedAt && (
                         <span className="text-muted-foreground text-xs font-medium uppercase">Archived</span>
@@ -305,7 +320,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           <AddProjectDialog
                             clientId={client.id}
                             projectId={project.id}
-                            defaultValues={{ clientId: client.id, name: project.name, status: project.status }}
+                            defaultValues={{
+                              clientId: client.id,
+                              name: project.name,
+                              status: project.status,
+                              coordinatorId: project.coordinatorId ?? "",
+                            }}
                             trigger={
                               <Button size="icon-sm" variant="ghost" aria-label={`Edit ${project.name}`}>
                                 <Pencil className="size-4" />

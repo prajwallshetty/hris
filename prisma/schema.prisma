@@ -291,6 +291,7 @@ model Coordinator {
   users              User[]
   workers            Worker[]
   assignments        Assignment[]
+  projects           Project[]
   employees          InternalEmployee[]
   sales              Sale[]
   commissionRules    CommissionRule[]
@@ -397,6 +398,12 @@ model Project {
   status    EntityStatus @default(ACTIVE)
   deletedAt DateTime?
 
+  // The coordinator responsible for this project overall (distinct from the
+  // per-Assignment coordinatorId, which can note a different coordinator for
+  // an individual worker's deployment within the project).
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -408,6 +415,7 @@ model Project {
   equipmentRentals   EquipmentRental[]
 
   @@index([clientId])
+  @@index([coordinatorId])
 }
 
 model Site {

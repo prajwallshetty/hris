@@ -264,6 +264,20 @@ model AuthAttempt {
   @@index([createdAt])
 }
 
+// A signed-out login session (§ logout). Sessions are stateless JWTs, so
+// signing out records the token's session id here and the jwt callback
+// rejects it — deleting the cookie alone races in-flight requests that
+// re-issue it, and would leave a copied token valid until it expires.
+model RevokedSession {
+  sid       String   @id
+  userId    String?
+  revokedAt DateTime @default(now())
+  /// When the revoked token would have expired anyway; rows past this are pruned.
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 model Coordinator {
   id     String       @id @default(cuid())
   name   String

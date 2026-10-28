@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PAYMENT_METHODS } from "@/lib/validation/finance";
+import { formatEnumLabel } from "@/lib/format-enum";
 import {
   clientPaymentFormSchema,
   type ClientPaymentFormInput,
@@ -86,12 +87,12 @@ export function ClientPaymentDialog({
               <FieldLabel>Method</FieldLabel>
               <Select value={form.watch("method")} onValueChange={(v) => v && form.setValue("method", v as ClientPaymentFormInput["method"])}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue format={formatEnumLabel} />
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHODS.map((method) => (
                     <SelectItem key={method} value={method}>
-                      {method.replaceAll("_", " ")}
+                      {formatEnumLabel(method)}
                     </SelectItem>
                   ))}
                 </SelectContent>

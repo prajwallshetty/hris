@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatEnumLabel } from "@/lib/format-enum";
 
 // One semantic mapping for every status enum in the app (§32) — a status
 // badge should mean the same visual thing everywhere it appears, using the
@@ -90,13 +91,7 @@ const STATUS_TONES: Record<string, Tone> = {
   LATE_FEE: "warning",
 };
 
-function toLabel(status: string) {
-  return status
-    .toLowerCase()
-    .split("_")
-    .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join(" ");
-}
+const toLabel = formatEnumLabel;
 
 export function StatusBadge({ status }: { status: string }) {
   const tone = STATUS_TONES[status] ?? "neutral";

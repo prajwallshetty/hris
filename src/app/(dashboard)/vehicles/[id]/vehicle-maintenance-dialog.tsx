@@ -19,6 +19,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MAINTENANCE_STATUSES,
@@ -114,12 +115,12 @@ export function VehicleMaintenanceDialog({ vehicleId }: { vehicleId: string }) {
                   onValueChange={(v) => v && form.setValue("status", v as VehicleMaintenanceFormInput["status"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {MAINTENANCE_STATUSES.map((s) => (
                       <SelectItem key={s} value={s}>
-                        {s.replaceAll("_", " ")}
+                        {formatEnumLabel(s)}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -19,6 +19,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Textarea } from "@/components/ui/textarea";
 import {
   VEHICLE_EXPENSE_CATEGORIES,
@@ -88,12 +89,12 @@ export function VehicleExpenseDialog({ vehicleId }: { vehicleId: string }) {
                   onValueChange={(v) => v && form.setValue("category", v as VehicleExpenseFormInput["category"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {VEHICLE_EXPENSE_CATEGORIES.map((c) => (
                       <SelectItem key={c} value={c}>
-                        {c}
+                        {formatEnumLabel(c)}
                       </SelectItem>
                     ))}
                   </SelectContent>

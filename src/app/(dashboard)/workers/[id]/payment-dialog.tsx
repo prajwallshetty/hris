@@ -21,6 +21,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Textarea } from "@/components/ui/textarea";
 import { SendReceiptDialog } from "@/components/finance/send-receipt-dialog";
 import {
@@ -196,12 +197,12 @@ export function PaymentDialog({
                       onValueChange={(v) => v && form.setValue("paymentType", v as WorkerPaymentFormInput["paymentType"])}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue format={formatEnumLabel} />
                       </SelectTrigger>
                       <SelectContent>
                         {WORKER_PAYMENT_TYPES.map((type) => (
                           <SelectItem key={type} value={type}>
-                            {type}
+                            {formatEnumLabel(type)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -214,12 +215,12 @@ export function PaymentDialog({
                       onValueChange={(v) => v && form.setValue("method", v as WorkerPaymentFormInput["method"])}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue format={formatEnumLabel} />
                       </SelectTrigger>
                       <SelectContent>
                         {PAYMENT_METHODS.map((method) => (
                           <SelectItem key={method} value={method}>
-                            {method.replaceAll("_", " ")}
+                            {formatEnumLabel(method)}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -12,7 +12,9 @@ function Sheet({ ...props }: SheetPrimitive.Root.Props) {
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
-  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
+  // With a `render` element, that element keeps its own data-slot; setting ours
+  // too merges in a different order on server and client (hydration mismatch).
+  return <SheetPrimitive.Trigger {...(props.render ? {} : { "data-slot": "sheet-trigger" })} {...props} />
 }
 
 function SheetClose({ ...props }: SheetPrimitive.Close.Props) {

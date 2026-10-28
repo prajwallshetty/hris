@@ -18,11 +18,23 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({
+  className,
+  format,
+  placeholder,
+  ...props
+}: SelectPrimitive.Value.Props & {
+  /** Display text for the selected value when the root has no `items` (e.g. a raw enum). */
+  format?: (value: string) => React.ReactNode
+}) {
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
+      {...(format
+        ? { children: (value: string | null) => (value ? format(value) : placeholder) }
+        : {})}
       {...props}
     />
   )

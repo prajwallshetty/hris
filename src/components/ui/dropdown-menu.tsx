@@ -15,7 +15,9 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
 }
 
 function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />
+  // With a `render` element, that element keeps its own data-slot; setting ours
+  // too merges in a different order on server and client (hydration mismatch).
+  return <MenuPrimitive.Trigger {...(props.render ? {} : { "data-slot": "dropdown-menu-trigger" })} {...props} />
 }
 
 function DropdownMenuContent({

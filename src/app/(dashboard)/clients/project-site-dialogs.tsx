@@ -20,6 +20,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ENTITY_STATUSES, projectFormSchema, siteFormSchema, type ProjectFormInput, type SiteFormInput } from "@/lib/validation/client";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { createProject, createSite, updateProject, updateSite } from "@/server/actions/clients";
 
 export function AddProjectDialog({
@@ -77,12 +78,12 @@ export function AddProjectDialog({
               <FieldLabel>Status</FieldLabel>
               <Select value={form.watch("status")} onValueChange={(v) => v && form.setValue("status", v as ProjectFormInput["status"])}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue format={formatEnumLabel} />
                 </SelectTrigger>
                 <SelectContent>
                   {ENTITY_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s.charAt(0) + s.slice(1).toLowerCase()}
+                      {formatEnumLabel(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -163,12 +164,12 @@ export function AddSiteDialog({
               <FieldLabel>Status</FieldLabel>
               <Select value={form.watch("status")} onValueChange={(v) => v && form.setValue("status", v as SiteFormInput["status"])}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue format={formatEnumLabel} />
                 </SelectTrigger>
                 <SelectContent>
                   {ENTITY_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s.charAt(0) + s.slice(1).toLowerCase()}
+                      {formatEnumLabel(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>

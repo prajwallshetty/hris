@@ -22,7 +22,9 @@ function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
 }
 
 function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+  // With a `render` element, that element keeps its own data-slot; setting ours
+  // too merges in a different order on server and client (hydration mismatch).
+  return <TooltipPrimitive.Trigger {...(props.render ? {} : { "data-slot": "tooltip-trigger" })} {...props} />
 }
 
 function TooltipContent({

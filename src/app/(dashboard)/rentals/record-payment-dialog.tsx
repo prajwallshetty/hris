@@ -19,6 +19,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Textarea } from "@/components/ui/textarea";
 import {
   PAYMENT_METHODS,
@@ -88,12 +89,12 @@ export function RecordPaymentDialog({ rentalId }: { rentalId: string }) {
                   onValueChange={(v) => v && form.setValue("method", v as RentalPaymentFormInput["method"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {PAYMENT_METHODS.map((method) => (
                       <SelectItem key={method} value={method}>
-                        {method.replaceAll("_", " ")}
+                        {formatEnumLabel(method)}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -11,8 +11,10 @@ function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
 }
 
 function AlertDialogTrigger({ ...props }: AlertDialogPrimitive.Trigger.Props) {
+  // With a `render` element, that element keeps its own data-slot; setting ours
+  // too merges in a different order on server and client (hydration mismatch).
   return (
-    <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
+    <AlertDialogPrimitive.Trigger {...(props.render ? {} : { "data-slot": "alert-dialog-trigger" })} {...props} />
   )
 }
 

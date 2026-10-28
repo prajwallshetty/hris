@@ -20,6 +20,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Textarea } from "@/components/ui/textarea";
 import {
   BILLING_FREQUENCIES,
@@ -111,12 +112,12 @@ export function RecurringChargeDialog({
                   onValueChange={(v) => v && form.setValue("category", v as RecurringChargeFormInput["category"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {RECURRING_CHARGE_CATEGORIES.map((c) => (
                       <SelectItem key={c} value={c}>
-                        {c}
+                        {formatEnumLabel(c)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -129,12 +130,12 @@ export function RecurringChargeDialog({
                   onValueChange={(v) => v && form.setValue("frequency", v as RecurringChargeFormInput["frequency"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {BILLING_FREQUENCIES.map((f) => (
                       <SelectItem key={f} value={f}>
-                        {f.replaceAll("_", " ")}
+                        {formatEnumLabel(f)}
                       </SelectItem>
                     ))}
                   </SelectContent>

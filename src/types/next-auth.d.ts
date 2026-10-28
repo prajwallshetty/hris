@@ -26,5 +26,7 @@ declare module "@auth/core/jwt" {
     role: Role;
     coordinatorId: string | null;
     clientId: string | null;
+    /** Per-login session id, revocable on sign-out. */
+    sid?: string;
   }
 }

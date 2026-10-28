@@ -14,9 +14,10 @@ export const authConfig = {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = request.nextUrl.pathname.startsWith("/login");
-      if (isOnLogin) {
-        return !isLoggedIn || Response.redirect(new URL("/dashboard", request.nextUrl));
-      }
+      // The login page itself redirects signed-in users (it can check the
+      // database for revoked sessions; this Edge check only decodes the JWT,
+      // so redirecting here would loop a revoked session between the two).
+      if (isOnLogin) return true;
       return isLoggedIn;
     },
   },

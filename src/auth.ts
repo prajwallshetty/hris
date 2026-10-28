@@ -1,5 +1,6 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { z } from "zod";
 
@@ -22,6 +23,8 @@ export class RateLimitedError extends CredentialsSignin {
 
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_FAILURES = 5;
+/** Auth.js default JWT session lifetime (30 days). */
+const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 const credentialsSchema = z.object({
   accessCode: z.string().min(1),
@@ -128,15 +131,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
         token.coordinatorId = user.coordinatorId;
         token.clientId = user.clientId;
+        token.sid = randomUUID();
         return token;
       }
 
       // Re-check status on every request so a suspended/deactivated user
-      // loses access promptly instead of riding out the JWT's lifetime.
-      const dbUser = await db.user.findUnique({ where: { id: token.sub } });
-      if (!dbUser || dbUser.status !== "ACTIVE") {
+      // loses access promptly instead of riding out the JWT's lifetime —
+      // and so a signed-out session stays signed out (see RevokedSession).
+      const [dbUser, revoked] = await Promise.all([
+        db.user.findUnique({ where: { id: token.sub } }),
+        token.sid ? db.revokedSession.findUnique({ where: { sid: token.sid }, select: { sid: true } }) : null,
+      ]);
+      if (!dbUser || dbUser.status !== "ACTIVE" || revoked) {
         return null;
       }
+      // Tokens issued before session ids existed get one on their next refresh.
+      token.sid ??= randomUUID();
       token.role = dbUser.role;
       token.coordinatorId = dbUser.coordinatorId;
       token.clientId = dbUser.clientId;
@@ -150,6 +160,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.clientId = token.clientId;
       }
       return session;
+    },
+  },
+  events: {
+    // Revoke this login server-side (see RevokedSession) and prune rows
+    // whose tokens have expired on their own.
+    async signOut(message) {
+      const token = "token" in message ? message.token : null;
+      if (!token?.sid) return;
+      const expiresAt = typeof token.exp === "number" ? new Date(token.exp * 1000) : new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+      await db.$transaction([
+        db.revokedSession.upsert({
+          where: { sid: token.sid },
+          create: { sid: token.sid, userId: token.sub ?? null, expiresAt },
+          update: {},
+        }),
+        db.revokedSession.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
+      ]);
     },
   },
 });

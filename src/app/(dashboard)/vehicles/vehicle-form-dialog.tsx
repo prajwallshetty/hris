@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { useClearNewParam } from "@/lib/use-clear-new-param";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -138,6 +139,7 @@ export function VehicleFormDialog({
               <Field>
                 <FieldLabel htmlFor="year">Year</FieldLabel>
                 <Input id="year" type="number" {...form.register("year")} />
+                {errors.year && <FieldError>{errors.year.message}</FieldError>}
               </Field>
               <Field>
                 <FieldLabel htmlFor="color">Color</FieldLabel>
@@ -161,12 +163,12 @@ export function VehicleFormDialog({
                   onValueChange={(v) => v && form.setValue("status", v as VehicleFormInput["status"])}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue format={formatEnumLabel} />
                   </SelectTrigger>
                   <SelectContent>
                     {VEHICLE_STATUSES.map((s) => (
                       <SelectItem key={s} value={s}>
-                        {s.replaceAll("_", " ")}
+                        {formatEnumLabel(s)}
                       </SelectItem>
                     ))}
                   </SelectContent>

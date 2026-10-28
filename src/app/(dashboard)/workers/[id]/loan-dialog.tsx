@@ -93,10 +93,12 @@ export function LoanDialog({
               <Field>
                 <FieldLabel htmlFor="installments">Installments</FieldLabel>
                 <Input id="installments" type="number" min={1} {...form.register("installments")} />
+                {errors.installments && <FieldError>{errors.installments.message}</FieldError>}
               </Field>
               <Field>
                 <FieldLabel htmlFor="installmentAmount">Installment Amount</FieldLabel>
                 <Input id="installmentAmount" type="number" step="0.01" {...form.register("installmentAmount")} />
+                {errors.installmentAmount && <FieldError>{errors.installmentAmount.message}</FieldError>}
               </Field>
             </div>
             <Field>

@@ -2,17 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 
+import { ATTENDANCE_TONES, leaveTypeLabel } from "@/lib/attendance";
 import { db } from "@/lib/db";
 import { toCsv } from "@/lib/csv";
 import {
   manualTimesheetItemFormSchema,
   timesheetItemDecisionSchema,
+  timesheetItemUpdateSchema,
   type ManualTimesheetItemFormInput,
   type TimesheetItemDecisionInput,
+  type TimesheetItemUpdateInput,
 } from "@/lib/validation/timesheet";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
+import {
+  assertActiveLeaveType,
+  attendanceItemData,
+  buildAttendanceDayFromForm,
+  findLeaveRequestConflict,
+  getAttendanceRule,
+} from "@/server/attendance";
 import { logAudit } from "@/server/audit";
-import { calculateOvertime, calculateRegularHours } from "@/server/calc";
+import { computeAttendanceDay } from "@/server/calc";
 import {
   detectTimesheetColumns,
   extractTimesheetRows,
@@ -46,6 +56,7 @@ export async function exportTimesheetLogCsv(filters: TimesheetLogFilters): Promi
   try {
     const user = await getSessionUser();
     const { items } = await listTimesheetLog(user, { ...filters, page: 1, pageSize: 100000 });
+    const hhmm = (value: Date | null) => (value ? value.toISOString().slice(11, 16) : "");
     const csv = toCsv(
       [
         "Date",
@@ -54,13 +65,23 @@ export async function exportTimesheetLogCsv(filters: TimesheetLogFilters): Promi
         "Client",
         "Site",
         "Coordinator",
+        "Attendance Status",
+        "Leave Type",
+        "Check-in",
+        "Check-out",
+        "Actual Hours",
+        "Break (min)",
         "Regular Hours",
         "OT Hours",
-        "Total Hours",
+        "Sick Leave Hours",
+        "Annual Leave Hours",
+        "Unpaid Leave Hours",
+        "Other Leave Hours",
         "Worker Rate",
         "PU Rate",
         "Billing Amount",
-        "Status",
+        "Approval",
+        "Remarks",
       ],
       items.map((item) => {
         const client = item.timesheet.site?.project.client.companyName ?? "";
@@ -75,13 +96,23 @@ export async function exportTimesheetLogCsv(filters: TimesheetLogFilters): Promi
           client,
           site,
           item.assignment?.coordinator?.name ?? "",
+          ATTENDANCE_TONES[item.attendanceStatus].label,
+          leaveTypeLabel(item) ?? "",
+          hhmm(item.loginTime),
+          hhmm(item.logoutTime),
+          Number(item.totalHours).toFixed(2),
+          item.loginTime ? item.breakMinutes : "",
           Number(item.regularHours).toFixed(2),
           Number(item.overtimeHours).toFixed(2),
-          Number(item.totalHours).toFixed(2),
+          Number(item.sickLeaveHours).toFixed(2),
+          Number(item.annualLeaveHours).toFixed(2),
+          Number(item.unpaidLeaveHours).toFixed(2),
+          Number(item.otherLeaveHours).toFixed(2),
           workerRate ? Number(workerRate).toFixed(2) : "",
           puRate ? Number(puRate).toFixed(2) : "",
           typeof billingAmount === "number" ? billingAmount.toFixed(2) : "",
           item.status,
+          item.remarks ?? "",
         ];
       }),
     );
@@ -89,11 +120,6 @@ export async function exportTimesheetLogCsv(filters: TimesheetLogFilters): Promi
   } catch (error) {
     return actionError(error);
   }
-}
-
-function combineLocalTime(date: Date, time: string): Date {
-  const [hours, minutes] = time.split(":").map(Number);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), hours, minutes));
 }
 
 export type TimesheetImportPreview = {
@@ -182,6 +208,38 @@ export async function importTimesheetRows(input: {
     });
     const assignmentByWorkerId = new Map(assignments.map((a) => [a.workerId, a.id]));
 
+    // Rows come back from the browser, so the hours are rebuilt here from
+    // the row's status and times rather than trusted as sent.
+    const rule = await getAttendanceRule();
+    const rows: { item: (typeof input.items)[number]; data: ReturnType<typeof attendanceItemData> }[] = [];
+    const problems: string[] = [];
+    for (const item of input.items) {
+      const date = new Date(item.date);
+      const day = computeAttendanceDay(
+        {
+          status: item.attendanceStatus,
+          loginTime: item.loginTime ? new Date(item.loginTime) : null,
+          logoutTime: item.logoutTime ? new Date(item.logoutTime) : null,
+          breakMinutes: item.breakMinutes,
+          halfDayLeave: item.halfDayLeave,
+        },
+        rule,
+      );
+      if (!day.ok) {
+        problems.push(`Row ${item.rowNumber}: ${day.errors.join(" ")}`);
+        continue;
+      }
+      const conflict = await findLeaveRequestConflict(db, item.workerId, date, item.attendanceStatus, item.halfDayLeave);
+      if (conflict) {
+        problems.push(`Row ${item.rowNumber}: ${conflict}`);
+        continue;
+      }
+      rows.push({ item, data: attendanceItemData(day.values) });
+    }
+    if (problems.length > 0) {
+      return { success: false, error: `Nothing was imported. ${problems.slice(0, 5).join(" ")}${problems.length > 5 ? ` (+${problems.length - 5} more)` : ""}` };
+    }
+
     const timesheet = await db.$transaction(async (tx) => {
       const header = await tx.timesheet.create({
         data: {
@@ -196,18 +254,14 @@ export async function importTimesheetRows(input: {
       });
 
       await tx.timesheetItem.createMany({
-        data: input.items.map((item) => ({
+        data: rows.map(({ item, data }) => ({
           timesheetId: header.id,
           workerId: item.workerId,
           assignmentId: assignmentByWorkerId.get(item.workerId) ?? null,
           iqamaNumber: item.iqamaNumber,
           date: new Date(item.date),
-          loginTime: new Date(item.loginTime),
-          logoutTime: new Date(item.logoutTime),
-          breakMinutes: item.breakMinutes,
-          regularHours: item.regularHours,
-          overtimeHours: item.overtimeHours,
-          totalHours: item.totalHours,
+          ...data,
+          remarks: item.remarks,
           status: "PENDING" as const,
         })),
       });
@@ -265,23 +319,24 @@ export async function createManualTimesheetItem(
     }
 
     const date = new Date(data.date);
-    const loginTime = combineLocalTime(date, data.loginTime);
-    const logoutTime = combineLocalTime(date, data.logoutTime);
-    const breakMinutes = data.breakMinutes ?? 0;
+    const day = buildAttendanceDayFromForm(date, data, await getAttendanceRule());
+    if (!day.ok) return { success: false, error: day.errors.join(" ") };
 
-    const netMinutes = (logoutTime.getTime() - loginTime.getTime()) / 60_000 - breakMinutes;
-    if (netMinutes <= 0) {
-      return { success: false, error: "Logout must be after login (and break)." };
-    }
-
+    // One record per worker per day (also enforced by a unique index) — an
+    // existing day is corrected through the audited edit, never overwritten.
     const existing = await db.timesheetItem.findUnique({ where: { workerId_date: { workerId: worker.id, date } } });
     if (existing) {
-      return { success: false, error: "An attendance entry for this worker and date already exists." };
+      return {
+        success: false,
+        error: "An attendance entry for this worker and date already exists — open it and use Edit to correct it.",
+      };
     }
 
-    const overtimeRuleRow = await getActiveOvertimeRule();
-    const totalHours = calculateRegularHours(loginTime, logoutTime, breakMinutes);
-    const { regularHours, overtimeHours } = calculateOvertime(totalHours, toOvertimeRuleConfig(overtimeRuleRow));
+    const conflict =
+      (await findLeaveRequestConflict(db, worker.id, date, data.attendanceStatus, data.halfDayLeave || null)) ??
+      (await assertActiveLeaveType(db, day.values.otherLeaveTypeId));
+    if (conflict) return { success: false, error: conflict };
+
     const period = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 
     const item = await db.$transaction(async (tx) => {
@@ -309,20 +364,74 @@ export async function createManualTimesheetItem(
           assignmentId: assignment.id,
           iqamaNumber: worker.iqamaNumber,
           date,
-          loginTime,
-          logoutTime,
-          breakMinutes,
-          regularHours: regularHours.toFixed(2),
-          overtimeHours: overtimeHours.toFixed(2),
-          totalHours: totalHours.toFixed(2),
+          ...attendanceItemData(day.values),
+          remarks: data.remarks || null,
           status: "PENDING",
         },
       });
     });
 
-    await logAudit({ userId: user.id, action: "create", entityType: "TimesheetItem", entityId: item.id, newValue: data });
+    await logAudit({ userId: user.id, action: "create", entityType: "TimesheetItem", entityId: item.id, newValue: item });
     revalidatePath("/timesheets");
+    revalidatePath("/timesheets/log");
     revalidatePath(`/timesheets/${item.timesheetId}`);
+    return ok({ id: item.id });
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+/**
+ * Corrects a recorded day (§ attendance: manual adjustments stay auditable,
+ * nothing is silently overwritten). Requires a reason, logs the full before/
+ * after, and sends an already-decided entry back to Pending so it's reviewed
+ * again. Locked/approved timesheets can't be changed — they feed payroll.
+ */
+export async function updateTimesheetItem(input: TimesheetItemUpdateInput): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await getSessionUser();
+    assertCan(user, "update", "timesheet");
+    const data = timesheetItemUpdateSchema.parse(input);
+
+    const before = await db.timesheetItem.findUniqueOrThrow({ where: { id: data.itemId }, include: { timesheet: true } });
+    if (before.timesheet.status === "LOCKED" || before.timesheet.status === "APPROVED") {
+      return {
+        success: false,
+        error: "This entry belongs to an approved or locked timesheet, which feeds payroll — it can no longer be edited.",
+      };
+    }
+
+    const day = buildAttendanceDayFromForm(before.date, data, await getAttendanceRule());
+    if (!day.ok) return { success: false, error: day.errors.join(" ") };
+
+    const conflict =
+      (await findLeaveRequestConflict(db, before.workerId, before.date, data.attendanceStatus, data.halfDayLeave || null)) ??
+      (await assertActiveLeaveType(db, day.values.otherLeaveTypeId));
+    if (conflict) return { success: false, error: conflict };
+
+    const item = await db.timesheetItem.update({
+      where: { id: before.id },
+      data: {
+        ...attendanceItemData(day.values),
+        remarks: data.remarks || null,
+        ...(before.status !== "PENDING" ? { status: "PENDING" as const, reviewNote: null } : {}),
+      },
+    });
+
+    const previousValue: Partial<typeof before> = { ...before };
+    delete previousValue.timesheet;
+    await logAudit({
+      userId: user.id,
+      action: "update",
+      entityType: "TimesheetItem",
+      entityId: item.id,
+      previousValue,
+      newValue: { ...item, correctionReason: data.reason },
+    });
+
+    revalidatePath("/timesheets/log");
+    revalidatePath(`/timesheets/${before.timesheetId}`);
+    revalidatePath(`/timesheets/worker/${before.workerId}`);
     return ok({ id: item.id });
   } catch (error) {
     return actionError(error);
@@ -384,7 +493,7 @@ export async function decideTimesheetItem(input: TimesheetItemDecisionInput): Pr
 
     const item = await db.timesheetItem.update({
       where: { id: data.itemId },
-      data: { status: data.decision, remarks: data.reason || before.remarks },
+      data: { status: data.decision, reviewNote: data.decision === "REJECTED" ? data.reason || null : null },
     });
 
     await logAudit({

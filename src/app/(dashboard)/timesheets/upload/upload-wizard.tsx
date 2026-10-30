@@ -5,11 +5,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { AttendanceBadge } from "@/components/shared/attendance-badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { IMPORT_STATUS_HINT } from "@/lib/attendance";
 import {
   importTimesheetRows,
   previewTimesheetImport,
@@ -210,7 +212,9 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
               }}
             />
             <p className="text-muted-foreground text-xs">
-              Expected columns: Iqama, Date, Login, Logout, and optionally Name / Break (minutes).
+              Expected columns: Iqama, Date, Login, Logout, and optionally Name / Break (minutes) / Status / Remarks.
+              Status takes {IMPORT_STATUS_HINT}; leave Login/Logout blank on leave and off days. Without a Status column every
+              row is read as Present.
             </p>
           </Field>
         </div>
@@ -286,8 +290,10 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
                     <TableHead>Worker</TableHead>
                     <TableHead>Iqama</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Regular</TableHead>
-                    <TableHead>Overtime</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actual</TableHead>
+                    <TableHead className="text-right">OT</TableHead>
+                    <TableHead className="text-right">Leave</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -296,9 +302,13 @@ export function TimesheetUploadWizard({ clients }: { clients: ClientTree[] }) {
                       <TableCell>{r.rowNumber}</TableCell>
                       <TableCell>{r.workerName}</TableCell>
                       <TableCell>{r.iqamaNumber}</TableCell>
-                      <TableCell>{new Date(r.date).toLocaleDateString("en-GB")}</TableCell>
-                      <TableCell>{r.regularHours}h</TableCell>
-                      <TableCell>{r.overtimeHours}h</TableCell>
+                      <TableCell>{new Date(r.date).toLocaleDateString("en-GB", { timeZone: "UTC" })}</TableCell>
+                      <TableCell>
+                        <AttendanceBadge status={r.attendanceStatus} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{r.totalHours}h</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.overtimeHours}h</TableCell>
+                      <TableCell className="text-right tabular-nums">{Number(r.leaveHours) > 0 ? `${r.leaveHours}h` : "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

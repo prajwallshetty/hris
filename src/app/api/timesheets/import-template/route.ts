@@ -1,5 +1,7 @@
 import * as XLSX from "xlsx";
 
+import { IMPORT_STATUS_HINT } from "@/lib/attendance";
+
 import { assertCan } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
@@ -17,11 +19,15 @@ export async function GET() {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const headers = ["Iqama", "Name", "Date", "Login", "Logout", "Break"];
-  const exampleRow = ["1234567890", "Mohammed Ahmed", "01/09/2026", "08:00", "17:00", "60"];
+  const headers = ["Iqama", "Name", "Date", "Login", "Logout", "Break", "Status", "Remarks"];
+  const exampleRows = [
+    ["1234567890", "Mohammed Ahmed", "01/09/2026", "08:00", "17:00", "60", "P", ""],
+    ["1234567890", "Mohammed Ahmed", "02/09/2026", "", "", "", "SL", "Medical certificate"],
+    ["1234567890", "Mohammed Ahmed", "03/09/2026", "22:00", "06:00", "30", "P", "Night shift"],
+  ];
 
-  const templateSheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-  templateSheet["!cols"] = [{ wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+  const templateSheet = XLSX.utils.aoa_to_sheet([headers, ...exampleRows]);
+  templateSheet["!cols"] = [{ wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 28 }];
 
   const instructionsSheet = XLSX.utils.aoa_to_sheet([
     ["LOG / Timesheet Bulk Import — Instructions"],
@@ -30,10 +36,13 @@ export async function GET() {
     ["Iqama", "Required", "Exactly 10 digits — this is the primary key used to match the row to a worker. Must belong to a worker already in the system."],
     ["Name", "Optional", "For your reference only — matching always uses Iqama, never the name."],
     ["Date", "Required", "Format: DD/MM/YYYY. One row per worker per day."],
-    ["Login", "Required", "Time worker logged in, e.g. 08:00 or 08:00 AM."],
-    ["Logout", "Required", "Time worker logged out, e.g. 17:00 or 05:00 PM. Must be after Login (minus Break)."],
-    ["Break", "Optional", "Unpaid break, in minutes. Defaults to 0 if left blank."],
+    ["Login", "Worked days", "Check-in time, e.g. 08:00 or 08:00 AM. Leave blank on leave, absent and off days."],
+    ["Logout", "Worked days", "Check-out time, e.g. 17:00 or 05:00 PM. A time earlier than Login is read as an overnight shift ending the next day."],
+    ["Break", "Optional", "Unpaid break, in minutes. Defaults to 0 if left blank. Recorded separately — never as leave."],
+    ["Status", "Optional", `Attendance for the day: ${IMPORT_STATUS_HINT}. Blank means Present. Half Day needs Login/Logout for the worked half.`],
+    ["Remarks", "Optional", "Free-text note shown on the timesheet."],
     [],
+    ["Leave is stored in its own category (sick / annual / unpaid) and is never subtracted from, or added to, worked hours."],
     ["Regular vs overtime hours are calculated automatically from Login/Logout using the active overtime rule — do not enter them directly."],
     ["Do not rename the header row — columns are matched by name, not position, so you may reorder them but not rename them."],
   ]);

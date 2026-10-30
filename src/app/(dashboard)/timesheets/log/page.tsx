@@ -1,6 +1,7 @@
-import { ClipboardList } from "lucide-react";
+import { CalendarRange, ClipboardList, MessageSquareText, MoonStar, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 
+import { AttendanceBadge, AttendanceLegend } from "@/components/shared/attendance-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { MonthFilter } from "@/components/shared/month-filter";
@@ -9,17 +10,39 @@ import { Pagination } from "@/components/shared/pagination";
 import { SearchInput } from "@/components/shared/search-input";
 import { SelectFilter } from "@/components/shared/select-filter";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  ATTENDANCE_LEGEND_ORDER,
+  ATTENDANCE_TONES,
+  LEAVE_CATEGORIES,
+  LEAVE_CATEGORY_LABELS,
+  WORKER_ATTENDANCE_STATUSES,
+  leaveTypeLabel,
+  type WorkerAttendanceStatusValue,
+} from "@/lib/attendance";
+import { can } from "@/server/rbac";
 import { exportTimesheetLogCsv } from "@/server/actions/timesheets";
-import { getTimesheetLogFilterOptions, listTimesheetLog } from "@/server/queries/timesheets";
+import { getAttendancePreviewRule } from "@/server/attendance";
+import {
+  countTimesheetLogByAttendanceStatus,
+  getTimesheetLogFilterOptions,
+  listActiveLeaveTypesForSelect,
+  listTimesheetLog,
+} from "@/server/queries/timesheets";
 import { getSessionUser } from "@/server/session";
 
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
+import { AttendanceEntryDialog } from "../attendance-entry-dialog";
+import { formatAttendanceDate, isTimesheetEditable, shiftTime, toEditTarget } from "../_components/edit-target";
+import { TimesheetViewTabs } from "../_components/timesheet-view-tabs";
+
+function hours(value: unknown) {
+  const n = Number(value);
+  return n > 0 ? n.toFixed(2) : "—";
 }
 
-function formatMoney(value: number) {
-  return `SAR ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+function isOneOf<T extends string>(values: readonly T[], value: string | undefined): value is T {
+  return value != null && (values as readonly string[]).includes(value);
 }
 
 export default async function TimesheetLogPage({
@@ -29,144 +52,242 @@ export default async function TimesheetLogPage({
     q?: string;
     month?: string;
     clientId?: string;
+    projectId?: string;
     siteId?: string;
     coordinatorId?: string;
     status?: string;
+    attendance?: string;
+    leave?: string;
     page?: string;
   }>;
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
   const page = Number(params.page ?? 1) || 1;
+  const canCreate = can(user, "create", "timesheet");
+  const canUpdate = can(user, "update", "timesheet");
 
   const filters = {
     search: params.q,
     month: params.month,
     clientId: params.clientId,
+    projectId: params.projectId,
     siteId: params.siteId,
     coordinatorId: params.coordinatorId,
-    status: (params.status as never) ?? "ALL",
+    status: (isOneOf(["PENDING", "APPROVED", "REJECTED"] as const, params.status) ? params.status : "ALL") as never,
+    attendanceStatus: isOneOf(WORKER_ATTENDANCE_STATUSES, params.attendance) ? params.attendance : ("ALL" as const),
+    leave: isOneOf(LEAVE_CATEGORIES, params.leave) ? params.leave : ("ALL" as const),
   };
 
-  const [{ items, total, pageSize }, filterOptions] = await Promise.all([
+  const [{ items, total, pageSize }, filterOptions, counts, leaveTypes, rule] = await Promise.all([
     listTimesheetLog(user, { ...filters, page }),
     getTimesheetLogFilterOptions(),
+    countTimesheetLogByAttendanceStatus(user, filters),
+    canCreate || canUpdate ? listActiveLeaveTypesForSelect() : Promise.resolve([]),
+    canCreate || canUpdate ? getAttendancePreviewRule() : Promise.resolve(null),
   ]);
 
-  const sites = params.clientId ? filterOptions.sites.filter((s) => s.clientId === params.clientId) : filterOptions.sites;
+  const projects = params.clientId ? filterOptions.projects.filter((p) => p.clientId === params.clientId) : filterOptions.projects;
+  const sites = filterOptions.sites.filter(
+    (s) => (!params.clientId || s.clientId === params.clientId) && (!params.projectId || s.projectId === params.projectId),
+  );
+  const monthQuery = params.month ? `?month=${params.month}` : "";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
-        breadcrumbs={[
-          { label: "Home", href: "/dashboard" },
-          { label: "Workforce" },
-          { label: "Timesheets", href: "/timesheets" },
-          { label: "LOG" },
-        ]}
-        title="Timesheets — LOG"
-        description="Every worker-day entry across all timesheet batches — filter and export exactly what you need."
+        breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Workforce" }, { label: "Attendance" }]}
+        title="Daily Attendance"
+        description="Every worker-day with worked hours, break, overtime and leave kept in separate columns."
         actions={
-          <Link href="/timesheets" className="text-muted-foreground text-sm hover:underline">
-            ← Batches view
-          </Link>
+          canCreate &&
+          rule && (
+            <AttendanceEntryDialog
+              leaveTypes={leaveTypes}
+              rule={rule}
+              trigger={
+                <Button>
+                  <Plus className="size-4" />
+                  Record Attendance
+                </Button>
+              }
+            />
+          )
         }
       />
 
-      <div className="bg-card flex flex-col gap-3 rounded-lg border p-3">
+      <TimesheetViewTabs active="daily" />
+
+      <div className="data-panel space-y-3 p-3 sm:p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <SearchInput placeholder="Search worker name or Iqama…" />
+          <SearchInput placeholder="Worker name or Iqama…" />
           <MonthFilter />
+          <SelectFilter
+            paramKey="attendance"
+            placeholder="Status"
+            options={ATTENDANCE_LEGEND_ORDER.map((s) => ({ label: ATTENDANCE_TONES[s].label, value: s }))}
+          />
+          <SelectFilter
+            paramKey="leave"
+            placeholder="Leave type"
+            options={LEAVE_CATEGORIES.map((c) => ({ label: LEAVE_CATEGORY_LABELS[c], value: c }))}
+          />
           <SelectFilter
             paramKey="clientId"
             placeholder="Client"
             options={filterOptions.clients.map((c) => ({ label: c.companyName, value: c.id }))}
           />
+          <SelectFilter paramKey="projectId" placeholder="Project" options={projects.map((p) => ({ label: p.name, value: p.id }))} />
           <SelectFilter paramKey="siteId" placeholder="Site" options={sites.map((s) => ({ label: s.name, value: s.id }))} />
           <SelectFilter
-            paramKey="coordinatorId"
-            placeholder="Coordinator"
-            options={filterOptions.coordinators.map((c) => ({ label: c.name, value: c.id }))}
-          />
-          <SelectFilter
             paramKey="status"
-            placeholder="Status"
+            placeholder="Approval"
             options={[
               { label: "Pending", value: "PENDING" },
               { label: "Approved", value: "APPROVED" },
               { label: "Rejected", value: "REJECTED" },
             ]}
           />
-          <ExportCsvButton
-            action={exportTimesheetLogCsv.bind(null, filters)}
-            filename="timesheet-log.csv"
-            label="Export"
-          />
+          <div className="ml-auto">
+            <ExportCsvButton action={exportTimesheetLogCsv.bind(null, filters)} filename="attendance.csv" label="Export" />
+          </div>
+        </div>
+        <div className="border-t border-slate-100 pt-3">
+          <AttendanceLegend counts={counts} />
+          <p className="text-muted-foreground mt-2 text-xs">
+            Actual hours = check-out − check-in − break. Overtime is the part of actual hours above the daily threshold. Leave
+            is never deducted from, or added to, worked hours.
+          </p>
         </div>
       </div>
 
       {items.length === 0 ? (
-        <EmptyState icon={ClipboardList} title="No log entries found" description="Try adjusting your filters." />
+        <EmptyState
+          icon={ClipboardList}
+          title="No attendance found"
+          description={canCreate ? "Try other filters, or record a day with Record Attendance." : "Try adjusting your filters."}
+        />
       ) : (
-        <>
-          <div className="data-panel">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Worker</TableHead>
-                    <TableHead>Iqama</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Site</TableHead>
-                    <TableHead className="text-right">Regular</TableHead>
-                    <TableHead className="text-right">OT</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Worker Rate</TableHead>
-                    <TableHead className="text-right">PU Rate</TableHead>
-                    <TableHead className="text-right">Billing Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => {
-                    const client = item.timesheet.site?.project.client.companyName ?? "—";
-                    const site = item.timesheet.site?.name ?? "—";
-                    const workerRate = item.assignment?.workerHourlyRate;
-                    const puRate = item.assignment?.clientBillingRate;
-                    const billingAmount = puRate ? Number(item.totalHours) * Number(puRate) : null;
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="whitespace-nowrap">{formatDate(item.date)}</TableCell>
-                        <TableCell>
-                          <Link href={`/workers/${item.worker.id}`} className="font-medium hover:underline">
-                            {item.worker.fullName}
-                          </Link>
+        <div className="data-panel">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Worker</TableHead>
+                  <TableHead>Iqama</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Check-in</TableHead>
+                  <TableHead>Check-out</TableHead>
+                  <TableHead className="text-right">Actual Hrs</TableHead>
+                  <TableHead className="text-right">Break</TableHead>
+                  <TableHead className="text-right">OT Hrs</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Leave Type</TableHead>
+                  <TableHead>Remarks</TableHead>
+                  <TableHead>Approval</TableHead>
+                  {canUpdate && <TableHead className="text-right">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => {
+                  const site = item.timesheet.site;
+                  const leave = leaveTypeLabel(item);
+                  const leaveHours =
+                    Number(item.sickLeaveHours) + Number(item.annualLeaveHours) + Number(item.unpaidLeaveHours) + Number(item.otherLeaveHours);
+                  const overnight = item.loginTime && item.logoutTime && item.logoutTime.toISOString().slice(0, 10) !== item.loginTime.toISOString().slice(0, 10);
+                  const editable = canUpdate && rule && isTimesheetEditable(item.timesheet.status);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="min-w-40">
+                        <Link
+                          href={`/timesheets/worker/${item.worker.id}${monthQuery || `?month=${item.date.toISOString().slice(0, 7)}`}`}
+                          className="text-navy font-semibold hover:underline"
+                        >
+                          {item.worker.fullName}
+                        </Link>
+                        {site && (
+                          <p className="text-muted-foreground truncate text-xs">
+                            {site.project.client.companyName} · {site.name}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-xs">{item.iqamaNumber ?? "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatAttendanceDate(item.date)}</TableCell>
+                      <TableCell className="tabular-nums">{shiftTime(item.loginTime) || "—"}</TableCell>
+                      <TableCell className="tabular-nums whitespace-nowrap">
+                        {shiftTime(item.logoutTime) || "—"}
+                        {overnight && (
+                          <MoonStar className="ml-1 inline size-3.5 text-indigo-500" aria-label="Overnight shift (next day)" />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-navy text-right font-semibold tabular-nums">{hours(item.totalHours)}</TableCell>
+                      <TableCell className="text-right text-slate-600 tabular-nums">
+                        {item.loginTime && item.breakMinutes > 0 ? `${(item.breakMinutes / 60).toFixed(2)}` : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-teal-700 tabular-nums">{hours(item.overtimeHours)}</TableCell>
+                      <TableCell>
+                        <AttendanceBadge status={item.attendanceStatus as WorkerAttendanceStatusValue} />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {leave ? (
+                          <span className="block leading-tight">
+                            {leave}
+                            <span className="text-muted-foreground block text-xs tabular-nums">{leaveHours.toFixed(2)}h</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-44">
+                        {item.remarks || item.reviewNote ? (
+                          <div className="space-y-0.5 text-xs">
+                            {item.remarks && <p className="line-clamp-2 text-slate-700">{item.remarks}</p>}
+                            {item.reviewNote && (
+                              <p className="flex items-start gap-1 text-red-700">
+                                <MessageSquareText className="mt-0.5 size-3 shrink-0" />
+                                <span className="line-clamp-2">{item.reviewNote}</span>
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={item.status} />
+                      </TableCell>
+                      {canUpdate && (
+                        <TableCell className="text-right">
+                          {editable && (
+                            <AttendanceEntryDialog
+                              leaveTypes={leaveTypes}
+                              rule={rule}
+                              edit={toEditTarget(item)}
+                              trigger={
+                                <Button variant="ghost" size="icon-sm" aria-label={`Correct ${item.worker.fullName} on ${formatAttendanceDate(item.date)}`}>
+                                  <Pencil className="size-4" />
+                                </Button>
+                              }
+                            />
+                          )}
                         </TableCell>
-                        <TableCell className="text-muted-foreground font-mono text-xs">{item.iqamaNumber}</TableCell>
-                        <TableCell>{client}</TableCell>
-                        <TableCell>{site}</TableCell>
-                        <TableCell className="text-right tabular-nums">{Number(item.regularHours).toFixed(1)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{Number(item.overtimeHours).toFixed(1)}</TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">{Number(item.totalHours).toFixed(1)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{workerRate ? formatMoney(Number(workerRate)) : "—"}</TableCell>
-                        <TableCell className="text-right tabular-nums">{puRate ? formatMoney(Number(puRate)) : "—"}</TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">
-                          {billingAmount != null ? formatMoney(billingAmount) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={item.status} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            <Pagination page={page} pageSize={pageSize} total={total} />
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
-        </>
+          <Pagination page={page} pageSize={pageSize} total={total} />
+        </div>
       )}
+
+      <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+        <CalendarRange className="size-3.5" /> Open a worker&rsquo;s name for their monthly timesheet and totals.
+      </p>
     </div>
   );
 }
+

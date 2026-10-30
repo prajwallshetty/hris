@@ -1,4 +1,4 @@
-import { ClipboardList, ListFilter, Plus, Upload } from "lucide-react";
+import { ClipboardList, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -8,13 +8,14 @@ import { SelectFilter } from "@/components/shared/select-filter";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatEnumLabel } from "@/lib/format-enum";
 import { can } from "@/server/rbac";
-import { listClientHierarchyForSelect } from "@/server/queries/clients";
-import { listTimesheets } from "@/server/queries/timesheets";
-import { listWorkersForSelect } from "@/server/queries/workers";
+import { getAttendancePreviewRule } from "@/server/attendance";
+import { listActiveLeaveTypesForSelect, listTimesheets } from "@/server/queries/timesheets";
 import { getSessionUser } from "@/server/session";
 
-import { ManualTimesheetEntryDialog } from "./manual-entry-dialog";
+import { TimesheetViewTabs } from "./_components/timesheet-view-tabs";
+import { AttendanceEntryDialog } from "./attendance-entry-dialog";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
@@ -34,10 +35,10 @@ export default async function TimesheetsPage({
   const page = Number(params.page ?? 1) || 1;
   const canCreate = can(user, "create", "timesheet");
 
-  const [{ timesheets, total, pageSize }, clients, workers] = await Promise.all([
+  const [{ timesheets, total, pageSize }, leaveTypes, rule] = await Promise.all([
     listTimesheets(user, { status: (params.status as never) ?? "ALL", page }),
-    canCreate ? listClientHierarchyForSelect() : Promise.resolve([]),
-    canCreate ? listWorkersForSelect(user) : Promise.resolve([]),
+    canCreate ? listActiveLeaveTypesForSelect() : Promise.resolve([]),
+    canCreate ? getAttendancePreviewRule() : Promise.resolve(null),
   ]);
 
   return (
@@ -45,27 +46,23 @@ export default async function TimesheetsPage({
       <PageHeader
         breadcrumbs={[{ label: "Home", href: "/dashboard" }, { label: "Workforce" }, { label: "Timesheets" }]}
         title="Timesheets"
-        description="Manual attendance and timesheets, from entry through approval and locking."
+        description="Attendance batches by site and month, from entry through approval and locking for payroll."
         actions={
           <>
-            <Button variant="outline" nativeButton={false} render={<Link href="/timesheets/log" />}>
-              <ListFilter className="size-4" />
-              View Log
-            </Button>
             {canCreate && (
               <Button variant="outline" nativeButton={false} render={<Link href="/timesheets/upload" />}>
                 <Upload className="size-4" />
                 Import Excel
               </Button>
             )}
-            {canCreate && (
-              <ManualTimesheetEntryDialog
-                clients={clients}
-                workers={workers}
+            {canCreate && rule && (
+              <AttendanceEntryDialog
+                leaveTypes={leaveTypes}
+                rule={rule}
                 trigger={
                   <Button>
                     <Plus className="size-4" />
-                    Manual Entry
+                    Record Attendance
                   </Button>
                 }
               />
@@ -73,6 +70,8 @@ export default async function TimesheetsPage({
           </>
         }
       />
+
+      <TimesheetViewTabs active="batches" />
 
       <SelectFilter
         paramKey="status"
@@ -117,7 +116,7 @@ export default async function TimesheetsPage({
                     <TableCell>
                       {t.site ? `${t.site.project.client.companyName} / ${t.site.name}` : "—"}
                     </TableCell>
-                    <TableCell>{t.uploadSource}</TableCell>
+                    <TableCell>{formatEnumLabel(t.uploadSource)}</TableCell>
                     <TableCell>{t._count.items}</TableCell>
                     <TableCell>
                       <StatusBadge status={t.status} />

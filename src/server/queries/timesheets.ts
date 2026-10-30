@@ -1,4 +1,6 @@
-import type { Prisma, TimesheetItemStatus, TimesheetStatus } from "@prisma/client";
+import type { Prisma, TimesheetItemStatus, TimesheetStatus, WorkerAttendanceStatus } from "@prisma/client";
+
+import type { LeaveCategory } from "@/lib/attendance";
 
 import { db } from "@/lib/db";
 import { assertCan, type SessionUser } from "@/server/rbac";
@@ -39,7 +41,10 @@ export async function getTimesheetDetail(user: SessionUser, id: string) {
     where: { id },
     include: {
       site: { include: { project: { include: { client: true } } } },
-      items: { include: { worker: true }, orderBy: [{ date: "asc" }, { worker: { fullName: "asc" } }] },
+      items: {
+        include: { worker: true, otherLeaveType: { select: { name: true } } },
+        orderBy: [{ date: "asc" }, { worker: { fullName: "asc" } }],
+      },
     },
   });
 }
@@ -85,23 +90,41 @@ export type TimesheetLogFilters = {
   month?: string; // "YYYY-MM"
   search?: string; // worker name or Iqama
   clientId?: string;
+  projectId?: string;
   siteId?: string;
   coordinatorId?: string;
   status?: TimesheetItemStatus | "ALL";
+  attendanceStatus?: WorkerAttendanceStatus | "ALL";
+  leave?: LeaveCategory | "ALL";
   page?: number;
   pageSize?: number;
+};
+
+const LEAVE_HOURS_FIELD: Record<LeaveCategory, "sickLeaveHours" | "annualLeaveHours" | "unpaidLeaveHours" | "otherLeaveHours"> = {
+  SICK: "sickLeaveHours",
+  ANNUAL: "annualLeaveHours",
+  UNPAID: "unpaidLeaveHours",
+  OTHER: "otherLeaveHours",
 };
 
 function buildTimesheetLogWhere(filters: TimesheetLogFilters): Prisma.TimesheetItemWhereInput {
   let dateRange: Prisma.DateTimeFilter | undefined;
   if (filters.month) {
     const [year, month] = filters.month.split("-").map(Number);
-    if (year && month) dateRange = { gte: new Date(year, month - 1, 1), lt: new Date(year, month, 1) };
+    if (year && month) dateRange = { gte: new Date(Date.UTC(year, month - 1, 1)), lt: new Date(Date.UTC(year, month, 1)) };
   }
+  const timesheetWhere: Prisma.TimesheetWhereInput = {
+    ...(filters.clientId ? { clientId: filters.clientId } : {}),
+    ...(filters.projectId ? { projectId: filters.projectId } : {}),
+    ...(filters.siteId ? { siteId: filters.siteId } : {}),
+  };
+  const leaveField = filters.leave && filters.leave !== "ALL" ? LEAVE_HOURS_FIELD[filters.leave] : null;
 
   return {
     ...(dateRange ? { date: dateRange } : {}),
     ...(filters.status && filters.status !== "ALL" ? { status: filters.status } : {}),
+    ...(filters.attendanceStatus && filters.attendanceStatus !== "ALL" ? { attendanceStatus: filters.attendanceStatus } : {}),
+    ...(leaveField ? { [leaveField]: { gt: 0 } } : {}),
     ...(filters.search
       ? {
           OR: [
@@ -110,8 +133,7 @@ function buildTimesheetLogWhere(filters: TimesheetLogFilters): Prisma.TimesheetI
           ],
         }
       : {}),
-    ...(filters.clientId ? { timesheet: { clientId: filters.clientId } } : {}),
-    ...(filters.siteId ? { timesheet: { siteId: filters.siteId } } : {}),
+    ...(Object.keys(timesheetWhere).length > 0 ? { timesheet: timesheetWhere } : {}),
     ...(filters.coordinatorId ? { assignment: { coordinatorId: filters.coordinatorId } } : {}),
   };
 }
@@ -131,6 +153,7 @@ export async function listTimesheetLog(user: SessionUser, filters: TimesheetLogF
       where,
       include: {
         worker: { select: { id: true, fullName: true, sequenceNo: true } },
+        otherLeaveType: { select: { name: true } },
         timesheet: { include: { site: { include: { project: { include: { client: true } } } } } },
         assignment: { include: { coordinator: { select: { id: true, name: true } } } },
       },
@@ -146,24 +169,70 @@ export async function listTimesheetLog(user: SessionUser, filters: TimesheetLogF
 
 export type TimesheetLogFilterOptions = {
   clients: { id: string; companyName: string }[];
-  sites: { id: string; name: string; clientId: string }[];
+  projects: { id: string; name: string; clientId: string }[];
+  sites: { id: string; name: string; clientId: string; projectId: string }[];
   coordinators: { id: string; name: string }[];
 };
 
 export async function getTimesheetLogFilterOptions(): Promise<TimesheetLogFilterOptions> {
-  const [clients, sitesRaw, coordinators] = await Promise.all([
+  const [clients, projects, sitesRaw, coordinators] = await Promise.all([
     db.client.findMany({ where: { deletedAt: null }, orderBy: { companyName: "asc" }, select: { id: true, companyName: true } }),
+    db.project.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true, clientId: true } }),
     db.site.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, project: { select: { clientId: true } } },
+      select: { id: true, name: true, projectId: true, project: { select: { clientId: true } } },
     }),
     db.coordinator.findMany({ where: { status: "ACTIVE" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   return {
     clients,
-    sites: sitesRaw.map((s) => ({ id: s.id, name: s.name, clientId: s.project.clientId })),
+    projects,
+    sites: sitesRaw.map((s) => ({ id: s.id, name: s.name, clientId: s.project.clientId, projectId: s.projectId })),
     coordinators,
   };
+}
+
+/**
+ * One worker's month (§ monthly timesheet): every recorded day with its
+ * site, plus the worker header. Rejected entries are returned too so the
+ * page can show them, but the caller leaves them out of the totals.
+ */
+export async function getWorkerMonthlyTimesheet(user: SessionUser, workerId: string, month: string) {
+  assertCan(user, "view", "timesheet");
+  const [year, monthNum] = month.split("-").map(Number);
+  const start = new Date(Date.UTC(year, monthNum - 1, 1));
+  const end = new Date(Date.UTC(year, monthNum, 1));
+
+  const [worker, items] = await Promise.all([
+    db.worker.findFirst({
+      where: { id: workerId, deletedAt: null },
+      select: { id: true, fullName: true, iqamaNumber: true, designation: { select: { title: true } } },
+    }),
+    db.timesheetItem.findMany({
+      where: { workerId, date: { gte: start, lt: end } },
+      include: {
+        otherLeaveType: { select: { name: true } },
+        timesheet: { select: { id: true, status: true, site: { select: { name: true, project: { select: { client: { select: { companyName: true } } } } } } } },
+      },
+      orderBy: { date: "asc" },
+    }),
+  ]);
+  return worker ? { worker, items, start, end } : null;
+}
+
+export async function listActiveLeaveTypesForSelect() {
+  return db.leaveType.findMany({ where: { status: "ACTIVE" }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+}
+
+/** Entries per attendance status for the current filters (legend counts), ignoring the status filter itself. */
+export async function countTimesheetLogByAttendanceStatus(user: SessionUser, filters: TimesheetLogFilters = {}) {
+  assertCan(user, "view", "timesheet");
+  const rows = await db.timesheetItem.groupBy({
+    by: ["attendanceStatus"],
+    where: buildTimesheetLogWhere({ ...filters, attendanceStatus: "ALL" }),
+    _count: { _all: true },
+  });
+  return Object.fromEntries(rows.map((r) => [r.attendanceStatus, r._count._all])) as Partial<Record<WorkerAttendanceStatus, number>>;
 }

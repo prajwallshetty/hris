@@ -1,6 +1,10 @@
-import { Decimal } from "decimal.js";
-
-import { calculateOvertime, calculateRegularHours, type OvertimeRuleConfig } from "@/server/calc";
+import {
+  IMPORT_STATUS_HINT,
+  parseAttendanceStatusText,
+  type LeaveCategory,
+  type WorkerAttendanceStatusValue,
+} from "@/lib/attendance";
+import { computeAttendanceDay, type OvertimeRuleConfig } from "@/server/calc";
 
 import { cleanString, combineDateAndTime, findColumnIndex, parseExcelDate, readWorksheetRows } from "./excel-utils";
 
@@ -18,12 +22,15 @@ const COLUMN_ALIASES = {
   login: ["LOGIN", "LOGIN TIME", "TIME IN", "CHECK IN", "IN"],
   logout: ["LOGOUT", "LOGOUT TIME", "TIME OUT", "CHECK OUT", "OUT"],
   breakMinutes: ["BREAK", "BREAK MINUTES", "BREAK (MIN)", "BREAK MIN"],
+  status: ["STATUS", "ATTENDANCE", "ATTENDANCE STATUS", "LEAVE"],
+  remarks: ["REMARKS", "REMARK", "NOTES", "NOTE", "COMMENTS"],
 } as const;
 
 type ColumnKey = keyof typeof COLUMN_ALIASES;
-// "name" and "breakMinutes" are optional — everything else is required to
-// locate a row's worker, date and hours at all.
-const OPTIONAL_COLUMNS: ColumnKey[] = ["name", "breakMinutes"];
+// Only Iqama and Date are required to place a row. Login/Logout columns are
+// still expected for worked days, but leave/off days legitimately leave them
+// blank; a sheet without a Status column is read as all Present (as before).
+const OPTIONAL_COLUMNS: ColumnKey[] = ["name", "breakMinutes", "status", "remarks"];
 
 export type TimesheetColumnMap = Record<ColumnKey, number>;
 
@@ -50,6 +57,8 @@ export type RawTimesheetImportRow = {
   loginTime: Date | null;
   logoutTime: Date | null;
   breakMinutes: number;
+  statusText: string | null;
+  remarks: string | null;
 };
 
 /** Maps raw Excel cells to typed rows (§6: "Upload -> Read -> Map"). Does not validate. */
@@ -69,6 +78,9 @@ export function extractTimesheetRows(buffer: Buffer, columns: TimesheetColumnMap
     const breakRaw = columns.breakMinutes >= 0 ? row[columns.breakMinutes] : null;
     const breakMinutes = typeof breakRaw === "number" && breakRaw > 0 ? breakRaw : 0;
 
+    const statusText = columns.status >= 0 ? cleanString(row[columns.status]) : null;
+    const remarks = columns.remarks >= 0 ? cleanString(row[columns.remarks]) : null;
+
     rows.push({
       rowNumber: DATA_START_ROW_INDEX + index + 1,
       iqama,
@@ -77,6 +89,8 @@ export function extractTimesheetRows(buffer: Buffer, columns: TimesheetColumnMap
       loginTime,
       logoutTime,
       breakMinutes,
+      statusText,
+      remarks,
     });
   });
 
@@ -102,12 +116,16 @@ export type ValidTimesheetImportRow = {
   workerName: string;
   iqamaNumber: string;
   date: Date;
-  loginTime: Date;
-  logoutTime: Date;
+  attendanceStatus: WorkerAttendanceStatusValue;
+  halfDayLeave: LeaveCategory | null;
+  loginTime: Date | null;
+  logoutTime: Date | null;
   breakMinutes: number;
   regularHours: string;
   overtimeHours: string;
   totalHours: string;
+  leaveHours: string;
+  remarks: string | null;
 };
 
 export type InvalidTimesheetImportRow = {
@@ -154,28 +172,22 @@ export function validateTimesheetImportRows(
       seenInBatch.add(batchKey);
     }
 
-    if (!row.loginTime) errors.push("Missing login time.");
-    if (!row.logoutTime) errors.push("Missing logout time.");
+    const parsedStatus = row.statusText ? parseAttendanceStatusText(row.statusText) : { status: "PRESENT" as const, halfDayLeave: null };
+    if (!parsedStatus) errors.push(`Unknown status "${row.statusText}". Use ${IMPORT_STATUS_HINT}.`);
 
-    let regularHours = new Decimal(0);
-    let overtimeHours = new Decimal(0);
-    let totalHours = new Decimal(0);
-
-    if (row.loginTime && row.logoutTime) {
-      const netMinutes = (row.logoutTime.getTime() - row.loginTime.getTime()) / 60_000 - row.breakMinutes;
-      if (netMinutes <= 0) {
-        errors.push("Invalid time: logout (after break) is not after login.");
-      } else {
-        totalHours = calculateRegularHours(row.loginTime, row.logoutTime, row.breakMinutes);
-        if (totalHours.gt(maxHours)) {
-          errors.push(`Excessive hours: ${totalHours.toFixed(2)}h exceeds the ${maxHours}h daily maximum.`);
-        } else {
-          const split = calculateOvertime(totalHours, ctx.overtimeRule);
-          regularHours = split.regularHours;
-          overtimeHours = split.overtimeHours;
-        }
-      }
-    }
+    const day = parsedStatus
+      ? computeAttendanceDay(
+          {
+            status: parsedStatus.status,
+            loginTime: row.loginTime,
+            logoutTime: row.logoutTime,
+            breakMinutes: row.breakMinutes,
+            halfDayLeave: parsedStatus.halfDayLeave,
+          },
+          { ...ctx.overtimeRule, maxReasonableHours: maxHours },
+        )
+      : null;
+    if (day && !day.ok) errors.push(...day.errors);
 
     if (row.iqama && worker && !ctx.assignedIqamas.has(row.iqama)) {
       errors.push("Worker is not assigned to the selected site.");
@@ -188,10 +200,11 @@ export function validateTimesheetImportRows(
       }
     }
 
-    if (errors.length > 0 || !worker || !row.date || !row.loginTime || !row.logoutTime) {
+    if (errors.length > 0 || !worker || !row.date || !parsedStatus || !day?.ok) {
       return { rowNumber: row.rowNumber, valid: false, iqamaNumber: row.iqama, errors };
     }
 
+    const v = day.values;
     return {
       rowNumber: row.rowNumber,
       valid: true,
@@ -199,12 +212,16 @@ export function validateTimesheetImportRows(
       workerName: worker.fullName,
       iqamaNumber: row.iqama!,
       date: row.date,
-      loginTime: row.loginTime,
-      logoutTime: row.logoutTime,
-      breakMinutes: row.breakMinutes,
-      regularHours: regularHours.toFixed(2),
-      overtimeHours: overtimeHours.toFixed(2),
-      totalHours: totalHours.toFixed(2),
+      attendanceStatus: v.attendanceStatus,
+      halfDayLeave: parsedStatus.halfDayLeave,
+      loginTime: v.loginTime,
+      logoutTime: v.logoutTime,
+      breakMinutes: v.breakMinutes,
+      regularHours: v.regularHours.toFixed(2),
+      overtimeHours: v.overtimeHours.toFixed(2),
+      totalHours: v.totalHours.toFixed(2),
+      leaveHours: v.sickLeaveHours.plus(v.annualLeaveHours).plus(v.unpaidLeaveHours).plus(v.otherLeaveHours).toFixed(2),
+      remarks: row.remarks,
     };
   });
 }

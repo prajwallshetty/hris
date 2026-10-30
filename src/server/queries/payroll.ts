@@ -133,22 +133,3 @@ export async function listActiveLoansForWorker(workerId: string) {
     .filter((l) => l.remaining.gt(0));
 }
 
-/**
- * Sum of days on APPROVED unpaid-leave requests overlapping the period.
- * Uses each request's full `days` value rather than clipping to the exact
- * days inside the period boundary — a reasonable simplification given
- * there's no daily leave calendar to clip against.
- */
-export async function getUnpaidLeaveDaysInPeriod(workerId: string, periodStart: Date, periodEnd: Date): Promise<Decimal> {
-  const requests = await db.leaveRequest.findMany({
-    where: {
-      workerId,
-      status: "APPROVED",
-      leaveType: { isPaid: false },
-      startDate: { lte: periodEnd },
-      endDate: { gte: periodStart },
-    },
-    select: { days: true },
-  });
-  return requests.reduce((sum, r) => sum.plus(r.days.toString()), new Decimal(0));
-}

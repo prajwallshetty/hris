@@ -18,13 +18,12 @@ import {
 } from "@/lib/validation/payroll";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
-import { calculateLeaveDeduction, calculateWorkerPayroll } from "@/server/calc";
+import { calculateWorkerPayroll } from "@/server/calc";
 import { listPayrollPeriods } from "@/server/queries/payroll";
 import { buildWorkerPayrollDraft, type AssignmentHoursGroup } from "@/server/payroll/build-worker-payroll";
 import { assertCan } from "@/server/rbac";
 import { getActiveOvertimeRule, toOvertimeRuleConfig } from "@/server/queries/settings";
 import {
-  getUnpaidLeaveDaysInPeriod,
   listApprovedTimesheetItemsForPeriod,
   listWorkerIdsWithPayrollForPeriod,
 } from "@/server/queries/payroll";
@@ -202,18 +201,6 @@ export async function generateWorkerPayroll(
 
     const overtimeRule = toOvertimeRuleConfig(overtimeRuleRow);
 
-    // Computed outside the transaction — read-only lookups against tables
-    // this transaction doesn't touch, so there's no need to hold them on
-    // the transaction's connection/snapshot.
-    const unpaidLeaveDaysByWorker = new Map(
-      await Promise.all(
-        Array.from(byWorker.keys()).map(
-          async (workerId) =>
-            [workerId, await getUnpaidLeaveDaysInPeriod(workerId, period.periodStart, period.periodEnd)] as const,
-        ),
-      ),
-    );
-
     await db.$transaction(async (tx) => {
       for (const [workerId, bucket] of byWorker) {
         const draft = buildWorkerPayrollDraft(Array.from(bucket.groups.values()), overtimeRule.overtimeMultiplier.toString());
@@ -244,21 +231,11 @@ export async function generateWorkerPayroll(
           })),
         });
 
-        const unpaidLeaveDays = unpaidLeaveDaysByWorker.get(workerId) ?? new Decimal(0);
-        if (unpaidLeaveDays.gt(0)) {
-          const dailyRate = new Decimal(draft.regularRate).times(overtimeRule.dailyRegularHoursThreshold.toString());
-          const leaveDeduction = calculateLeaveDeduction(unpaidLeaveDays, dailyRate);
-          await tx.workerPayrollItem.create({
-            data: {
-              workerPayrollId: payroll.id,
-              type: "LEAVE_DEDUCTION",
-              description: `${unpaidLeaveDays.toFixed(2)} unpaid leave day(s)`,
-              quantity: unpaidLeaveDays.toFixed(2),
-              rate: dailyRate.toFixed(2),
-              amount: leaveDeduction.toFixed(2),
-            },
-          });
-        }
+        // No unpaid-leave deduction here: worker pay is approved hours × rate,
+        // and an unpaid leave day has no hours, so it is already unpaid.
+        // Deducting a day's pay on top would charge the worker twice
+        // (§ attendance: no double counting). Monthly-salary employee
+        // payroll still deducts, since its base pay isn't hours-based.
 
         await recomputeWorkerPayrollTotals(tx, payroll.id);
       }

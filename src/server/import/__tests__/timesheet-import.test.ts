@@ -17,6 +17,8 @@ function row(overrides: Partial<RawTimesheetImportRow>): RawTimesheetImportRow {
     loginTime: new Date("2026-08-01T06:00:00Z"),
     logoutTime: new Date("2026-08-01T14:00:00Z"),
     breakMinutes: 0,
+    statusText: null,
+    remarks: null,
     ...overrides,
   };
 }
@@ -54,22 +56,54 @@ describe("validateTimesheetImportRows", () => {
     if (!result.valid) expect(result.errors).toContain("Missing or invalid date.");
   });
 
-  it("flags missing login and logout times separately", () => {
+  it("flags missing check-in and check-out times separately on a worked day", () => {
     const [result] = validateTimesheetImportRows([row({ loginTime: null, logoutTime: null })], context());
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.errors).toContain("Missing login time.");
-      expect(result.errors).toContain("Missing logout time.");
+      expect(result.errors).toContain("Missing check-in time.");
+      expect(result.errors).toContain("Missing check-out time.");
     }
   });
 
-  it("flags negative/invalid hours when logout is not after login", () => {
+  it("flags identical check-in and check-out times", () => {
     const [result] = validateTimesheetImportRows(
-      [row({ loginTime: new Date("2026-08-01T14:00:00Z"), logoutTime: new Date("2026-08-01T06:00:00Z") })],
+      [row({ loginTime: new Date("2026-08-01T06:00:00Z"), logoutTime: new Date("2026-08-01T06:00:00Z") })],
       context(),
     );
     expect(result.valid).toBe(false);
-    if (!result.valid) expect(result.errors[0]).toMatch(/Invalid time/);
+    if (!result.valid) expect(result.errors[0]).toMatch(/same as check-in/);
+  });
+
+  it("reads a check-out before check-in as an overnight shift", () => {
+    const [result] = validateTimesheetImportRows(
+      [row({ loginTime: new Date("2026-08-01T22:00:00Z"), logoutTime: new Date("2026-08-01T06:00:00Z") })],
+      context(),
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.totalHours).toBe("8.00");
+      expect(result.logoutTime?.toISOString()).toBe("2026-08-02T06:00:00.000Z");
+    }
+  });
+
+  it("imports leave days from the Status column without times or worked hours", () => {
+    const [result] = validateTimesheetImportRows(
+      [row({ statusText: "Sick Leave", loginTime: null, logoutTime: null })],
+      context(),
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.attendanceStatus).toBe("SICK_LEAVE");
+      expect(result.totalHours).toBe("0.00");
+      expect(result.leaveHours).toBe("8.00");
+    }
+  });
+
+  it("rejects an unknown status and times on a full leave day", () => {
+    const [unknown] = validateTimesheetImportRows([row({ statusText: "Maybe" })], context());
+    expect(unknown.valid).toBe(false);
+    const [timed] = validateTimesheetImportRows([row({ statusText: "AL" })], context());
+    expect(timed.valid).toBe(false);
   });
 
   it("flags excessive hours above the configured daily maximum", () => {

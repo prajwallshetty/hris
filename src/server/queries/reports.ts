@@ -2,7 +2,13 @@ import type { Role } from "@prisma/client";
 import { Decimal } from "decimal.js";
 
 import { db } from "@/lib/db";
-import { calculateOutstanding, calculateProfitability, calculateRepayableBalance } from "@/server/calc";
+import {
+  calculateOutstanding,
+  calculateProfitability,
+  calculateRepayableBalance,
+  summarizeAttendance,
+  type AttendanceSummaryItem,
+} from "@/server/calc";
 import { assertCan, can, coordinatorScopeWhere, assignmentScopeWhere, ForbiddenError, type SessionUser } from "@/server/rbac";
 
 /** §31 Workforce report: active headcount per client/site. */
@@ -30,52 +36,71 @@ export async function getWorkforceAllocationReport(user: SessionUser) {
     .sort((a, b) => b.activeWorkers - a.activeWorkers);
 }
 
-/** §31 Attendance report: approved hours per site for locked timesheets. */
+/**
+ * §31 Attendance report: approved entries per month and site — worked hours
+ * plus day counts per attendance category, each kept separate (leave days
+ * come from leave hours ÷ scheduled hours and never mix into worked hours).
+ */
 export async function getAttendanceSummaryReport(user: SessionUser) {
   assertCan(user, "view", "timesheet");
   const items = await db.timesheetItem.findMany({
     where: { status: "APPROVED" },
     select: {
+      workerId: true,
+      attendanceStatus: true,
+      loginTime: true,
+      breakMinutes: true,
+      totalHours: true,
       regularHours: true,
       overtimeHours: true,
-      workerId: true,
+      scheduledHours: true,
+      sickLeaveHours: true,
+      annualLeaveHours: true,
+      unpaidLeaveHours: true,
+      otherLeaveHours: true,
       timesheet: { select: { period: true, site: { select: { name: true } } } },
     },
   });
 
-  const byKey = new Map<
-    string,
-    { period: string; site: string; regularHours: Decimal; overtimeHours: Decimal; workerIds: Set<string> }
-  >();
-
+  const byKey = new Map<string, { period: string; site: string; workerIds: Set<string>; items: AttendanceSummaryItem[] }>();
   for (const item of items) {
     const period = item.timesheet.period.toISOString().slice(0, 7);
     const site = item.timesheet.site?.name ?? "Unknown";
     const key = `${period}:${site}`;
-    const existing = byKey.get(key);
-    if (existing) {
-      existing.regularHours = existing.regularHours.plus(item.regularHours.toString());
-      existing.overtimeHours = existing.overtimeHours.plus(item.overtimeHours.toString());
-      existing.workerIds.add(item.workerId);
-    } else {
-      byKey.set(key, {
-        period,
-        site,
-        regularHours: new Decimal(item.regularHours.toString()),
-        overtimeHours: new Decimal(item.overtimeHours.toString()),
-        workerIds: new Set([item.workerId]),
-      });
-    }
+    const bucket = byKey.get(key) ?? { period, site, workerIds: new Set<string>(), items: [] };
+    bucket.workerIds.add(item.workerId);
+    bucket.items.push({
+      ...item,
+      totalHours: item.totalHours.toString(),
+      regularHours: item.regularHours.toString(),
+      overtimeHours: item.overtimeHours.toString(),
+      scheduledHours: item.scheduledHours.toString(),
+      sickLeaveHours: item.sickLeaveHours.toString(),
+      annualLeaveHours: item.annualLeaveHours.toString(),
+      unpaidLeaveHours: item.unpaidLeaveHours.toString(),
+      otherLeaveHours: item.otherLeaveHours.toString(),
+    });
+    byKey.set(key, bucket);
   }
 
   return Array.from(byKey.values())
-    .map((r) => ({
-      period: r.period,
-      site: r.site,
-      workers: r.workerIds.size,
-      regularHours: r.regularHours.toFixed(1),
-      overtimeHours: r.overtimeHours.toFixed(1),
-    }))
+    .map((r) => {
+      const s = summarizeAttendance(r.items);
+      return {
+        period: r.period,
+        site: r.site,
+        workers: r.workerIds.size,
+        regularHours: s.regularHours.toFixed(1),
+        overtimeHours: s.overtimeHours.toFixed(1),
+        presentDays: s.presentDays.toFixed(1),
+        sickDays: s.sickLeave.days.toFixed(1),
+        annualDays: s.annualLeave.days.toFixed(1),
+        unpaidDays: s.unpaidLeave.days.toFixed(1),
+        otherDays: s.otherLeave.days.toFixed(1),
+        restDays: s.publicHolidays + s.weeklyOffDays,
+        absentDays: s.absentDays,
+      };
+    })
     .sort((a, b) => b.period.localeCompare(a.period));
 }
 

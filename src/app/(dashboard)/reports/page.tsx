@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ATTENDANCE_TONES } from "@/lib/attendance";
+import { cn } from "@/lib/utils";
 import { can } from "@/server/rbac";
 import {
   canViewFinanceOverview,
@@ -21,6 +23,17 @@ import { getSessionUser } from "@/server/session";
 function formatMoney(value: number) {
   return `SAR ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
+
+// Day counts per attendance category, colored like the attendance module.
+const ATTENDANCE_REPORT_COLUMNS = [
+  { key: "presentDays", label: "Present", status: "PRESENT" },
+  { key: "sickDays", label: "Sick", status: "SICK_LEAVE" },
+  { key: "annualDays", label: "Annual", status: "ANNUAL_LEAVE" },
+  { key: "unpaidDays", label: "Unpaid", status: "UNPAID_LEAVE" },
+  { key: "otherDays", label: "Other Leave", status: "OTHER_LEAVE" },
+  { key: "restDays", label: "Holiday / Off", status: "PUBLIC_HOLIDAY" },
+  { key: "absentDays", label: "Absent", status: "ABSENT" },
+] as const;
 
 export default async function ReportsPage({
   searchParams,
@@ -114,8 +127,16 @@ export default async function ReportsPage({
                       <TableHead>Period</TableHead>
                       <TableHead>Site</TableHead>
                       <TableHead>Workers</TableHead>
-                      <TableHead>Regular Hrs</TableHead>
-                      <TableHead>OT Hrs</TableHead>
+                      <TableHead className="text-right">Regular Hrs</TableHead>
+                      <TableHead className="text-right">OT Hrs</TableHead>
+                      {ATTENDANCE_REPORT_COLUMNS.map((c) => (
+                        <TableHead key={c.key} className="text-right">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={cn("size-2 rounded-full", ATTENDANCE_TONES[c.status].dot)} aria-hidden />
+                            {c.label}
+                          </span>
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -124,8 +145,13 @@ export default async function ReportsPage({
                         <TableCell>{row.period}</TableCell>
                         <TableCell>{row.site}</TableCell>
                         <TableCell>{row.workers}</TableCell>
-                        <TableCell>{row.regularHours}</TableCell>
-                        <TableCell>{row.overtimeHours}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.regularHours}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.overtimeHours}</TableCell>
+                        {ATTENDANCE_REPORT_COLUMNS.map((c) => (
+                          <TableCell key={c.key} className="text-right tabular-nums">
+                            {Number(row[c.key]) > 0 ? row[c.key] : "—"}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>

@@ -1,5 +1,8 @@
-import { Lock, Send, ShieldCheck } from "lucide-react";
+import { Lock, Pencil, Send, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+
+import { AttendanceBadge, AttendanceLegend } from "@/components/shared/attendance-badge";
 
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { PageHeader } from "@/components/shared/page-header";
@@ -8,19 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/server/rbac";
 import { approveTimesheet, lockTimesheet, submitTimesheetForReview } from "@/server/actions/timesheets";
-import { getTimesheetDetail } from "@/server/queries/timesheets";
+import { leaveTypeLabel, type WorkerAttendanceStatusValue } from "@/lib/attendance";
+import { formatEnumLabel } from "@/lib/format-enum";
+import { getAttendancePreviewRule } from "@/server/attendance";
+import { getTimesheetDetail, listActiveLeaveTypesForSelect } from "@/server/queries/timesheets";
 import { getSessionUser } from "@/server/session";
 
+import { AttendanceEntryDialog } from "../attendance-entry-dialog";
+import { formatAttendanceDate, isTimesheetEditable, shiftTime, toEditTarget } from "../_components/edit-target";
 import { TimesheetItemActions } from "./item-decision-dialog";
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date);
-}
-
-function formatTime(date: Date | null) {
-  if (!date) return "—";
-  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(date);
-}
 
 function formatPeriod(date: Date) {
   return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(date);
@@ -34,7 +33,12 @@ export default async function TimesheetDetailPage({ params }: { params: Promise<
 
   const canUpdate = can(user, "update", "timesheet");
   const pendingCount = timesheet.items.filter((i) => i.status === "PENDING").length;
-  const itemsEditable = timesheet.status !== "LOCKED" && timesheet.status !== "APPROVED";
+  const itemsEditable = isTimesheetEditable(timesheet.status);
+  const [leaveTypes, rule] = canUpdate && itemsEditable
+    ? await Promise.all([listActiveLeaveTypesForSelect(), getAttendancePreviewRule()])
+    : [[], null];
+  const counts: Partial<Record<WorkerAttendanceStatusValue, number>> = {};
+  for (const item of timesheet.items) counts[item.attendanceStatus] = (counts[item.attendanceStatus] ?? 0) + 1;
 
   return (
     <div className="space-y-6">
@@ -99,7 +103,7 @@ export default async function TimesheetDetailPage({ params }: { params: Promise<
       />
 
       <div className="flex flex-wrap items-center gap-4 text-sm">
-        <span className="text-muted-foreground">Source: {timesheet.uploadSource}</span>
+        <span className="text-muted-foreground">Source: {formatEnumLabel(timesheet.uploadSource)}</span>
         <StatusBadge status={timesheet.status} />
         {timesheet.status === "PENDING_REVIEW" && pendingCount > 0 && (
           <span className="text-warning-foreground">
@@ -108,45 +112,86 @@ export default async function TimesheetDetailPage({ params }: { params: Promise<
         )}
       </div>
 
+      <div className="data-panel space-y-2 px-4 py-3">
+        <AttendanceLegend counts={counts} />
+      </div>
+
       <div className="data-panel">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
                 <TableHead>Worker</TableHead>
                 <TableHead>Iqama</TableHead>
-                <TableHead>Login</TableHead>
-                <TableHead>Logout</TableHead>
-                <TableHead>Regular</TableHead>
-                <TableHead>OT</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Check-in</TableHead>
+                <TableHead>Check-out</TableHead>
+                <TableHead className="text-right">Actual Hrs</TableHead>
+                <TableHead className="text-right">Break</TableHead>
+                <TableHead className="text-right">OT Hrs</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Leave Type</TableHead>
+                <TableHead>Remarks</TableHead>
+                <TableHead>Approval</TableHead>
                 {canUpdate && itemsEditable && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {timesheet.items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{formatDate(item.date)}</TableCell>
-                  <TableCell>{item.worker.fullName}</TableCell>
-                  <TableCell>{item.iqamaNumber}</TableCell>
-                  <TableCell>{formatTime(item.loginTime)}</TableCell>
-                  <TableCell>{formatTime(item.logoutTime)}</TableCell>
-                  <TableCell>{Number(item.regularHours).toFixed(2)}h</TableCell>
-                  <TableCell>{Number(item.overtimeHours).toFixed(2)}h</TableCell>
-                  <TableCell>
-                    <StatusBadge status={item.status} />
-                    {item.status === "REJECTED" && item.remarks && (
-                      <p className="text-muted-foreground mt-1 text-xs">{item.remarks}</p>
-                    )}
-                  </TableCell>
-                  {canUpdate && itemsEditable && (
-                    <TableCell className="text-right">
-                      {item.status === "PENDING" && <TimesheetItemActions itemId={item.id} />}
+              {timesheet.items.map((item) => {
+                const leave = leaveTypeLabel(item);
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <Link
+                        href={`/timesheets/worker/${item.workerId}?month=${item.date.toISOString().slice(0, 7)}`}
+                        className="text-navy font-semibold hover:underline"
+                      >
+                        {item.worker.fullName}
+                      </Link>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                    <TableCell className="text-muted-foreground font-mono text-xs">{item.iqamaNumber ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatAttendanceDate(item.date)}</TableCell>
+                    <TableCell className="tabular-nums">{shiftTime(item.loginTime) || "—"}</TableCell>
+                    <TableCell className="tabular-nums">{shiftTime(item.logoutTime) || "—"}</TableCell>
+                    <TableCell className="text-navy text-right font-semibold tabular-nums">{Number(item.totalHours).toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-slate-600 tabular-nums">
+                      {item.loginTime ? (item.breakMinutes / 60).toFixed(2) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-teal-700 tabular-nums">{Number(item.overtimeHours).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <AttendanceBadge status={item.attendanceStatus} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{leave ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="max-w-56 text-xs">
+                      {item.remarks && <p className="line-clamp-2 text-slate-700">{item.remarks}</p>}
+                      {item.reviewNote && <p className="line-clamp-2 text-red-700">Rejected: {item.reviewNote}</p>}
+                      {!item.remarks && !item.reviewNote && <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={item.status} />
+                    </TableCell>
+                    {canUpdate && itemsEditable && (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {rule && (
+                            <AttendanceEntryDialog
+                              leaveTypes={leaveTypes}
+                              rule={rule}
+                              edit={toEditTarget(item)}
+                              trigger={
+                                <Button variant="ghost" size="icon-sm" aria-label={`Correct ${item.worker.fullName} on ${formatAttendanceDate(item.date)}`}>
+                                  <Pencil className="size-4" />
+                                </Button>
+                              }
+                            />
+                          )}
+                          {item.status === "PENDING" && <TimesheetItemActions itemId={item.id} />}
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

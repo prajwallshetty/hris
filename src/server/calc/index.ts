@@ -9,3 +9,4 @@ export * from "./finance";
 export * from "./profitability";
 export * from "./rental";
 export * from "./recurring-charge";
+export * from "./attendance";

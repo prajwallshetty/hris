@@ -19,6 +19,8 @@ export type RegisteredManpower = {
   workerType: string;
   status: WorkerStatus;
   assignmentId: string | null;
+  coordinatorName: string | null;
+  coordinatorSource: string;
 };
 
 /**
@@ -42,7 +44,14 @@ export async function registerManpower(input: ManpowerRegistrationInput): Promis
         action: "create",
         entityType: "Assignment",
         entityId: created.assignmentId,
-        newValue: { workerId: created.workerId, clientId: data.clientId, projectId: data.projectId, siteId: data.siteId },
+        newValue: {
+          workerId: created.workerId,
+          clientId: data.clientId,
+          projectId: data.projectId,
+          siteId: data.siteId,
+          coordinatorId: created.coordinatorId,
+          coordinatorSource: created.coordinatorSource,
+        },
       });
     }
 
@@ -57,6 +66,8 @@ export async function registerManpower(input: ManpowerRegistrationInput): Promis
       workerType: data.workerType,
       status: created.status,
       assignmentId: created.assignmentId,
+      coordinatorName: created.coordinatorName,
+      coordinatorSource: created.coordinatorSource,
     });
   } catch (error) {
     if (error instanceof ManpowerRecordError) return { success: false, error: error.message };

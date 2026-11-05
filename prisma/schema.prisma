@@ -307,6 +307,7 @@ model Coordinator {
   workers            Worker[]
   assignments        Assignment[]
   projects           Project[]
+  clients            Client[]
   employees          InternalEmployee[]
   sales              Sale[]
   commissionRules    CommissionRule[]
@@ -342,6 +343,9 @@ model Supplier {
 
 model Client {
   id            String       @id @default(cuid())
+  /// Default coordinator for the client's work — the fallback when a project has none.
+  coordinatorId String?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
   companyName   String
   contactPerson String?
   phone         String?
@@ -729,8 +733,8 @@ model LeaveType {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  balances LeaveBalance[]
-  requests LeaveRequest[]
+  balances       LeaveBalance[]
+  requests       LeaveRequest[]
   timesheetItems TimesheetItem[]
 }
 
@@ -1486,7 +1490,7 @@ enum ImportRunStatus {
 // uploaded what and when, without exposing any internal IDs (§7: "Import
 // History").
 model ImportRun {
-  id     String  @id @default(cuid())
+  id     String          @id @default(cuid())
   module ImportModule
   status ImportRunStatus
 

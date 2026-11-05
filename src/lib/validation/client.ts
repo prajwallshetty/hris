@@ -11,6 +11,8 @@ export const clientFormSchema = z.object({
   contractRef: z.string().trim().optional().or(z.literal("")),
   paymentTerms: z.string().trim().optional().or(z.literal("")),
   billingTerms: z.string().trim().optional().or(z.literal("")),
+  /** Default coordinator for the client — used when a project has none. */
+  coordinatorId: z.string().optional().or(z.literal("")),
   status: z.enum(ENTITY_STATUSES),
 });
 export type ClientFormInput = z.infer<typeof clientFormSchema>;
@@ -18,8 +20,9 @@ export type ClientFormInput = z.infer<typeof clientFormSchema>;
 export const projectFormSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   name: z.string().trim().min(2, "Project name is required"),
-  status: z.enum(ENTITY_STATUSES),
+  /** The coordinator responsible for this project — the primary default for manpower placed on it. */
   coordinatorId: z.string().optional().or(z.literal("")),
+  status: z.enum(ENTITY_STATUSES),
 });
 export type ProjectFormInput = z.infer<typeof projectFormSchema>;
 

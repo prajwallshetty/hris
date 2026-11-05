@@ -20,11 +20,22 @@ import { logAudit } from "@/server/audit";
 import { assertCan } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
+/** A coordinator id from a form must name an existing ACTIVE coordinator; blank clears it. `false` = not usable. */
+async function activeCoordinatorId(value: string | undefined): Promise<string | null | false> {
+  if (!value) return null;
+  const coordinator = await db.coordinator.findFirst({ where: { id: value, status: "ACTIVE" }, select: { id: true } });
+  return coordinator ? coordinator.id : false;
+}
+
+const COORDINATOR_UNAVAILABLE = { success: false, error: "The selected coordinator is not available." } as const;
+
 export async function createClient(input: ClientFormInput): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await getSessionUser();
     assertCan(user, "create", "client");
     const data = clientFormSchema.parse(input);
+    const coordinatorId = await activeCoordinatorId(data.coordinatorId);
+    if (coordinatorId === false) return COORDINATOR_UNAVAILABLE;
 
     const client = await db.client.create({
       data: {
@@ -36,6 +47,7 @@ export async function createClient(input: ClientFormInput): Promise<ActionResult
         contractRef: data.contractRef || null,
         paymentTerms: data.paymentTerms || null,
         billingTerms: data.billingTerms || null,
+        coordinatorId,
         status: data.status,
       },
     });
@@ -56,6 +68,8 @@ export async function updateClient(
     const user = await getSessionUser();
     assertCan(user, "update", "client");
     const data = clientFormSchema.parse(input);
+    const coordinatorId = await activeCoordinatorId(data.coordinatorId);
+    if (coordinatorId === false) return COORDINATOR_UNAVAILABLE;
 
     const before = await db.client.findUniqueOrThrow({ where: { id } });
     const client = await db.client.update({
@@ -69,6 +83,7 @@ export async function updateClient(
         contractRef: data.contractRef || null,
         paymentTerms: data.paymentTerms || null,
         billingTerms: data.billingTerms || null,
+        coordinatorId,
         status: data.status,
       },
     });
@@ -121,13 +136,15 @@ export async function createProject(input: ProjectFormInput): Promise<ActionResu
     const user = await getSessionUser();
     assertCan(user, "create", "project");
     const data = projectFormSchema.parse(input);
+    const coordinatorId = await activeCoordinatorId(data.coordinatorId);
+    if (coordinatorId === false) return COORDINATOR_UNAVAILABLE;
 
     const project = await db.project.create({
       data: {
         clientId: data.clientId,
         name: data.name,
+        coordinatorId,
         status: data.status,
-        coordinatorId: data.coordinatorId || null,
       },
     });
 
@@ -144,11 +161,13 @@ export async function updateProject(id: string, input: ProjectFormInput): Promis
     const user = await getSessionUser();
     assertCan(user, "update", "project");
     const data = projectFormSchema.parse(input);
+    const coordinatorId = await activeCoordinatorId(data.coordinatorId);
+    if (coordinatorId === false) return COORDINATOR_UNAVAILABLE;
 
     const before = await db.project.findUniqueOrThrow({ where: { id } });
     const project = await db.project.update({
       where: { id },
-      data: { name: data.name, status: data.status, coordinatorId: data.coordinatorId || null },
+      data: { name: data.name, coordinatorId, status: data.status },
     });
 
     await logAudit({

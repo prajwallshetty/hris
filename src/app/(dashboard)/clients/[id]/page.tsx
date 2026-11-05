@@ -132,6 +132,7 @@ export default async function ClientDetailPage({
             {canEdit && !client.deletedAt && (
               <ClientFormDialog
                 clientId={client.id}
+                coordinatorName={client.coordinator?.name ?? null}
                 defaultValues={{
                   companyName: client.companyName,
                   contactPerson: client.contactPerson ?? "",
@@ -141,6 +142,7 @@ export default async function ClientDetailPage({
                   contractRef: client.contractRef ?? "",
                   paymentTerms: client.paymentTerms ?? "",
                   billingTerms: client.billingTerms ?? "",
+                  coordinatorId: client.coordinatorId ?? "",
                   status: client.status,
                 }}
                 trigger={
@@ -306,8 +308,11 @@ export default async function ClientDetailPage({
                   <CardHeader className="flex-row items-center justify-between space-y-0">
                     <div>
                       <CardTitle className="text-base">{project.name}</CardTitle>
-                      <p className="text-muted-foreground text-xs mt-0.5">
-                        Coordinator: {project.coordinator?.name ?? "Unassigned"}
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        Coordinator:{" "}
+                        <span className="text-foreground font-medium">
+                          {project.coordinator?.name ?? (client.coordinator ? `${client.coordinator.name} (from client)` : "Not assigned")}
+                        </span>
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -320,11 +325,12 @@ export default async function ClientDetailPage({
                           <AddProjectDialog
                             clientId={client.id}
                             projectId={project.id}
+                            coordinatorName={project.coordinator?.name ?? null}
                             defaultValues={{
                               clientId: client.id,
                               name: project.name,
-                              status: project.status,
                               coordinatorId: project.coordinatorId ?? "",
+                              status: project.status,
                             }}
                             trigger={
                               <Button size="icon-sm" variant="ghost" aria-label={`Edit ${project.name}`}>

@@ -1,4 +1,5 @@
-import { cleanString, findColumnIndex, parseExcelDate, readWorksheetRows } from "./excel-utils";
+import { cleanString, findColumnIndex, normalizeName, parseExcelDate, readWorksheetRows } from "./excel-utils";
+import { pickCoordinator, type CoordinatorSource } from "@/lib/coordinator-resolution";
 import { IQAMA_PATTERN, WORKER_TYPES, type ManpowerRegistrationInput, type WorkerTypeValue } from "@/lib/validation/manpower";
 
 // Manpower Bulk Import (Workers → Bulk Import → Download Template → fill →
@@ -21,7 +22,8 @@ export const WORKER_IMPORT_COLUMNS = [
   { key: "supplier", header: "Supplier", aliases: [], required: false, example: "", note: "Required for HRD rows; leave blank for FRL and OWN. Must exactly match an existing active supplier — unknown suppliers are never created automatically." },
   { key: "client", header: "Client", aliases: [], required: false, example: "", note: "Existing client name. Client, Project, Site, Worker Rate and Client Billing Rate go together — fill all five to place the worker, or leave all blank." },
   { key: "project", header: "Project", aliases: [], required: false, example: "", note: "Existing project under that client." },
-  { key: "site", header: "Site", aliases: [], required: false, example: "", note: "Existing site under that project." },
+  { key: "site", header: "Site", aliases: [], required: false, example: "", note: "Existing site under that project. Spacing and capital letters don't matter." },
+  { key: "coordinator", header: "Coordinator", aliases: [], required: false, example: "", note: "Optional. Leave blank to use the project's coordinator (or the client's, if the project has none). Fill it only to override with a specific active coordinator." },
   { key: "workerRate", header: "Worker Rate", aliases: ["HOURLY RATE", "RATE"], required: false, example: "15", note: "What the worker is paid per hour (SAR)." },
   { key: "clientBillingRate", header: "Client Billing Rate", aliases: ["BILLING RATE", "CLIENT RATE"], required: false, example: "", note: "What the client is billed per hour (SAR). Needed only with a placement." },
   { key: "batchNumber", header: "Batch Number", aliases: ["BATCH NO", "BATCH"], required: false, example: "", note: "Optional grouping label, e.g. BATCH-001." },
@@ -75,14 +77,28 @@ export type WorkerBulkImportContext = {
   existingByIqama: ReadonlyMap<string, { fullName: string }>;
   /** `${lowercase name}|${mobile}|${yyyy-mm-dd}` of existing workers, for Iqama-less duplicate detection. */
   existingNaturalKeys: ReadonlySet<string>;
-  /** Active suppliers, keyed by lowercase name. */
-  suppliersByName: ReadonlyMap<string, NamedRef[]>;
-  clientsByName: ReadonlyMap<string, NamedRef[]>;
-  /** Keyed by `${clientId}|${lowercase project name}`. */
-  projectsByKey: ReadonlyMap<string, NamedRef[]>;
-  /** Keyed by `${projectId}|${lowercase site name}`. */
-  sitesByKey: ReadonlyMap<string, NamedRef[]>;
+  /** Active suppliers. */
+  suppliers: readonly NamedRef[];
+  clients: readonly (NamedRef & { coordinatorId: string | null })[];
+  /** Non-archived projects of the clients that could match. */
+  projects: readonly (NamedRef & { clientId: string; coordinatorId: string | null })[];
+  /** Non-archived sites of the projects that could match. */
+  sites: readonly (NamedRef & { projectId: string })[];
+  /** ACTIVE coordinators only — an inactive one is never assigned. */
+  coordinators: readonly NamedRef[];
 };
+
+/** Names indexed by their normalized form (spacing and case folded), so matching ignores both. */
+function indexByName<T extends NamedRef>(items: readonly T[], keyOf: (item: T) => string = () => ""): Map<string, T[]> {
+  const index = new Map<string, T[]>();
+  for (const item of items) {
+    const key = `${keyOf(item)}|${normalizeName(item.name)}`;
+    const list = index.get(key);
+    if (list) list.push(item);
+    else index.set(key, [item]);
+  }
+  return index;
+}
 
 export function naturalKey(fullName: string, mobile: string, mobilizationIso: string) {
   return `${fullName.trim().toLowerCase()}|${mobile.trim()}|${mobilizationIso}`;
@@ -94,7 +110,16 @@ export type ValidWorkerBulkRow = {
   valid: true;
   data: ManpowerRegistrationInput;
   batchNumber: string | null;
-  display: { supplier: string | null; client: string | null; project: string | null; site: string | null };
+  /** The row as uploaded, kept so a row that fails at save time can still be exported for correction. */
+  source: Record<string, string | null>;
+  display: {
+    supplier: string | null;
+    client: string | null;
+    project: string | null;
+    site: string | null;
+    coordinator: string | null;
+    coordinatorSource: CoordinatorSource;
+  };
 };
 
 export type InvalidWorkerBulkRow = {
@@ -103,6 +128,8 @@ export type InvalidWorkerBulkRow = {
   fullName: string | null;
   iqamaNumber: string | null;
   errors: string[];
+  /** The row exactly as uploaded, so a rejected record can be corrected and re-uploaded. */
+  source: Record<string, string | null>;
 };
 
 export type WorkerBulkRowResult = ValidWorkerBulkRow | InvalidWorkerBulkRow;
@@ -118,9 +145,21 @@ function parseRate(raw: string | null, label: string, errors: string[]): number 
 }
 
 /** Exactly one match by name, or a human-readable reason there isn't one. */
-function resolveOne(matches: NamedRef[] | undefined, label: string, name: string, errors: string[]): NamedRef | null {
+function resolveOne<T extends NamedRef>(
+  matches: T[] | undefined,
+  label: string,
+  name: string,
+  errors: string[],
+  hints: { available?: readonly string[]; elsewhere?: string | null } = {},
+): T | null {
   if (!matches || matches.length === 0) {
-    errors.push(`${label} "${name}" was not found.`);
+    const available = (hints.available ?? []).slice(0, 6);
+    const more = (hints.available?.length ?? 0) > available.length ? ", …" : "";
+    errors.push(
+      `${label} "${name}" was not found.` +
+        (hints.elsewhere ? ` ${hints.elsewhere}` : "") +
+        (available.length ? ` Available: ${available.join(", ")}${more}.` : ""),
+    );
     return null;
   }
   if (matches.length > 1) {
@@ -128,6 +167,14 @@ function resolveOne(matches: NamedRef[] | undefined, label: string, name: string
     return null;
   }
   return matches[0];
+}
+
+/** The row as uploaded, except a recognisable mobilization date is shown (and re-exported) as YYYY-MM-DD rather than a bare Excel serial. */
+function sourceOf(row: RawWorkerBulkRow): Record<string, string | null> {
+  const converted = row.mobilization ? parseExcelDate(row.mobilization) : null;
+  return Object.fromEntries(
+    WORKER_IMPORT_COLUMNS.map((c) => [c.header, c.key === "mobilization" && converted ? converted.toISOString().slice(0, 10) : row[c.key]]),
+  );
 }
 
 /**
@@ -139,6 +186,17 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
   const seenIqamas = new Set<string>();
   const seenNaturalKeys = new Set<string>();
 
+  const suppliers = indexByName(ctx.suppliers);
+  const clients = indexByName(ctx.clients);
+  const projects = indexByName(ctx.projects, (p) => p.clientId);
+  const projectsByAnyClient = indexByName(ctx.projects);
+  const sites = indexByName(ctx.sites, (st) => st.projectId);
+  const sitesByAnyProject = indexByName(ctx.sites);
+  const coordinators = indexByName(ctx.coordinators);
+  const coordinatorById = new Map(ctx.coordinators.map((c) => [c.id, c]));
+  const clientName = new Map(ctx.clients.map((c) => [c.id, c.name]));
+  const projectName = new Map(ctx.projects.map((p) => [p.id, p.name]));
+
   return rows.map((row) => {
     const errors: string[] = [];
     const invalid = (): InvalidWorkerBulkRow => ({
@@ -147,6 +205,7 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
       fullName: row.fullName,
       iqamaNumber: row.iqama,
       errors,
+      source: sourceOf(row),
     });
 
     if (!row.fullName) errors.push("Full Name is required.");
@@ -194,7 +253,7 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
     let supplier: NamedRef | null = null;
     if (workerType === "HRD") {
       if (!row.supplier) errors.push("Supplier is required for HRD manpower.");
-      else supplier = resolveOne(ctx.suppliersByName.get(row.supplier.toLowerCase()), "Supplier", row.supplier, errors);
+      else supplier = resolveOne(suppliers.get(`|${normalizeName(row.supplier)}`), "Supplier", row.supplier, errors);
     } else if (workerType && row.supplier) {
       errors.push(`Supplier is only used for HRD manpower — remove it or change Worker Type to HRD.`);
     }
@@ -211,17 +270,51 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
       if (!row.client || !row.project || !row.site) {
         errors.push("To place a worker, fill Client, Project and Site together (or leave all three blank).");
       } else {
-        client = resolveOne(ctx.clientsByName.get(row.client.toLowerCase()), "Client", row.client, errors);
+        client = resolveOne(clients.get(`|${normalizeName(row.client)}`), "Client", row.client, errors, {
+          available: ctx.clients.map((c) => c.name),
+        });
         if (client) {
-          project = resolveOne(ctx.projectsByKey.get(`${client.id}|${row.project.toLowerCase()}`), `Project under ${client.name}`, row.project, errors);
+          const ownProjects = ctx.projects.filter((p) => p.clientId === client!.id).map((p) => p.name);
+          const elsewhere = (projectsByAnyClient.get(`|${normalizeName(row.project)}`) ?? []).filter((p) => p.clientId !== client!.id);
+          project = resolveOne(projects.get(`${client.id}|${normalizeName(row.project)}`), `Project under ${client.name}`, row.project, errors, {
+            available: ownProjects,
+            elsewhere: elsewhere.length
+              ? `A project with that name exists under ${elsewhere.map((p) => clientName.get(p.clientId)).join(", ")} — check the Client column.`
+              : null,
+          });
         }
         if (project) {
-          site = resolveOne(ctx.sitesByKey.get(`${project.id}|${row.site.toLowerCase()}`), `Site under ${project.name}`, row.site, errors);
+          const ownSites = ctx.sites.filter((st) => st.projectId === project!.id).map((st) => st.name);
+          const elsewhere = (sitesByAnyProject.get(`|${normalizeName(row.site)}`) ?? []).filter((st) => st.projectId !== project!.id);
+          site = resolveOne(sites.get(`${project.id}|${normalizeName(row.site)}`), `Site under ${project.name}`, row.site, errors, {
+            available: ownSites,
+            elsewhere: elsewhere.length
+              ? `A site with that name exists under project ${elsewhere.map((st) => projectName.get(st.projectId)).join(", ")} — check the Project column.`
+              : null,
+          });
         }
       }
       if (row.workerRate === null) errors.push("Worker Rate is required when placing a worker at a site.");
       if (row.clientBillingRate === null) errors.push("Client Billing Rate is required when placing a worker at a site.");
     }
+
+    // Coordinator: an explicit column value is kept (it must be an active
+    // coordinator); otherwise Project → Client, never a guess. Only a placed
+    // worker has a project/client to resolve from.
+    let manualCoordinator: NamedRef | null = null;
+    if (row.coordinator) {
+      manualCoordinator = resolveOne(coordinators.get(`|${normalizeName(row.coordinator)}`), "Coordinator", row.coordinator, errors, {
+        available: ctx.coordinators.map((c) => c.name),
+      });
+    }
+    const projectCoordinator = project?.id ? coordinatorById.get(ctx.projects.find((p) => p.id === project!.id)?.coordinatorId ?? "") : undefined;
+    const clientCoordinator = client?.id ? coordinatorById.get(ctx.clients.find((c) => c.id === client!.id)?.coordinatorId ?? "") : undefined;
+    const pickedCoordinator = pickCoordinator({
+      manualId: manualCoordinator?.id,
+      projectCoordinatorId: projectCoordinator?.id,
+      clientCoordinatorId: clientCoordinator?.id,
+    });
+    const coordinatorName = manualCoordinator?.name ?? (pickedCoordinator.source === "project" ? projectCoordinator?.name : pickedCoordinator.source === "client" ? clientCoordinator?.name : null) ?? null;
 
     if (errors.length > 0 || !row.fullName || !row.nationality || !row.mobile || !mobilizationIso || !workerType) {
       return invalid();
@@ -243,12 +336,24 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
         clientId: client?.id ?? "",
         projectId: project?.id ?? "",
         siteId: site?.id ?? "",
+        // Only an explicit Coordinator column value is stored in the row; the
+        // automatic one is re-resolved when the row is saved, so it can never
+        // go stale between preview and import.
+        coordinatorId: manualCoordinator?.id ?? "",
         workerRate,
         clientBillingRate,
         notes: row.remarks ?? "",
       },
       batchNumber: row.batchNumber,
-      display: { supplier: supplier?.name ?? null, client: client?.name ?? null, project: project?.name ?? null, site: site?.name ?? null },
+      source: sourceOf(row),
+      display: {
+        supplier: supplier?.name ?? null,
+        client: client?.name ?? null,
+        project: project?.name ?? null,
+        site: site?.name ?? null,
+        coordinator: coordinatorName,
+        coordinatorSource: pickedCoordinator.source,
+      },
     };
   });
 }
@@ -257,7 +362,14 @@ export type WorkerBulkImportSummary = {
   totalRows: number;
   validRows: number;
   invalidRows: number;
-  errorReport: { rowNumber: number; fullName: string | null; iqamaNumber: string | null; errors: string[] }[];
+  errorReport: {
+    rowNumber: number;
+    fullName: string | null;
+    iqamaNumber: string | null;
+    errors: string[];
+    /** The row as uploaded (template header → value), for the "download rejected rows" file. */
+    source?: Record<string, string | null>;
+  }[];
 };
 
 export function summarizeWorkerBulkImport(results: WorkerBulkRowResult[]): WorkerBulkImportSummary {
@@ -266,6 +378,12 @@ export function summarizeWorkerBulkImport(results: WorkerBulkRowResult[]): Worke
     totalRows: results.length,
     validRows: results.length - invalid.length,
     invalidRows: invalid.length,
-    errorReport: invalid.map((r) => ({ rowNumber: r.rowNumber, fullName: r.fullName, iqamaNumber: r.iqamaNumber, errors: r.errors })),
+    errorReport: invalid.map((r) => ({
+      rowNumber: r.rowNumber,
+      fullName: r.fullName,
+      iqamaNumber: r.iqamaNumber,
+      errors: r.errors,
+      source: r.source,
+    })),
   };
 }

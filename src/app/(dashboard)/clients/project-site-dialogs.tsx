@@ -29,6 +29,7 @@ export function AddProjectDialog({
   clientId,
   trigger,
   projectId,
+  coordinatorName,
   defaultValues,
   open: openProp,
   onOpenChange: onOpenChangeProp,
@@ -41,6 +42,8 @@ export function AddProjectDialog({
   clientId?: string;
   trigger?: React.ReactElement;
   projectId?: string;
+  /** Display name for the current coordinator (the form itself holds only the id). */
+  coordinatorName?: string | null;
   defaultValues?: ProjectFormInput;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -100,6 +103,23 @@ export function AddProjectDialog({
               {errors.name && <FieldError>{errors.name.message}</FieldError>}
             </Field>
             <Field>
+              <FieldLabel>Coordinator</FieldLabel>
+              <EntityCombobox
+                entityType="coordinator"
+                value={form.watch("coordinatorId")}
+                onChange={(v) => form.setValue("coordinatorId", v)}
+                placeholder="Select Coordinator (Optional)"
+                initialOptions={
+                  defaultValues?.coordinatorId && coordinatorName
+                    ? [{ id: defaultValues.coordinatorId, title: coordinatorName }]
+                    : []
+                }
+              />
+              <p className="text-muted-foreground text-xs">
+                Pre-filled when manpower is registered or assigned to this project.
+              </p>
+            </Field>
+            <Field>
               <FieldLabel>Status</FieldLabel>
               <Select value={form.watch("status")} onValueChange={(v) => v && form.setValue("status", v as ProjectFormInput["status"])}>
                 <SelectTrigger className="w-full">
@@ -113,15 +133,6 @@ export function AddProjectDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
-            <Field>
-              <FieldLabel>Coordinator</FieldLabel>
-              <EntityCombobox
-                entityType="coordinator"
-                value={form.watch("coordinatorId") ?? ""}
-                onChange={(v) => form.setValue("coordinatorId", v)}
-                placeholder="Select Coordinator (Optional)"
-              />
             </Field>
           </FieldGroup>
           <DialogFooter>

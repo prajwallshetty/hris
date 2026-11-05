@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +28,7 @@ import { createClient, updateClient } from "@/server/actions/clients";
 export function ClientFormDialog({
   trigger,
   clientId,
+  coordinatorName,
   defaultValues,
   open: openProp,
   onOpenChange: onOpenChangeProp,
@@ -34,6 +36,8 @@ export function ClientFormDialog({
 }: {
   trigger?: React.ReactElement;
   clientId?: string;
+  /** Display name for the current coordinator (the form itself holds only the id). */
+  coordinatorName?: string | null;
   defaultValues?: Partial<ClientFormInput>;
   /** Pass these to drive the dialog from outside (e.g. a "…" row menu) —
    * omit them and the dialog manages its own open state via `trigger`. */
@@ -58,6 +62,7 @@ export function ClientFormDialog({
       contractRef: "",
       paymentTerms: "",
       billingTerms: "",
+      coordinatorId: "",
       status: "ACTIVE",
       ...defaultValues,
     },
@@ -121,6 +126,23 @@ export function ClientFormDialog({
             <Field>
               <FieldLabel htmlFor="billingTerms">Billing Terms</FieldLabel>
               <Input id="billingTerms" {...form.register("billingTerms")} placeholder="e.g. Monthly" />
+            </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel>Default Coordinator</FieldLabel>
+              <EntityCombobox
+                entityType="coordinator"
+                value={form.watch("coordinatorId")}
+                onChange={(v) => form.setValue("coordinatorId", v)}
+                placeholder="Select Coordinator (Optional)"
+                initialOptions={
+                  defaultValues?.coordinatorId && coordinatorName
+                    ? [{ id: defaultValues.coordinatorId, title: coordinatorName }]
+                    : []
+                }
+              />
+              <p className="text-muted-foreground text-xs">
+                Used for manpower placed on this client&rsquo;s projects that don&rsquo;t have their own coordinator.
+              </p>
             </Field>
           </FieldGroup>
           <DialogFooter>

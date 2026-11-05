@@ -22,6 +22,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CoordinatorField } from "@/components/shared/coordinator-field";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import {
   assignmentFormSchema,
@@ -252,15 +253,13 @@ export function AssignmentFormDialog({
                   <FieldLabel htmlFor="designation">Designation at Site</FieldLabel>
                   <Input id="designation" placeholder="e.g. Senior Electrician" {...form.register("designation")} />
                 </Field>
-                <Field>
-                  <FieldLabel>Site Coordinator</FieldLabel>
-                  <EntityCombobox
-                    entityType="coordinator"
-                    value={form.watch("coordinatorId")}
-                    onChange={(v) => form.setValue("coordinatorId", v)}
-                    placeholder="Select Coordinator (Optional)"
-                  />
-                </Field>
+                <CoordinatorField
+                  label="Site Coordinator"
+                  clientId={selectedClientId ?? ""}
+                  projectId={selectedProjectId ?? ""}
+                  value={form.watch("coordinatorId") ?? ""}
+                  onChange={(v) => form.setValue("coordinatorId", v)}
+                />
                 <Field className="sm:col-span-2">
                   <FieldLabel htmlFor="notes">Notes / Special Terms</FieldLabel>
                   <Textarea id="notes" rows={2} placeholder="Any specific requirements or contract terms..." {...form.register("notes")} />

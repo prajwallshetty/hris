@@ -306,8 +306,8 @@ model Coordinator {
   users              User[]
   workers            Worker[]
   assignments        Assignment[]
-  projects           Project[]           @relation("ProjectCoordinator")
-  clients            Client[]            @relation("ClientCoordinator")
+  projects           Project[]
+  clients            Client[]
   employees          InternalEmployee[]
   sales              Sale[]
   commissionRules    CommissionRule[]
@@ -345,7 +345,7 @@ model Client {
   id            String       @id @default(cuid())
   /// Default coordinator for the client's work — the fallback when a project has none.
   coordinatorId String?
-  coordinator   Coordinator? @relation("ClientCoordinator", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
   companyName   String
   contactPerson String?
   phone         String?
@@ -410,16 +410,18 @@ model ClientContract {
 }
 
 model Project {
-  id            String       @id @default(cuid())
-  clientId      String
-  client        Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  /// The coordinator responsible for this project — the primary source when
-  /// registering or assigning manpower under it.
+  id        String       @id @default(cuid())
+  clientId  String
+  client    Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  name      String
+  status    EntityStatus @default(ACTIVE)
+  deletedAt DateTime?
+
+  // The coordinator responsible for this project overall (distinct from the
+  // per-Assignment coordinatorId, which can note a different coordinator for
+  // an individual worker's deployment within the project).
   coordinatorId String?
-  coordinator   Coordinator? @relation("ProjectCoordinator", fields: [coordinatorId], references: [id], onDelete: SetNull)
-  name          String
-  status        EntityStatus @default(ACTIVE)
-  deletedAt     DateTime?
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

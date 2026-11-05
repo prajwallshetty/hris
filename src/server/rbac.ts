@@ -315,6 +315,21 @@ export function clientScopeWhere(user: SessionUser): Prisma.ClientWhereInput | u
   return undefined;
 }
 
+export function projectScopeWhere(user: SessionUser): Prisma.ProjectWhereInput | undefined {
+  if (user.role === "COORDINATOR") {
+    return {
+      OR: [
+        { coordinatorId: user.coordinatorId ?? "__none__" },
+        { assignments: { some: { coordinatorId: user.coordinatorId ?? "__none__" } } },
+      ],
+    };
+  }
+  if (user.role === "CLIENT") {
+    return { clientId: user.clientId ?? "__none__" };
+  }
+  return undefined;
+}
+
 export function assignmentScopeWhere(user: SessionUser): Prisma.AssignmentWhereInput | undefined {
   if (user.role === "COORDINATOR") {
     return { coordinatorId: user.coordinatorId ?? "__none__" };

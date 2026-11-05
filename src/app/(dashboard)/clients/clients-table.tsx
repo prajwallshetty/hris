@@ -39,6 +39,8 @@ export type ClientRow = {
   contractRef: string | null;
   paymentTerms: string | null;
   billingTerms: string | null;
+  coordinatorId: string | null;
+  coordinatorName: string | null;
   status: "ACTIVE" | "INACTIVE";
   deletedAt: Date | null;
   activeWorkers: number;
@@ -287,6 +289,7 @@ export function ClientsTable({
           open
           onOpenChange={(open) => !open && setEditTarget(null)}
           clientId={editTarget.id}
+          coordinatorName={editTarget.coordinatorName}
           defaultValues={{
             companyName: editTarget.companyName,
             contactPerson: editTarget.contactPerson ?? "",
@@ -296,6 +299,7 @@ export function ClientsTable({
             contractRef: editTarget.contractRef ?? "",
             paymentTerms: editTarget.paymentTerms ?? "",
             billingTerms: editTarget.billingTerms ?? "",
+            coordinatorId: editTarget.coordinatorId ?? "",
             status: editTarget.status,
           }}
         />

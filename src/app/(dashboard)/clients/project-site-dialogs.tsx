@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,6 +28,7 @@ export function AddProjectDialog({
   clientId,
   trigger,
   projectId,
+  coordinatorName,
   defaultValues,
   open: openProp,
   onOpenChange: onOpenChangeProp,
@@ -34,6 +36,8 @@ export function AddProjectDialog({
   clientId: string;
   trigger?: React.ReactElement;
   projectId?: string;
+  /** Display name for the current coordinator (the form itself holds only the id). */
+  coordinatorName?: string | null;
   defaultValues?: ProjectFormInput;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -44,7 +48,7 @@ export function AddProjectDialog({
   const router = useRouter();
   const form = useForm<ProjectFormInput>({
     resolver: zodResolver(projectFormSchema),
-    defaultValues: defaultValues ?? { clientId, name: "", status: "ACTIVE" },
+    defaultValues: defaultValues ?? { clientId, name: "", coordinatorId: "", status: "ACTIVE" },
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -53,7 +57,7 @@ export function AddProjectDialog({
     if (result.success) {
       toast.success(projectId ? "Project updated." : "Project created.");
       setOpen(false);
-      if (!projectId) form.reset({ clientId, name: "", status: "ACTIVE" });
+      if (!projectId) form.reset({ clientId, name: "", coordinatorId: "", status: "ACTIVE" });
       router.refresh();
     } else {
       toast.error(result.error);
@@ -73,6 +77,23 @@ export function AddProjectDialog({
               <FieldLabel htmlFor="projectName">Project Name *</FieldLabel>
               <Input id="projectName" {...form.register("name")} />
               {errors.name && <FieldError>{errors.name.message}</FieldError>}
+            </Field>
+            <Field>
+              <FieldLabel>Coordinator</FieldLabel>
+              <EntityCombobox
+                entityType="coordinator"
+                value={form.watch("coordinatorId")}
+                onChange={(v) => form.setValue("coordinatorId", v)}
+                placeholder="Select Coordinator (Optional)"
+                initialOptions={
+                  defaultValues?.coordinatorId && coordinatorName
+                    ? [{ id: defaultValues.coordinatorId, title: coordinatorName }]
+                    : []
+                }
+              />
+              <p className="text-muted-foreground text-xs">
+                Pre-filled when manpower is registered or assigned to this project.
+              </p>
             </Field>
             <Field>
               <FieldLabel>Status</FieldLabel>

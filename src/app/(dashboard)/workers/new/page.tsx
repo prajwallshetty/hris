@@ -20,6 +20,7 @@ export default async function RegisterManpowerPage() {
       <ManpowerRegistrationForm
         canCreateSupplier={can(user, "create", "supplier")}
         canAssign={can(user, "create", "assignment")}
+        canChooseCoordinator={user.role !== "COORDINATOR" && can(user, "view", "coordinator")}
       />
     </div>
   );

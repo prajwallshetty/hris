@@ -306,6 +306,8 @@ model Coordinator {
   users              User[]
   workers            Worker[]
   assignments        Assignment[]
+  projects           Project[]           @relation("ProjectCoordinator")
+  clients            Client[]            @relation("ClientCoordinator")
   employees          InternalEmployee[]
   sales              Sale[]
   commissionRules    CommissionRule[]
@@ -341,6 +343,9 @@ model Supplier {
 
 model Client {
   id            String       @id @default(cuid())
+  /// Default coordinator for the client's work — the fallback when a project has none.
+  coordinatorId String?
+  coordinator   Coordinator? @relation("ClientCoordinator", fields: [coordinatorId], references: [id], onDelete: SetNull)
   companyName   String
   contactPerson String?
   phone         String?
@@ -405,12 +410,16 @@ model ClientContract {
 }
 
 model Project {
-  id        String       @id @default(cuid())
-  clientId  String
-  client    Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  name      String
-  status    EntityStatus @default(ACTIVE)
-  deletedAt DateTime?
+  id            String       @id @default(cuid())
+  clientId      String
+  client        Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  /// The coordinator responsible for this project — the primary source when
+  /// registering or assigning manpower under it.
+  coordinatorId String?
+  coordinator   Coordinator? @relation("ProjectCoordinator", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  name          String
+  status        EntityStatus @default(ACTIVE)
+  deletedAt     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -423,6 +432,7 @@ model Project {
   equipmentRentals   EquipmentRental[]
 
   @@index([clientId])
+  @@index([coordinatorId])
 }
 
 model Site {
@@ -721,8 +731,8 @@ model LeaveType {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  balances LeaveBalance[]
-  requests LeaveRequest[]
+  balances       LeaveBalance[]
+  requests       LeaveRequest[]
   timesheetItems TimesheetItem[]
 }
 
@@ -1478,7 +1488,7 @@ enum ImportRunStatus {
 // uploaded what and when, without exposing any internal IDs (§7: "Import
 // History").
 model ImportRun {
-  id     String  @id @default(cuid())
+  id     String          @id @default(cuid())
   module ImportModule
   status ImportRunStatus
 

@@ -39,6 +39,8 @@ export default async function ClientsPage({
       contractRef: client.contractRef,
       paymentTerms: client.paymentTerms,
       billingTerms: client.billingTerms,
+      coordinatorId: client.coordinatorId,
+      coordinatorName: client.coordinator?.name ?? null,
       status: client.status,
       deletedAt: client.deletedAt,
       activeWorkers: client._count.assignments,

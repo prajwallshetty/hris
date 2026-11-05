@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { CoordinatorField } from "@/components/shared/coordinator-field";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,6 +76,7 @@ const EMPTY: ManpowerRegistrationValues = {
   clientId: "",
   projectId: "",
   siteId: "",
+  coordinatorId: "",
   workerRate: undefined,
   clientBillingRate: undefined,
   notes: "",
@@ -83,9 +85,12 @@ const EMPTY: ManpowerRegistrationValues = {
 export function ManpowerRegistrationForm({
   canCreateSupplier,
   canAssign,
+  canChooseCoordinator,
 }: {
   canCreateSupplier: boolean;
   canAssign: boolean;
+  /** Whether this user may pick/override the coordinator (a COORDINATOR-role user registers under themselves). */
+  canChooseCoordinator: boolean;
 }) {
   const [showMore, setShowMore] = useState(false);
   const [lastRegistered, setLastRegistered] =
@@ -101,9 +106,9 @@ export function ManpowerRegistrationForm({
     defaultValues: EMPTY,
   });
   const { errors, isSubmitting } = form.formState;
-  const [workerType, supplierId, clientId, projectId, siteId] = useWatch({
+  const [workerType, supplierId, clientId, projectId, siteId, coordinatorId] = useWatch({
     control: form.control,
-    name: ["workerType", "supplierId", "clientId", "projectId", "siteId"],
+    name: ["workerType", "supplierId", "clientId", "projectId", "siteId", "coordinatorId"],
   });
 
   // Placement and HRD-only errors live on fields inside "Additional
@@ -140,6 +145,7 @@ export function ManpowerRegistrationForm({
       clientId: keep.clientId,
       projectId: keep.projectId,
       siteId: keep.siteId,
+      coordinatorId: keep.coordinatorId,
       workerRate: keep.workerRate,
       clientBillingRate: keep.clientBillingRate,
       nationality: keep.nationality,
@@ -170,6 +176,7 @@ export function ManpowerRegistrationForm({
                   ? "Deployed to site"
                   : "Not yet assigned"}{" "}
                 · {lastRegistered.status === "ACTIVE" ? "Active" : "Available"}
+                {lastRegistered.coordinatorName && <> · Coordinator: {lastRegistered.coordinatorName}</>}
               </p>
             </div>
           </div>
@@ -477,6 +484,16 @@ export function ManpowerRegistrationForm({
                     )}
                   </Field>
                 </div>
+
+                {canChooseCoordinator && (
+                  <CoordinatorField
+                    clientId={clientId ?? ""}
+                    projectId={projectId ?? ""}
+                    value={coordinatorId ?? ""}
+                    onChange={(id) => form.setValue("coordinatorId", id)}
+                    error={errors.coordinatorId?.message}
+                  />
+                )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Field>

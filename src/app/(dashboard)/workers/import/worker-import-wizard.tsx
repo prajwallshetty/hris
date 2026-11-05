@@ -12,19 +12,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { WorkerBulkImportSummary } from "@/server/import/worker-bulk-import";
 import { importWorkerRows, previewWorkerImport, type WorkerImportPreview } from "@/server/actions/workers";
 
-function downloadErrorReport(rows: WorkerBulkImportSummary["errorReport"]) {
-  const lines = [
-    ["Row", "Full Name", "Iqama", "Issue"],
-    ...rows.map((r) => [String(r.rowNumber), r.fullName ?? "", r.iqamaNumber ?? "", r.errors.join(" ")]),
-  ];
+function downloadCsv(filename: string, lines: string[][]) {
   const csv = lines.map((line) => line.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  // BOM so Excel opens Arabic / accented names correctly.
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "manpower-import-errors.csv";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadErrorReport(rows: WorkerBulkImportSummary["errorReport"]) {
+  downloadCsv("manpower-import-errors.csv", [
+    ["Row", "Full Name", "Iqama", "Issue"],
+    ...rows.map((r) => [String(r.rowNumber), r.fullName ?? "", r.iqamaNumber ?? "", r.errors.join(" ")]),
+  ]);
+}
+
+/** The rejected rows as uploaded, in the template's own columns — fix them and upload this file again. */
+function downloadRejectedRows(rows: WorkerBulkImportSummary["errorReport"]) {
+  const withSource = rows.filter((r) => r.source);
+  if (withSource.length === 0) return;
+  const headers = Object.keys(withSource[0].source!);
+  downloadCsv("manpower-import-rejected-rows.csv", [
+    [...headers, "Why it was rejected"],
+    ...withSource.map((r) => [...headers.map((h) => r.source![h] ?? ""), r.errors.join(" ")]),
+  ]);
 }
 
 type ImportOutcome = {
@@ -43,6 +58,8 @@ function ErrorTable({ rows }: { rows: WorkerBulkImportSummary["errorReport"] }) 
             <TableHead className="w-16">Row</TableHead>
             <TableHead>Full Name</TableHead>
             <TableHead>Iqama</TableHead>
+            <TableHead>Mobilization</TableHead>
+            <TableHead>Client / Project / Site</TableHead>
             <TableHead>Issue</TableHead>
           </TableRow>
         </TableHeader>
@@ -52,7 +69,17 @@ function ErrorTable({ rows }: { rows: WorkerBulkImportSummary["errorReport"] }) 
               <TableCell className="tabular-nums">{e.rowNumber}</TableCell>
               <TableCell>{e.fullName ?? "—"}</TableCell>
               <TableCell className="font-mono text-xs">{e.iqamaNumber ?? "—"}</TableCell>
-              <TableCell className="text-destructive">{e.errors.join(" ")}</TableCell>
+              <TableCell className="whitespace-nowrap">{e.source?.["Mobilization"] ?? "—"}</TableCell>
+              <TableCell className="text-muted-foreground text-xs">
+                {[e.source?.["Client"], e.source?.["Project"], e.source?.["Site"]].filter(Boolean).join(" / ") || "—"}
+              </TableCell>
+              <TableCell className="text-destructive min-w-72 whitespace-normal">
+                <ul className="list-disc space-y-0.5 pl-4">
+                  {e.errors.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -148,10 +175,16 @@ export function WorkerImportWizard() {
             View Workers
           </Button>
           {outcome.errorReport.length > 0 && (
-            <Button variant="outline" onClick={() => downloadErrorReport(outcome.errorReport)}>
-              <Download className="size-4" />
-              Download Error Report
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => downloadErrorReport(outcome.errorReport)}>
+                <Download className="size-4" />
+                Download Error Report
+              </Button>
+              <Button variant="outline" onClick={() => downloadRejectedRows(outcome.errorReport)}>
+                <Download className="size-4" />
+                Download Rejected Rows to Fix
+              </Button>
+            </>
           )}
           <Button variant="outline" onClick={reset}>
             <Upload className="size-4" />
@@ -219,10 +252,16 @@ export function WorkerImportWizard() {
               </span>
             )}
             {preview.summary.errorReport.length > 0 && (
-              <Button variant="outline" size="sm" className="ml-auto" onClick={() => downloadErrorReport(preview.summary.errorReport)}>
-                <Download className="size-3.5" />
-                Download Error Report
-              </Button>
+              <span className="ml-auto flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => downloadErrorReport(preview.summary.errorReport)}>
+                  <Download className="size-3.5" />
+                  Download Error Report
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => downloadRejectedRows(preview.summary.errorReport)}>
+                  <Download className="size-3.5" />
+                  Download Rejected Rows to Fix
+                </Button>
+              </span>
             )}
           </div>
 
@@ -241,7 +280,10 @@ export function WorkerImportWizard() {
                     <TableHead>Mobile</TableHead>
                     <TableHead>Mobilization</TableHead>
                     <TableHead>Iqama</TableHead>
-                    <TableHead>Placement</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Site</TableHead>
+                    <TableHead>Coordinator</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -255,8 +297,24 @@ export function WorkerImportWizard() {
                       <TableCell>{r.data.mobile}</TableCell>
                       <TableCell className="whitespace-nowrap">{r.data.mobilizationDate}</TableCell>
                       <TableCell className="font-mono text-xs">{r.data.iqamaNumber || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {r.display.site ? `${r.display.client} / ${r.display.project} / ${r.display.site}` : "Not assigned"}
+                      <TableCell>{r.display.client ?? <span className="text-muted-foreground">Not placed</span>}</TableCell>
+                      <TableCell>{r.display.project ?? "—"}</TableCell>
+                      <TableCell>{r.display.site ?? "—"}</TableCell>
+                      <TableCell className="min-w-40">
+                        {r.display.coordinator ? (
+                          <>
+                            {r.display.coordinator}
+                            <span className="text-muted-foreground block text-[11px]">
+                              {r.display.coordinatorSource === "manual"
+                                ? "From the file"
+                                : r.display.coordinatorSource === "project"
+                                  ? "From the project"
+                                  : "From the client"}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">{r.display.site ? "Unassigned" : "—"}</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

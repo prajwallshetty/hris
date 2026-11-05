@@ -277,15 +277,6 @@ export type WorkerImportPreview = {
   validRows: ValidWorkerBulkRow[];
 };
 
-function groupByName<T extends { id: string; name: string }>(items: T[], keyOf: (item: T) => string) {
-  const map = new Map<string, { id: string; name: string }[]>();
-  for (const item of items) {
-    const key = keyOf(item);
-    map.set(key, [...(map.get(key) ?? []), { id: item.id, name: item.name }]);
-  }
-  return map;
-}
-
 function distinct(values: (string | null)[]) {
   return Array.from(new Set(values.filter((v): v is string => Boolean(v))));
 }
@@ -296,32 +287,27 @@ async function loadWorkerImportContext(rawRows: RawWorkerBulkRow[]): Promise<Wor
   const names = distinct(rawRows.map((r) => r.fullName));
   const insensitiveIn = (values: string[]) => ({ in: values, mode: "insensitive" as const });
 
-  const [byIqama, sameNames, suppliers, clients] = await Promise.all([
+  // Clients, projects and sites are matched in code on a normalized name
+  // (spacing and case folded — see normalizeName), so they're loaded whole
+  // rather than filtered by exact name in SQL, which can't ignore spacing.
+  // Only non-archived records are candidates, so a row can never land on an
+  // archived site. Nothing is created: an unmatched name is a row error.
+  const [byIqama, sameNames, suppliers, clients, coordinators] = await Promise.all([
     db.worker.findMany({ where: { iqamaNumber: { in: iqamas } }, select: { fullName: true, iqamaNumber: true } }),
     db.worker.findMany({
       where: { deletedAt: null, fullName: insensitiveIn(names) },
       select: { fullName: true, mobile: true, mobilizationDate: true },
     }),
     db.supplier.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true } }),
-    db.client.findMany({
-      where: { deletedAt: null, companyName: insensitiveIn(distinct(rawRows.map((r) => r.client))) },
-      select: { id: true, companyName: true },
-    }),
+    db.client.findMany({ where: { deletedAt: null }, select: { id: true, companyName: true, coordinatorId: true } }),
+    db.coordinator.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true } }),
   ]);
   const projects = await db.project.findMany({
-    where: {
-      deletedAt: null,
-      clientId: { in: clients.map((c) => c.id) },
-      name: insensitiveIn(distinct(rawRows.map((r) => r.project))),
-    },
-    select: { id: true, name: true, clientId: true },
+    where: { deletedAt: null, clientId: { in: clients.map((c) => c.id) } },
+    select: { id: true, name: true, clientId: true, coordinatorId: true },
   });
   const sites = await db.site.findMany({
-    where: {
-      deletedAt: null,
-      projectId: { in: projects.map((p) => p.id) },
-      name: insensitiveIn(distinct(rawRows.map((r) => r.site))),
-    },
+    where: { deletedAt: null, projectId: { in: projects.map((p) => p.id) } },
     select: { id: true, name: true, projectId: true },
   });
 
@@ -332,13 +318,11 @@ async function loadWorkerImportContext(rawRows: RawWorkerBulkRow[]): Promise<Wor
         w.mobile && w.mobilizationDate ? [naturalKey(w.fullName, w.mobile, w.mobilizationDate.toISOString().slice(0, 10))] : [],
       ),
     ),
-    suppliersByName: groupByName(suppliers, (s) => s.name.toLowerCase()),
-    clientsByName: groupByName(
-      clients.map((c) => ({ id: c.id, name: c.companyName })),
-      (c) => c.name.toLowerCase(),
-    ),
-    projectsByKey: groupByName(projects, (p) => `${p.clientId}|${p.name.toLowerCase()}`),
-    sitesByKey: groupByName(sites, (s) => `${s.projectId}|${s.name.toLowerCase()}`),
+    suppliers,
+    clients: clients.map((c) => ({ id: c.id, name: c.companyName, coordinatorId: c.coordinatorId })),
+    projects,
+    sites,
+    coordinators,
   };
 }
 
@@ -416,6 +400,7 @@ export async function importWorkerRows(input: {
           fullName: item.data.fullName ?? null,
           iqamaNumber: item.data.iqamaNumber || null,
           errors: parsed.error.issues.map((issue) => issue.message),
+          source: item.source,
         });
         continue;
       }
@@ -445,6 +430,7 @@ export async function importWorkerRows(input: {
                 ? `Iqama ${parsed.data.iqamaNumber} was just registered by another import.`
                 : "Could not save this row.",
           ],
+          source: item.source,
         });
       }
     }

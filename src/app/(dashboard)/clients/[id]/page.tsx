@@ -122,6 +122,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             {canEdit && !client.deletedAt && (
               <ClientFormDialog
                 clientId={client.id}
+                coordinatorName={client.coordinator?.name ?? null}
                 defaultValues={{
                   companyName: client.companyName,
                   contactPerson: client.contactPerson ?? "",
@@ -131,6 +132,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                   contractRef: client.contractRef ?? "",
                   paymentTerms: client.paymentTerms ?? "",
                   billingTerms: client.billingTerms ?? "",
+                  coordinatorId: client.coordinatorId ?? "",
                   status: client.status,
                 }}
                 trigger={
@@ -294,7 +296,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               {client.projects.map((project) => (
                 <Card key={project.id} className={project.deletedAt ? "opacity-60" : undefined}>
                   <CardHeader className="flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-base">{project.name}</CardTitle>
+                    <div>
+                      <CardTitle className="text-base">{project.name}</CardTitle>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        Coordinator:{" "}
+                        <span className="text-foreground font-medium">
+                          {project.coordinator?.name ?? (client.coordinator ? `${client.coordinator.name} (from client)` : "Not assigned")}
+                        </span>
+                      </p>
+                    </div>
                     <div className="flex items-center gap-2">
                       {project.deletedAt && (
                         <span className="text-muted-foreground text-xs font-medium uppercase">Archived</span>
@@ -305,7 +315,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           <AddProjectDialog
                             clientId={client.id}
                             projectId={project.id}
-                            defaultValues={{ clientId: client.id, name: project.name, status: project.status }}
+                            coordinatorName={project.coordinator?.name ?? null}
+                            defaultValues={{
+                              clientId: client.id,
+                              name: project.name,
+                              coordinatorId: project.coordinatorId ?? "",
+                              status: project.status,
+                            }}
                             trigger={
                               <Button size="icon-sm" variant="ghost" aria-label={`Edit ${project.name}`}>
                                 <Pencil className="size-4" />

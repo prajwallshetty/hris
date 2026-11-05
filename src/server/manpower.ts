@@ -1,8 +1,10 @@
 import type { Prisma, WorkerStatus, WorkerType } from "@prisma/client";
 
+import type { CoordinatorSource } from "@/lib/coordinator-resolution";
 import type { ManpowerRegistrationInput } from "@/lib/validation/manpower";
+import { resolvePlacementCoordinator } from "@/server/coordinator-resolution";
 import { resolveDesignationId } from "@/server/designations";
-import type { SessionUser } from "@/server/rbac";
+import { can, type SessionUser } from "@/server/rbac";
 
 /** A business-rule rejection with a message safe to show the user as-is. */
 export class ManpowerRecordError extends Error {}
@@ -27,7 +29,15 @@ export async function createManpowerRecord(
   user: SessionUser,
   data: ManpowerRegistrationInput,
   extra: { batchNumber?: string | null } = {},
-): Promise<{ workerId: string; sequenceNo: number; status: WorkerStatus; assignmentId: string | null }> {
+): Promise<{
+  workerId: string;
+  sequenceNo: number;
+  status: WorkerStatus;
+  assignmentId: string | null;
+  coordinatorId: string | null;
+  coordinatorName: string | null;
+  coordinatorSource: CoordinatorSource | "self";
+}> {
   const iqamaNumber = data.iqamaNumber || null;
   const mobilizationIso = data.mobilizationDate.slice(0, 10);
   const mobilizationDate = new Date(mobilizationIso);
@@ -74,6 +84,8 @@ export async function createManpowerRecord(
     if (!site) throw new ManpowerRecordError("The selected site does not belong to the selected client and project.");
   }
 
+  const coordinator = await chooseCoordinator(tx, user, data, hasPlacement);
+
   const status = mobilizationStatus(mobilizationIso, hasPlacement);
   const designationId = await resolveDesignationId(data.designation, tx);
 
@@ -92,7 +104,7 @@ export async function createManpowerRecord(
       batchNumber: extra.batchNumber || null,
       notes: data.notes || null,
       status,
-      coordinatorId: user.role === "COORDINATOR" ? user.coordinatorId : null,
+      coordinatorId: coordinator.id,
     },
   });
 
@@ -119,5 +131,52 @@ export async function createManpowerRecord(
     assignmentId = assignment.id;
   }
 
-  return { workerId: worker.id, sequenceNo: worker.sequenceNo, status, assignmentId };
+  return {
+    workerId: worker.id,
+    sequenceNo: worker.sequenceNo,
+    status,
+    assignmentId,
+    coordinatorId: coordinator.id,
+    coordinatorName: coordinator.name,
+    coordinatorSource: coordinator.source,
+  };
+}
+
+/**
+ * Who coordinates this worker. A COORDINATOR-role user registers under
+ * their own profile (unchanged). Otherwise an explicit choice is kept as
+ * given — but only after checking it is an active coordinator and that the
+ * user may choose one. With no explicit choice the Project → Client
+ * coordinator is used; with neither, the worker stays unassigned.
+ */
+async function chooseCoordinator(
+  tx: Prisma.TransactionClient,
+  user: SessionUser,
+  data: ManpowerRegistrationInput,
+  hasPlacement: boolean,
+): Promise<{ id: string | null; name: string | null; source: CoordinatorSource | "self" }> {
+  if (user.role === "COORDINATOR") return { id: user.coordinatorId, name: null, source: "self" };
+
+  if (data.coordinatorId) {
+    if (!can(user, "view", "coordinator")) {
+      throw new ManpowerRecordError("You are not allowed to choose a coordinator.");
+    }
+    const chosen = await tx.coordinator.findFirst({
+      where: { id: data.coordinatorId, status: "ACTIVE" },
+      select: { id: true, name: true },
+    });
+    if (!chosen) throw new ManpowerRecordError("The selected coordinator is not available (missing or inactive).");
+    // A form pre-fills the project's coordinator and sends it back as an
+    // explicit id; call it what it is when it matches what we'd resolve.
+    const resolved = hasPlacement
+      ? await resolvePlacementCoordinator(tx, { clientId: data.clientId, projectId: data.projectId })
+      : null;
+    return { id: chosen.id, name: chosen.name, source: resolved?.coordinatorId === chosen.id ? resolved.source : "manual" };
+  }
+
+  if (hasPlacement) {
+    const resolved = await resolvePlacementCoordinator(tx, { clientId: data.clientId, projectId: data.projectId });
+    return { id: resolved.coordinatorId, name: resolved.coordinatorName, source: resolved.source };
+  }
+  return { id: null, name: null, source: "none" };
 }

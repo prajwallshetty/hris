@@ -16,6 +16,7 @@ export async function listClients(user: SessionUser, params: { search?: string }
   return db.client.findMany({
     where,
     include: {
+      coordinator: { select: { id: true, name: true } },
       _count: { select: { projects: true, assignments: { where: { status: "ACTIVE" } } } },
     },
     orderBy: { companyName: "asc" },
@@ -27,9 +28,11 @@ export async function getClient(user: SessionUser, id: string) {
   return db.client.findFirst({
     where: { id, ...clientScopeWhere(user) },
     include: {
+      coordinator: { select: { id: true, name: true } },
       projects: {
         orderBy: { name: "asc" },
         include: {
+          coordinator: { select: { id: true, name: true } },
           sites: {
             orderBy: { name: "asc" },
             include: {

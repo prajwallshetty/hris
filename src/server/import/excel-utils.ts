@@ -23,32 +23,60 @@ export function readWorksheetRows(
   });
 }
 
+// Excel stores a date as the number of days since 1899-12-30. Real worker
+// mobilization dates fall in 2000–2100 (serials ~36526–73415); anything
+// outside that is far more likely a stray number than a date, so it is
+// rejected rather than silently turned into a 1900s or 2200s date.
+const MIN_SERIAL = 36526; // 2000-01-01
+const MAX_SERIAL = 73415; // 2100-12-31
+
+function fromSerial(serial: number): Date | null {
+  if (!Number.isFinite(serial) || serial < MIN_SERIAL || serial > MAX_SERIAL) return null;
+  const parsed = XLSX.SSF.parse_date_code(serial);
+  if (!parsed) return null;
+  return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+}
+
+function fromParts(y: string, m: string, d: string): Date | null {
+  const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+  // Reject impossible dates like 31/02/2026 instead of letting JS roll
+  // them over into March.
+  return date.getUTCMonth() === Number(m) - 1 && date.getUTCDate() === Number(d) ? date : null;
+}
+
 /**
- * Converts an Excel date cell to a UTC-safe Date, handling both real Excel
- * date serials and free-text "DD/MM/YYYY" strings (this workbook's source
- * data mixes both — see DEMO IN.xlsx). Using cellDates:true instead would
- * shift the calendar day whenever the machine's local timezone isn't UTC.
+ * Converts an Excel date cell to a UTC-safe Date. Accepts:
+ *  - a real Excel serial number (46031) — numeric, or numeric text, which is
+ *    what a bulk-import row holds once the cell has been read as text;
+ *  - DD/MM/YYYY (also with - or . separators);
+ *  - YYYY-MM-DD (also with / separators).
+ * Slash dates are always day-first, never US month-first. Using cellDates:true
+ * instead would shift the calendar day whenever the machine's local timezone
+ * isn't UTC.
  */
 export function parseExcelDate(value: unknown): Date | null {
   if (value === null || value === undefined || value === "") return null;
-  if (typeof value === "number") {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (!parsed) return null;
-    return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
-  }
+  if (typeof value === "number") return fromSerial(value);
   if (typeof value === "string") {
     const trimmed = value.trim();
-    const dmy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-    const ymd = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    const [y, m, d] = dmy ? [dmy[3], dmy[2], dmy[1]] : ymd ? [ymd[1], ymd[2], ymd[3]] : [];
-    if (y) {
-      const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
-      // Reject impossible dates like 31/02/2026 instead of letting JS roll
-      // them over into March.
-      if (date.getUTCMonth() === Number(m) - 1 && date.getUTCDate() === Number(d)) return date;
-    }
+    if (/^\d{5}(\.\d+)?$/.test(trimmed)) return fromSerial(Math.floor(Number(trimmed)));
+    const dmy = trimmed.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+    if (dmy) return fromParts(dmy[3], dmy[2], dmy[1]);
+    const ymd = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+    if (ymd) return fromParts(ymd[1], ymd[2], ymd[3]);
   }
   return null;
+}
+
+/**
+ * Canonical form of a client/project/site/supplier name for matching: Unicode
+ * compatibility-normalized (so non-breaking spaces, full-width characters
+ * etc. fold to plain ones), whitespace runs collapsed to one space, trimmed,
+ * lower-cased. Two names that differ only in spacing or letter case are the
+ * same name. Used on BOTH sides of a match, so stored names need no cleanup.
+ */
+export function normalizeName(value: string | null | undefined): string {
+  return (value ?? "").normalize("NFKC").replace(/[\s\u200b-\u200d\ufeff]+/g, " ").trim().toLowerCase();
 }
 
 export function cleanString(value: unknown): string | null {

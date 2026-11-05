@@ -43,6 +43,8 @@ export const manpowerRegistrationSchema = z
     clientId: optionalText,
     projectId: optionalText,
     siteId: optionalText,
+    /** Blank = resolve from the project, then the client; set = an explicit choice that is kept as-is. */
+    coordinatorId: optionalText,
     workerRate: optionalRate,
     clientBillingRate: optionalRate,
     notes: optionalText,

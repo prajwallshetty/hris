@@ -8,8 +8,10 @@ import {
   detectWorkerBulkColumns,
   extractWorkerBulkRows,
   naturalKey,
+  buildPreviewRows,
   summarizeWorkerBulkImport,
   validateWorkerBulkRows,
+  type ExistingWorkerRef,
   type RawWorkerBulkRow,
   type WorkerBulkImportContext,
 } from "../worker-bulk-import";
@@ -28,6 +30,26 @@ function emptyContext(overrides: Partial<WorkerBulkImportContext> = {}): WorkerB
       { id: "co1", name: "Faisal Coordinator" },
       { id: "co2", name: "Omar Coordinator" },
     ],
+    ...overrides,
+  };
+}
+
+function existingWorker(overrides: Partial<ExistingWorkerRef> = {}): ExistingWorkerRef {
+  return {
+    id: "w-existing",
+    fullName: "Existing Person",
+    iqamaNumber: "2222222222",
+    sequenceNo: 123,
+    status: "ACTIVE",
+    nationality: "India",
+    mobile: "0501234567",
+    mobilizationDate: "2025-12-01",
+    workerType: "FRL",
+    supplierId: null,
+    supplierName: null,
+    designation: "Scaffolder",
+    skillCategory: "Skilled",
+    hourlyRate: 15,
     ...overrides,
   };
 }
@@ -140,7 +162,7 @@ describe("validateWorkerBulkRows", () => {
   });
 
   it("flags duplicate and already-registered Iqamas", () => {
-    const ctx = emptyContext({ existingByIqama: new Map([["2222222222", { fullName: "Existing Person" }]]) });
+    const ctx = emptyContext({ existingByIqama: new Map([["2222222222", existingWorker()]]) });
     const results = validate(
       [row({ iqama: "1111111111" }), row({ rowNumber: 3, iqama: "1111111111" }), row({ rowNumber: 4, iqama: "2222222222" })],
       ctx,
@@ -349,5 +371,94 @@ describe("rejected rows", () => {
       expect(r.source["Mobilization"]).toBe("31/02/2026");
       expect(r.source["Iqama Number"]).toBe("1234567890");
     }
+  });
+});
+
+
+describe("duplicate Iqama handling", () => {
+  const withExisting = (existing = existingWorker()) => emptyContext({ existingByIqama: new Map([[existing.iqamaNumber, existing]]) });
+
+  it("reports the existing worker's name, code, status and Iqama — as a duplicate, not a data error", () => {
+    const [r] = validate([row({ iqama: "2222222222" })], withExisting());
+    expect(r.valid).toBe(false);
+    if (r.valid) return;
+    expect(r.duplicateOf).toMatchObject({ fullName: "Existing Person", iqamaNumber: "2222222222" });
+    expect(r.errors).toEqual([]); // nothing else is wrong with the row
+    const [preview] = buildPreviewRows([r]);
+    expect(preview.status).toBe("duplicate");
+    expect(preview.issues[0]).toBe("Iqama 2222222222 is already registered to Existing Person (W-000123, active).");
+    expect(preview.existing?.fullName).toBe("Existing Person");
+  });
+
+  it("is counted separately from errors in the summary, and kept in the report", () => {
+    const results = validate(
+      [row({ iqama: "2222222222" }), row({ rowNumber: 3, mobilization: "soon" }), row({ rowNumber: 4 })],
+      withExisting(),
+    );
+    const summary = summarizeWorkerBulkImport(results);
+    expect(summary).toMatchObject({ totalRows: 3, validRows: 1, duplicateRows: 1, invalidRows: 1 });
+    expect(summary.errorReport).toHaveLength(2);
+    expect(summary.errorReport[0].errors[0]).toMatch(/^Duplicate: Iqama 2222222222 is already registered to Existing Person/);
+  });
+
+  it("never produces a new-worker row for a duplicate", () => {
+    const results = validate([row({ iqama: "2222222222", fullName: "Someone Else" })], withExisting());
+    expect(results.some((r) => r.valid)).toBe(false);
+  });
+
+  it("lists exactly the fields an explicit update would change, and ignores blanks", () => {
+    const [r] = validate(
+      [row({ iqama: "2222222222", fullName: "existing  PERSON", mobile: "0559999999", mobilization: "2026-01-09", designation: "Rigger", craft: null, workerRate: "18" })],
+      withExisting(),
+    );
+    if (r.valid) throw new Error("expected duplicate");
+    const changes = Object.fromEntries((r.changes ?? []).map((c) => [c.field, [c.from, c.to]]));
+    expect(changes).toEqual({
+      mobile: ["0501234567", "0559999999"],
+      mobilizationDate: ["2025-12-01", "2026-01-09"],
+      designation: ["Scaffolder", "Rigger"],
+      hourlyRate: ["15", "18"],
+    }); // same name ignoring case/spacing → no change; blank craft → untouched
+    expect(buildPreviewRows([r])[0].updatable).toBe(true);
+  });
+
+  it("is not updatable when nothing differs, or when the row has other errors", () => {
+    const same = validate([row({ iqama: "2222222222", fullName: "Existing Person", nationality: "India", mobile: "0501234567", mobilization: "2025-12-01", workerRate: "15", designation: "Scaffolder", craft: "Skilled" })], withExisting())[0];
+    if (same.valid) throw new Error("expected duplicate");
+    expect(same.changes).toEqual([]);
+    expect(buildPreviewRows([same])[0].updatable).toBe(false);
+
+    const broken = validate([row({ iqama: "2222222222", mobilization: "31/02/2026" })], withExisting())[0];
+    if (broken.valid) throw new Error("expected duplicate");
+    expect(broken.data).toBeUndefined();
+    expect(buildPreviewRows([broken])[0]).toMatchObject({ status: "duplicate", updatable: false });
+  });
+
+  it("a worker-type change away from HRD reports the supplier going away", () => {
+    const hrd = existingWorker({ workerType: "HRD", supplierId: "sup1", supplierName: "Gulf Manpower" });
+    const [r] = validate([row({ iqama: "2222222222", workerType: "OWN" })], withExisting(hrd));
+    if (r.valid) throw new Error("expected duplicate");
+    expect(r.changes?.map((c) => c.field)).toEqual(expect.arrayContaining(["workerType", "supplier"]));
+  });
+});
+
+describe("preview rows", () => {
+  it("cover every row in file order with the columns the preview shows", () => {
+    const placement = { client: "Acme", project: "Tower", site: "North Gate", workerRate: "15", clientBillingRate: "22" };
+    const ctx = emptyContext({ existingByIqama: new Map([["2222222222", existingWorker()]]) });
+    const rows = buildPreviewRows(
+      validate(
+        [
+          row({ rowNumber: 2, fullName: "Ready One", iqama: "1111111111", ...placement }),
+          row({ rowNumber: 3, fullName: "Dup", iqama: "2222222222" }),
+          row({ rowNumber: 4, fullName: "Bad Site", ...placement, site: "Nowhere" }),
+        ],
+        ctx,
+      ),
+    );
+    expect(rows.map((r) => [r.rowNumber, r.status])).toEqual([[2, "ready"], [3, "duplicate"], [4, "error"]]);
+    expect(rows[0]).toMatchObject({ fullName: "Ready One", iqamaNumber: "1111111111", mobilizationDate: "2026-10-01", workerType: "FRL", client: "Acme", project: "Tower", site: "North Gate" });
+    expect(rows[2].issues[0]).toMatch(/Site under Tower "Nowhere" was not found/);
+    expect(rows[2].client).toBe("Acme"); // an error row still shows what was uploaded
   });
 });

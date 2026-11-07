@@ -1,4 +1,5 @@
-import { cleanString, findColumnIndex, normalizeName, parseExcelDate, readWorksheetRows } from "./excel-utils";
+import { cleanString, findColumnIndex, normalizeName, parseExcelDate, readWorksheet } from "./excel-utils";
+import { formatWorkerCode } from "@/lib/codes";
 import { pickCoordinator, type CoordinatorSource } from "@/lib/coordinator-resolution";
 import { IQAMA_PATTERN, WORKER_TYPES, type ManpowerRegistrationInput, type WorkerTypeValue } from "@/lib/validation/manpower";
 
@@ -36,12 +37,12 @@ export type WorkerBulkColumnMap = Record<ColumnKey, number>;
 const HEADER_ROW_INDEX = 0;
 const DATA_START_ROW_INDEX = 1;
 
-function readRows(buffer: Buffer, start: number) {
-  return readWorksheetRows(buffer, start, { rawText: true });
+function readSheet(buffer: Buffer, start: number) {
+  return readWorksheet(buffer, start, { rawText: true });
 }
 
 export function detectWorkerBulkColumns(buffer: Buffer): { columns: WorkerBulkColumnMap; missing: string[] } {
-  const headerRow = readRows(buffer, HEADER_ROW_INDEX)[0] ?? [];
+  const headerRow = readSheet(buffer, HEADER_ROW_INDEX).rows[0] ?? [];
   const columns = {} as WorkerBulkColumnMap;
   const missing: string[] = [];
   for (const col of WORKER_IMPORT_COLUMNS) {
@@ -54,13 +55,26 @@ export function detectWorkerBulkColumns(buffer: Buffer): { columns: WorkerBulkCo
 
 export type RawWorkerBulkRow = { rowNumber: number } & Record<ColumnKey, string | null>;
 
+/**
+ * The Mobilization cell as one canonical string. The date is parsed here, from
+ * the cell as Excel stored it (a serial number in the workbook's own date
+ * system, or text), so the preview, the validation and the save step all see
+ * the same already-converted YYYY-MM-DD. A value that is not a recognisable
+ * date is kept exactly as written so the error can quote it.
+ */
+function mobilizationValue(cell: unknown, date1904: boolean): string | null {
+  const date = parseExcelDate(cell, { date1904 });
+  return date ? date.toISOString().slice(0, 10) : cleanString(cell);
+}
+
 export function extractWorkerBulkRows(buffer: Buffer, columns: WorkerBulkColumnMap): RawWorkerBulkRow[] {
   const rows: RawWorkerBulkRow[] = [];
-  readRows(buffer, DATA_START_ROW_INDEX).forEach((cells, index) => {
+  const { rows: cellRows, date1904 } = readSheet(buffer, DATA_START_ROW_INDEX);
+  cellRows.forEach((cells, index) => {
     const row = { rowNumber: DATA_START_ROW_INDEX + index + 1 } as RawWorkerBulkRow;
     for (const col of WORKER_IMPORT_COLUMNS) {
       const i = columns[col.key];
-      row[col.key] = i >= 0 ? cleanString(cells[i]) : null;
+      row[col.key] = i < 0 ? null : col.key === "mobilization" ? mobilizationValue(cells[i], date1904) : cleanString(cells[i]);
     }
     // A blank separator row carries no data at all — skip it rather than
     // reporting five "missing" errors for it.
@@ -73,8 +87,72 @@ export function extractWorkerBulkRows(buffer: Buffer, columns: WorkerBulkColumnM
 type NamedRef = { id: string; name: string };
 
 /** Everything validation needs from the database, pre-loaded by the caller. */
+/** A worker already in the system, as much of it as the duplicate review needs. */
+export type ExistingWorkerRef = {
+  id: string;
+  fullName: string;
+  iqamaNumber: string;
+  sequenceNo: number;
+  status: string;
+  nationality: string | null;
+  mobile: string | null;
+  /** YYYY-MM-DD */
+  mobilizationDate: string | null;
+  workerType: WorkerTypeValue | null;
+  supplierId: string | null;
+  supplierName: string | null;
+  designation: string | null;
+  skillCategory: string | null;
+  hourlyRate: number | null;
+};
+
+/** Profile fields a bulk "update existing worker" is allowed to change. */
+export const UPDATABLE_FIELDS = [
+  { key: "fullName", label: "Full name" },
+  { key: "nationality", label: "Nationality" },
+  { key: "mobile", label: "Mobile" },
+  { key: "mobilizationDate", label: "Mobilization date" },
+  { key: "workerType", label: "Worker type" },
+  { key: "supplier", label: "Supplier" },
+  { key: "designation", label: "Designation" },
+  { key: "skillCategory", label: "Craft / trade" },
+  { key: "hourlyRate", label: "Worker rate (SAR/hour)" },
+] as const;
+export type UpdatableFieldKey = (typeof UPDATABLE_FIELDS)[number]["key"];
+export type FieldChange = { field: UpdatableFieldKey; label: string; from: string; to: string };
+
+const sameText = (a: string | null | undefined, b: string | null | undefined) => normalizeName(a) === normalizeName(b);
+
+/**
+ * What an update from this row would change on the existing worker. Only
+ * values the file actually provides are considered — a blank cell never
+ * erases what is already recorded — and only differences are returned.
+ */
+export function diffWorker(existing: ExistingWorkerRef, incoming: ManpowerRegistrationInput, supplierName: string | null): FieldChange[] {
+  const changes: FieldChange[] = [];
+  const label = (key: UpdatableFieldKey) => UPDATABLE_FIELDS.find((f) => f.key === key)!.label;
+  const push = (field: UpdatableFieldKey, from: string | null, to: string) => changes.push({ field, label: label(field), from: from || "—", to });
+
+  if (incoming.fullName && !sameText(existing.fullName, incoming.fullName)) push("fullName", existing.fullName, incoming.fullName);
+  if (incoming.nationality && !sameText(existing.nationality, incoming.nationality)) push("nationality", existing.nationality, incoming.nationality);
+  if (incoming.mobile && (existing.mobile ?? "").replace(/\s+/g, "") !== incoming.mobile.replace(/\s+/g, "")) push("mobile", existing.mobile, incoming.mobile);
+  if (incoming.mobilizationDate && existing.mobilizationDate !== incoming.mobilizationDate) push("mobilizationDate", existing.mobilizationDate, incoming.mobilizationDate);
+  if (incoming.workerType && existing.workerType !== incoming.workerType) push("workerType", existing.workerType, incoming.workerType);
+  if (incoming.workerType === "HRD") {
+    if (incoming.supplierId && existing.supplierId !== incoming.supplierId) push("supplier", existing.supplierName, supplierName ?? incoming.supplierId);
+  } else if (existing.supplierId && incoming.workerType && existing.workerType !== incoming.workerType) {
+    push("supplier", existing.supplierName, "— (not an HRD worker)");
+  }
+  if (incoming.designation && !sameText(existing.designation, incoming.designation)) push("designation", existing.designation, incoming.designation);
+  if (incoming.skillCategory && !sameText(existing.skillCategory, incoming.skillCategory)) push("skillCategory", existing.skillCategory, incoming.skillCategory);
+  if (incoming.workerRate != null && Number(existing.hourlyRate ?? NaN) !== Number(incoming.workerRate)) {
+    push("hourlyRate", existing.hourlyRate == null ? null : String(existing.hourlyRate), String(incoming.workerRate));
+  }
+  return changes;
+}
+
 export type WorkerBulkImportContext = {
-  existingByIqama: ReadonlyMap<string, { fullName: string }>;
+  existingByIqama: ReadonlyMap<string, ExistingWorkerRef>;
   /** `${lowercase name}|${mobile}|${yyyy-mm-dd}` of existing workers, for Iqama-less duplicate detection. */
   existingNaturalKeys: ReadonlySet<string>;
   /** Active suppliers. */
@@ -130,6 +208,16 @@ export type InvalidWorkerBulkRow = {
   errors: string[];
   /** The row exactly as uploaded, so a rejected record can be corrected and re-uploaded. */
   source: Record<string, string | null>;
+  /**
+   * Set when the Iqama already belongs to a worker. Such a row is a duplicate,
+   * not an error: it is never imported as a new worker, and may only update
+   * the existing one through an explicit action.
+   */
+  duplicateOf?: ExistingWorkerRef;
+  /** The row as it would be saved — present only for a duplicate that is otherwise valid. */
+  data?: ManpowerRegistrationInput;
+  /** What an explicit update would change on `duplicateOf`. */
+  changes?: FieldChange[];
 };
 
 export type WorkerBulkRowResult = ValidWorkerBulkRow | InvalidWorkerBulkRow;
@@ -218,7 +306,13 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
     } else {
       const date = parseExcelDate(row.mobilization);
       if (date) mobilizationIso = date.toISOString().slice(0, 10);
-      else errors.push(`Mobilization date "${row.mobilization}" is not a valid date — use DD/MM/YYYY or YYYY-MM-DD.`);
+      else if (/^\d{4,6}$/.test(row.mobilization)) {
+        errors.push(
+          `Mobilization "${row.mobilization}" is a number that is not an Excel date between 2000 and 2100 — check the cell, or type the date as DD/MM/YYYY.`,
+        );
+      } else {
+        errors.push(`Mobilization date "${row.mobilization}" is not a valid date — use DD/MM/YYYY or YYYY-MM-DD.`);
+      }
     }
 
     let workerType: WorkerTypeValue | null = null;
@@ -230,7 +324,10 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
       else errors.push(`Worker Type "${row.workerType}" is not recognised — use FRL, HRD or OWN.`);
     }
 
-    // Iqama: optional, but 10 digits and unique when present.
+    // Iqama: optional, but 10 digits and unique when present. An Iqama that
+    // already belongs to a worker makes the row a duplicate (reported with who
+    // owns it), kept apart from genuine data errors.
+    let duplicateOf: ExistingWorkerRef | undefined;
     const iqama = row.iqama?.replace(/\s+/g, "") || null;
     if (iqama) {
       if (!IQAMA_PATTERN.test(iqama)) {
@@ -239,8 +336,7 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
         errors.push(`Iqama ${iqama} appears more than once in this file.`);
       } else {
         seenIqamas.add(iqama);
-        const existing = ctx.existingByIqama.get(iqama);
-        if (existing) errors.push(`Iqama ${iqama} is already registered to ${existing.fullName}.`);
+        duplicateOf = ctx.existingByIqama.get(iqama);
       }
     } else if (row.fullName && row.mobile && mobilizationIso) {
       const key = naturalKey(row.fullName, row.mobile, mobilizationIso);
@@ -316,19 +412,42 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
     });
     const coordinatorName = manualCoordinator?.name ?? (pickedCoordinator.source === "project" ? projectCoordinator?.name : pickedCoordinator.source === "client" ? clientCoordinator?.name : null) ?? null;
 
-    if (errors.length > 0 || !row.fullName || !row.nationality || !row.mobile || !mobilizationIso || !workerType) {
-      return invalid();
+    const rowIsClean = errors.length === 0 && Boolean(row.fullName && row.nationality && row.mobile && mobilizationIso && workerType);
+    if (duplicateOf) {
+      const failed = invalid();
+      failed.duplicateOf = duplicateOf;
+      if (rowIsClean) {
+        const data = buildData();
+        failed.data = data;
+        failed.changes = diffWorker(duplicateOf, data, supplier?.name ?? null);
+      }
+      return failed;
     }
+    if (!rowIsClean) return invalid();
 
     return {
       rowNumber: row.rowNumber,
       valid: true,
-      data: {
-        fullName: row.fullName,
-        nationality: row.nationality,
-        mobile: row.mobile,
-        mobilizationDate: mobilizationIso,
-        workerType,
+      data: buildData(),
+      batchNumber: row.batchNumber,
+      source: sourceOf(row),
+      display: {
+        supplier: supplier?.name ?? null,
+        client: client?.name ?? null,
+        project: project?.name ?? null,
+        site: site?.name ?? null,
+        coordinator: coordinatorName,
+        coordinatorSource: pickedCoordinator.source,
+      },
+    };
+
+    function buildData(): ManpowerRegistrationInput {
+      return {
+        fullName: row.fullName!,
+        nationality: row.nationality!,
+        mobile: row.mobile!,
+        mobilizationDate: mobilizationIso!,
+        workerType: workerType!,
         supplierId: supplier?.id ?? "",
         iqamaNumber: iqama ?? "",
         designation: row.designation ?? "",
@@ -343,24 +462,18 @@ export function validateWorkerBulkRows(rows: RawWorkerBulkRow[], ctx: WorkerBulk
         workerRate,
         clientBillingRate,
         notes: row.remarks ?? "",
-      },
-      batchNumber: row.batchNumber,
-      source: sourceOf(row),
-      display: {
-        supplier: supplier?.name ?? null,
-        client: client?.name ?? null,
-        project: project?.name ?? null,
-        site: site?.name ?? null,
-        coordinator: coordinatorName,
-        coordinatorSource: pickedCoordinator.source,
-      },
-    };
+      };
+    }
   });
 }
 
 export type WorkerBulkImportSummary = {
   totalRows: number;
+  /** Rows ready to import as new workers. */
   validRows: number;
+  /** Rows whose Iqama already belongs to a worker — never imported as new. */
+  duplicateRows: number;
+  /** Rows with data errors. */
   invalidRows: number;
   errorReport: {
     rowNumber: number;
@@ -372,18 +485,92 @@ export type WorkerBulkImportSummary = {
   }[];
 };
 
+function duplicateMessage(existing: ExistingWorkerRef): string {
+  return `Iqama ${existing.iqamaNumber} is already registered to ${existing.fullName} (${formatWorkerCode(existing.sequenceNo)}, ${existing.status.toLowerCase()}).`;
+}
+
 export function summarizeWorkerBulkImport(results: WorkerBulkRowResult[]): WorkerBulkImportSummary {
-  const invalid = results.filter((r): r is InvalidWorkerBulkRow => !r.valid);
+  const notImported = results.filter((r): r is InvalidWorkerBulkRow => !r.valid);
+  const duplicates = notImported.filter((r) => r.duplicateOf);
   return {
     totalRows: results.length,
-    validRows: results.length - invalid.length,
-    invalidRows: invalid.length,
-    errorReport: invalid.map((r) => ({
+    validRows: results.length - notImported.length,
+    duplicateRows: duplicates.length,
+    invalidRows: notImported.length - duplicates.length,
+    errorReport: notImported.map((r) => ({
       rowNumber: r.rowNumber,
       fullName: r.fullName,
       iqamaNumber: r.iqamaNumber,
-      errors: r.errors,
+      errors: r.duplicateOf ? [`Duplicate: ${duplicateMessage(r.duplicateOf)}`, ...r.errors] : r.errors,
       source: r.source,
     })),
   };
+}
+
+// ── Preview rows ──────────────────────────────────────────────────────────
+
+export type WorkerBulkPreviewRow = {
+  rowNumber: number;
+  status: "ready" | "duplicate" | "error";
+  fullName: string | null;
+  iqamaNumber: string | null;
+  /** YYYY-MM-DD when the cell was recognised as a date, otherwise the text as written. */
+  mobilizationDate: string | null;
+  workerType: string | null;
+  supplier: string | null;
+  client: string | null;
+  project: string | null;
+  site: string | null;
+  coordinator: string | null;
+  coordinatorSource: CoordinatorSource | null;
+  /** One short, separate message per problem. */
+  issues: string[];
+  /** For a duplicate: the worker who already has this Iqama, and what an update would change. */
+  existing?: ExistingWorkerRef;
+  changes?: FieldChange[];
+  /** True when an authorized admin could explicitly update the existing worker from this row. */
+  updatable: boolean;
+};
+
+/** Every row of the file, in file order, in the shape the preview table shows. */
+export function buildPreviewRows(results: WorkerBulkRowResult[]): WorkerBulkPreviewRow[] {
+  return results.map((r): WorkerBulkPreviewRow => {
+    if (r.valid) {
+      return {
+        rowNumber: r.rowNumber,
+        status: "ready",
+        fullName: r.data.fullName,
+        iqamaNumber: r.data.iqamaNumber || null,
+        mobilizationDate: r.data.mobilizationDate,
+        workerType: r.data.workerType,
+        supplier: r.display.supplier,
+        client: r.display.client,
+        project: r.display.project,
+        site: r.display.site,
+        coordinator: r.display.coordinator,
+        coordinatorSource: r.display.coordinatorSource,
+        issues: [],
+        updatable: false,
+      };
+    }
+    const src = r.source;
+    return {
+      rowNumber: r.rowNumber,
+      status: r.duplicateOf ? "duplicate" : "error",
+      fullName: r.fullName,
+      iqamaNumber: r.iqamaNumber,
+      mobilizationDate: src["Mobilization"] ?? null,
+      workerType: src["Worker Type"] ?? null,
+      supplier: src["Supplier"] ?? null,
+      client: src["Client"] ?? null,
+      project: src["Project"] ?? null,
+      site: src["Site"] ?? null,
+      coordinator: src["Coordinator"] ?? null,
+      coordinatorSource: null,
+      issues: r.duplicateOf ? [duplicateMessage(r.duplicateOf), ...r.errors] : r.errors,
+      existing: r.duplicateOf,
+      changes: r.changes,
+      updatable: Boolean(r.duplicateOf && r.data && r.changes && r.changes.length > 0),
+    };
+  });
 }

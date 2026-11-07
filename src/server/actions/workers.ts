@@ -7,21 +7,31 @@ import { db } from "@/lib/db";
 import { workerFormSchema, type WorkerFormInput } from "@/lib/validation/worker";
 import { actionError, ok, type ActionResult } from "@/server/action-result";
 import { logAudit } from "@/server/audit";
-import { manpowerRegistrationSchema } from "@/lib/validation/manpower";
+import { manpowerRegistrationSchema, type ManpowerRegistrationInput } from "@/lib/validation/manpower";
 import {
+  buildPreviewRows,
   detectWorkerBulkColumns,
   extractWorkerBulkRows,
   naturalKey,
   summarizeWorkerBulkImport,
   validateWorkerBulkRows,
+  type FieldChange,
   type RawWorkerBulkRow,
   type ValidWorkerBulkRow,
+  type WorkerBulkPreviewRow,
   type WorkerBulkImportContext,
   type WorkerBulkImportSummary,
 } from "@/server/import/worker-bulk-import";
-import { createManpowerRecord, ManpowerRecordError } from "@/server/manpower";
+import { importEngineInfo } from "@/server/import/excel-utils";
+import {
+  createManpowerRecord,
+  ManpowerRecordError,
+  toExistingWorkerRef,
+  updateWorkerFromImport,
+  workerRefSelect,
+} from "@/server/manpower";
 import { resolveDesignationId } from "@/server/designations";
-import { assertCan, type SessionUser } from "@/server/rbac";
+import { assertCan, can, type SessionUser } from "@/server/rbac";
 import { getSessionUser } from "@/server/session";
 
 function toDate(value?: string) {
@@ -272,9 +282,24 @@ export async function demobilizeWorker(id: string): Promise<ActionResult<{ id: s
   }
 }
 
+/** A duplicate row an authorized admin may choose to apply to the existing worker. */
+export type WorkerUpdateCandidate = {
+  rowNumber: number;
+  data: ManpowerRegistrationInput;
+  existingName: string;
+  changes: FieldChange[];
+};
+
 export type WorkerImportPreview = {
   summary: WorkerBulkImportSummary;
+  /** Rows ready to import as new workers. */
   validRows: ValidWorkerBulkRow[];
+  /** Every row of the file, in order, with its validation status. */
+  rows: WorkerBulkPreviewRow[];
+  /** Duplicates that could be explicitly applied to the existing worker (empty unless the user may update workers). */
+  updateCandidates: WorkerUpdateCandidate[];
+  /** Which build / spreadsheet library read this file. */
+  engine: { commit: string; xlsx: string; deployment: string };
 };
 
 function distinct(values: (string | null)[]) {
@@ -293,7 +318,7 @@ async function loadWorkerImportContext(rawRows: RawWorkerBulkRow[]): Promise<Wor
   // Only non-archived records are candidates, so a row can never land on an
   // archived site. Nothing is created: an unmatched name is a row error.
   const [byIqama, sameNames, suppliers, clients, coordinators] = await Promise.all([
-    db.worker.findMany({ where: { iqamaNumber: { in: iqamas } }, select: { fullName: true, iqamaNumber: true } }),
+    db.worker.findMany({ where: { iqamaNumber: { in: iqamas } }, select: workerRefSelect }),
     db.worker.findMany({
       where: { deletedAt: null, fullName: insensitiveIn(names) },
       select: { fullName: true, mobile: true, mobilizationDate: true },
@@ -312,7 +337,7 @@ async function loadWorkerImportContext(rawRows: RawWorkerBulkRow[]): Promise<Wor
   });
 
   return {
-    existingByIqama: new Map(byIqama.flatMap((w) => (w.iqamaNumber ? [[w.iqamaNumber, { fullName: w.fullName }] as const] : []))),
+    existingByIqama: new Map(byIqama.flatMap((w) => (w.iqamaNumber ? [[w.iqamaNumber, toExistingWorkerRef(w)] as const] : []))),
     existingNaturalKeys: new Set(
       sameNames.flatMap((w) =>
         w.mobile && w.mobilizationDate ? [naturalKey(w.fullName, w.mobile, w.mobilizationDate.toISOString().slice(0, 10))] : [],
@@ -357,9 +382,19 @@ export async function previewWorkerImport(formData: FormData): Promise<ActionRes
     }
 
     const results = validateWorkerBulkRows(rawRows, await loadWorkerImportContext(rawRows));
+    const canUpdate = can(user, "update", "worker");
     return ok({
       summary: summarizeWorkerBulkImport(results),
       validRows: results.filter((r): r is ValidWorkerBulkRow => r.valid),
+      rows: buildPreviewRows(results),
+      updateCandidates: canUpdate
+        ? results.flatMap((r) =>
+            !r.valid && r.duplicateOf && r.data && r.changes && r.changes.length > 0
+              ? [{ rowNumber: r.rowNumber, data: r.data, existingName: r.duplicateOf.fullName, changes: r.changes }]
+              : [],
+          )
+        : [],
+      engine: importEngineInfo(),
     });
   } catch (error) {
     return actionError(error);
@@ -373,24 +408,35 @@ export async function previewWorkerImport(formData: FormData): Promise<ActionRes
  * Rows come back from the browser, so each is re-validated with the same
  * schema Quick Register uses, and createManpowerRecord re-checks every
  * referenced record against the database. Re-running the same import is
- * safe: already-registered rows are reported as skipped, not duplicated. */
+ * safe: already-registered rows are reported as skipped, not duplicated.
+ *
+ * Duplicates (an Iqama that already belongs to a worker) are skipped unless
+ * the caller explicitly lists them in `updates`: then, and only then, the
+ * existing worker's profile fields are updated — recomputed from the
+ * database, audited with before/after values, and never touching assignments. */
 export async function importWorkerRows(input: {
   fileName: string;
   summary: WorkerBulkImportSummary;
   items: ValidWorkerBulkRow[];
-}): Promise<ActionResult<{ importedCount: number; skippedCount: number; failedCount: number }>> {
+  updates?: { rowNumber: number; data: ManpowerRegistrationInput }[];
+}): Promise<ActionResult<{ importedCount: number; updatedCount: number; skippedCount: number; failedCount: number }>> {
   try {
     const user = await getSessionUser();
     assertCan(user, "create", "worker");
+    const updates = input.updates ?? [];
+    if (updates.length > 0) assertCan(user, "update", "worker");
 
-    if (input.items.length === 0) {
+    if (input.items.length === 0 && updates.length === 0) {
       return { success: false, error: "No valid rows to import." };
     }
     if (input.items.some((item) => item.data.clientId)) assertCan(user, "create", "assignment");
 
     const writeFailures: WorkerBulkImportSummary["errorReport"] = [];
     let importedCount = 0;
-    let skippedCount = 0;
+    let updatedCount = 0;
+    /** Rows that turned out to be duplicates at write time (another import got there first). */
+    let raceSkips = 0;
+    const updatedRows = new Set<number>();
 
     for (const item of input.items) {
       const parsed = manpowerRegistrationSchema.safeParse(item.data);
@@ -418,7 +464,7 @@ export async function importWorkerRows(input: {
         importedCount += 1;
       } catch (error) {
         const alreadyRegistered = error instanceof ManpowerRecordError && /already registered/.test(error.message);
-        if (alreadyRegistered || isDuplicateIqama(error)) skippedCount += 1;
+        if (alreadyRegistered || isDuplicateIqama(error)) raceSkips += 1;
         writeFailures.push({
           rowNumber: item.rowNumber,
           fullName: parsed.data.fullName,
@@ -435,9 +481,57 @@ export async function importWorkerRows(input: {
       }
     }
 
-    const failedCount = input.summary.invalidRows + writeFailures.length - skippedCount;
-    const errorReport = [...input.summary.errorReport, ...writeFailures];
-    const status = failedCount + skippedCount === 0 ? "COMPLETED" : importedCount > 0 ? "PARTIAL" : "FAILED";
+    for (const update of updates) {
+      const parsed = manpowerRegistrationSchema.safeParse(update.data);
+      if (!parsed.success) {
+        writeFailures.push({
+          rowNumber: update.rowNumber,
+          fullName: update.data.fullName ?? null,
+          iqamaNumber: update.data.iqamaNumber || null,
+          errors: parsed.error.issues.map((issue) => issue.message),
+        });
+        continue;
+      }
+      try {
+        const before = parsed.data.iqamaNumber
+          ? await db.worker.findUnique({ where: { iqamaNumber: parsed.data.iqamaNumber }, select: workerRefSelect })
+          : null;
+        const result = await db.$transaction((tx) => updateWorkerFromImport(tx, parsed.data));
+        await logAudit({
+          userId: user.id,
+          action: "update",
+          entityType: "Worker",
+          entityId: result.workerId,
+          previousValue: Object.fromEntries(result.changes.map((c) => [c.field, c.from])),
+          newValue: {
+            ...Object.fromEntries(result.changes.map((c) => [c.field, c.to])),
+            source: "bulk-import-update",
+            fileName: input.fileName,
+            existingName: before?.fullName ?? null,
+          },
+        });
+        updatedCount += 1;
+        updatedRows.add(update.rowNumber);
+        revalidatePath(`/workers/${result.workerId}`);
+      } catch (error) {
+        writeFailures.push({
+          rowNumber: update.rowNumber,
+          fullName: parsed.data.fullName,
+          iqamaNumber: parsed.data.iqamaNumber || null,
+          errors: [error instanceof ManpowerRecordError ? error.message : "Could not update this worker."],
+        });
+      }
+    }
+
+    // Duplicates the user did not choose to update are skipped, untouched.
+    const skippedCount = raceSkips + Math.max(0, input.summary.duplicateRows - updates.length);
+    const failedCount = input.summary.invalidRows + writeFailures.length - raceSkips;
+    const errorReport = [
+      ...input.summary.errorReport.filter((entry) => !updatedRows.has(entry.rowNumber)),
+      ...writeFailures,
+    ];
+    const status =
+      failedCount + skippedCount === 0 ? "COMPLETED" : importedCount + updatedCount > 0 ? "PARTIAL" : "FAILED";
 
     const importRun = await db.importRun.create({
       data: {
@@ -445,7 +539,7 @@ export async function importWorkerRows(input: {
         status,
         fileName: input.fileName,
         totalRows: input.summary.totalRows,
-        importedRows: importedCount,
+        importedRows: importedCount + updatedCount,
         failedRows: failedCount + skippedCount,
         errorReport,
         uploadedById: user.id,
@@ -457,13 +551,13 @@ export async function importWorkerRows(input: {
       action: "import",
       entityType: "Worker",
       entityId: importRun.id,
-      newValue: { fileName: input.fileName, importedCount, skippedCount, failedCount },
+      newValue: { fileName: input.fileName, importedCount, updatedCount, skippedCount, failedCount },
     });
 
     revalidatePath("/workers");
     revalidatePath("/assignments");
     revalidatePath("/import-history");
-    return ok({ importedCount, skippedCount, failedCount });
+    return ok({ importedCount, updatedCount, skippedCount, failedCount });
   } catch (error) {
     return actionError(error);
   }

@@ -1,4 +1,5 @@
 import type { Prisma, WorkerStatus, WorkerType } from "@prisma/client";
+import { diffWorker, type ExistingWorkerRef, type FieldChange } from "@/server/import/worker-bulk-import";
 
 import type { CoordinatorSource } from "@/lib/coordinator-resolution";
 import type { ManpowerRegistrationInput } from "@/lib/validation/manpower";
@@ -179,4 +180,95 @@ async function chooseCoordinator(
     return { id: resolved.coordinatorId, name: resolved.coordinatorName, source: resolved.source };
   }
   return { id: null, name: null, source: "none" };
+}
+
+const workerRefSelect = {
+  id: true,
+  fullName: true,
+  iqamaNumber: true,
+  sequenceNo: true,
+  status: true,
+  nationality: true,
+  mobile: true,
+  mobilizationDate: true,
+  workerType: true,
+  supplierId: true,
+  skillCategory: true,
+  hourlyRate: true,
+  deletedAt: true,
+  supplier: { select: { name: true } },
+  designation: { select: { title: true } },
+} satisfies Prisma.WorkerSelect;
+export { workerRefSelect };
+
+type WorkerRefRow = Prisma.WorkerGetPayload<{ select: typeof workerRefSelect }>;
+
+/** A database worker as the duplicate review sees it. */
+export function toExistingWorkerRef(w: WorkerRefRow): ExistingWorkerRef {
+  return {
+    id: w.id,
+    fullName: w.fullName,
+    iqamaNumber: w.iqamaNumber ?? "",
+    sequenceNo: w.sequenceNo,
+    status: w.status,
+    nationality: w.nationality ?? null,
+    mobile: w.mobile ?? null,
+    mobilizationDate: w.mobilizationDate ? w.mobilizationDate.toISOString().slice(0, 10) : null,
+    workerType: w.workerType,
+    supplierId: w.supplierId,
+    supplierName: w.supplier?.name ?? null,
+    designation: w.designation?.title ?? null,
+    skillCategory: w.skillCategory ?? null,
+    hourlyRate: w.hourlyRate == null ? null : Number(w.hourlyRate),
+  };
+}
+
+/**
+ * The explicit "update existing worker" write for a bulk-import duplicate.
+ * The target is found by Iqama and the changes are recomputed here from the
+ * worker's CURRENT data — nothing the browser sent about the existing worker
+ * is trusted. Only the profile fields in UPDATABLE_FIELDS can change, a blank
+ * cell never erases a value, and the placement (assignments) is never touched.
+ */
+export async function updateWorkerFromImport(
+  tx: Prisma.TransactionClient,
+  data: ManpowerRegistrationInput,
+): Promise<{ workerId: string; changes: FieldChange[] }> {
+  const iqama = data.iqamaNumber;
+  if (!iqama) throw new ManpowerRecordError("An update needs the worker's Iqama number.");
+
+  const worker = await tx.worker.findUnique({ where: { iqamaNumber: iqama }, select: workerRefSelect });
+  if (!worker) throw new ManpowerRecordError(`No worker with Iqama ${iqama} exists any more.`);
+  if (worker.deletedAt) throw new ManpowerRecordError(`The worker with Iqama ${iqama} is archived — restore them before updating.`);
+
+  let supplierName: string | null = null;
+  if (data.workerType === "HRD") {
+    const supplier = data.supplierId ? await tx.supplier.findUnique({ where: { id: data.supplierId } }) : null;
+    if (!supplier || supplier.status !== "ACTIVE") throw new ManpowerRecordError("Select an active supplier for HRD manpower.");
+    supplierName = supplier.name;
+  }
+
+  const existing = toExistingWorkerRef(worker);
+  const changes = diffWorker(existing, data, supplierName);
+  if (changes.length === 0) throw new ManpowerRecordError(`${existing.fullName} already matches this row — nothing to update.`);
+
+  const has = (field: FieldChange["field"]) => changes.some((c) => c.field === field);
+  const update: Prisma.WorkerUpdateInput = {};
+  if (has("fullName")) update.fullName = data.fullName;
+  if (has("nationality")) update.nationality = data.nationality;
+  if (has("mobile")) update.mobile = data.mobile;
+  if (has("mobilizationDate")) update.mobilizationDate = new Date(data.mobilizationDate.slice(0, 10));
+  if (has("workerType")) update.workerType = data.workerType as WorkerType;
+  if (has("workerType") || has("supplier")) {
+    update.supplier = data.workerType === "HRD" ? { connect: { id: data.supplierId! } } : { disconnect: true };
+  }
+  if (has("designation")) {
+    const designationId = await resolveDesignationId(data.designation, tx);
+    update.designation = designationId ? { connect: { id: designationId } } : { disconnect: true };
+  }
+  if (has("skillCategory")) update.skillCategory = data.skillCategory || null;
+  if (has("hourlyRate")) update.hourlyRate = data.workerRate ?? null;
+
+  await tx.worker.update({ where: { id: worker.id }, data: update });
+  return { workerId: worker.id, changes };
 }

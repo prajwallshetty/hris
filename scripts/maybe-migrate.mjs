@@ -2,20 +2,19 @@
 // Brings the deployment's database up to the schema this build's code
 // expects, before `next build` runs. Wired into `npm run build` (the Build Command pinned in vercel.json).
 //
-// Why this runs on Preview too: a Preview deployment of a branch that adds
-// a migration otherwise ships code that selects columns its database does
-// not have yet (Prisma P2022/P2021). Almost every page then renders
-// "Something went wrong" — that is exactly how `Worker.workerType` broke
-// branch previews.
-//
 // Safety rules:
 // - Local builds (VERCEL_ENV unset) never touch a database.
-// - Production applies every pending migration, as before.
-// - Preview applies pending migrations ONLY when every one of them is
-//   additive. If any pending migration drops, truncates or deletes, the
-//   build FAILS with the offending statements listed, so a branch can
-//   never remove data from a database it shares with production. Apply
-//   such a migration deliberately with `npx prisma migrate deploy`.
+// - Production applies every pending migration.
+// - Preview builds do NOT migrate by default. A Preview build runs against
+//   whatever DATABASE_URL the preview environment has — often the same
+//   database production uses — and a migration that fails there (for
+//   example a column production already has) is recorded by Prisma as
+//   FAILED, which then blocks every later deploy, production included
+//   (P3009). Set PREVIEW_AUTO_MIGRATE=1 on the preview environment to opt
+//   in, which is only appropriate when previews have their OWN database;
+//   even then only additive migrations are applied.
+// - A migration already recorded as FAILED stops the build with the exact
+//   commands to resolve it, instead of an opaque Prisma exit code.
 // - A migration failure fails the build: blocking a deploy is safer than
 //   shipping code that queries a schema the database does not have.
 // - Credentials are never printed.
@@ -35,19 +34,37 @@ function localMigrations() {
     .sort();
 }
 
-async function appliedMigrations(url) {
+async function migrationState(url) {
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
     const exists = await client.query(`SELECT to_regclass('public._prisma_migrations') AS t`);
-    if (!exists.rows[0].t) return new Set();
+    if (!exists.rows[0].t) return { applied: new Set(), failed: [] };
     const res = await client.query(
-      `SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`,
+      `SELECT migration_name, finished_at, rolled_back_at, started_at FROM "_prisma_migrations" ORDER BY started_at`,
     );
-    return new Set(res.rows.map((r) => r.migration_name));
+    return {
+      applied: new Set(res.rows.filter((r) => r.finished_at && !r.rolled_back_at).map((r) => r.migration_name)),
+      // Started but never finished and not rolled back: Prisma will refuse to run anything until it is resolved.
+      failed: res.rows.filter((r) => !r.finished_at && !r.rolled_back_at).map((r) => r.migration_name),
+    };
   } finally {
     await client.end();
   }
+}
+
+function explainFailedMigrations(failed) {
+  console.error(`[migrate] The database has ${failed.length} migration(s) recorded as FAILED:\n  - ${failed.join("\n  - ")}`);
+  console.error(
+    [
+      "[migrate] Prisma refuses to apply anything (error P3009) until each one is resolved, so every deploy fails until then.",
+      "[migrate] A failed migration is usually one that stopped part-way (e.g. 'column already exists'). Postgres runs each",
+      "[migrate] migration file as one transaction, so a failed file changed nothing. From your own machine, with this",
+      "[migrate] database's DIRECT (non-pooled) URL in DATABASE_URL, run — never `migrate reset`:",
+      ...failed.map((name) => `[migrate]     npx prisma migrate resolve --rolled-back ${name}`),
+      "[migrate] Then redeploy. If you are sure the migration's changes are already fully present, use --applied instead.",
+    ].join("\n"),
+  );
 }
 
 /** Strips SQL comments so a commented-out DROP doesn't count. */
@@ -60,8 +77,19 @@ function destructiveStatements(sql) {
     .map((s) => s.replace(/\s+/g, " ").slice(0, 160));
 }
 
-function deploy(url) {
-  execSync("npx prisma migrate deploy", { stdio: "inherit", env: { ...process.env, DATABASE_URL: url } });
+async function deploy(url) {
+  try {
+    execSync("npx prisma migrate deploy", { stdio: "inherit", env: { ...process.env, DATABASE_URL: url } });
+  } catch {
+    console.error("[migrate] `prisma migrate deploy` failed — the Prisma error is printed just above (P3009 / P3018 / P1002 …).");
+    try {
+      const { failed } = await migrationState(url);
+      if (failed.length > 0) explainFailedMigrations(failed);
+    } catch {
+      // The state check is only a diagnostic; the build already fails below.
+    }
+    process.exit(1);
+  }
 }
 
 const env = process.env.VERCEL_ENV;
@@ -81,7 +109,11 @@ if (!migrationUrl) {
   process.exit(1);
 }
 
-const applied = await appliedMigrations(migrationUrl);
+const { applied, failed } = await migrationState(migrationUrl);
+if (failed.length > 0) {
+  explainFailedMigrations(failed);
+  process.exit(1);
+}
 const pending = localMigrations().filter((name) => !applied.has(name));
 
 if (pending.length === 0) {
@@ -90,6 +122,15 @@ if (pending.length === 0) {
 }
 
 console.log(`[migrate] ${env}: ${pending.length} pending migration(s):\n  - ${pending.join("\n  - ")}`);
+
+if (env === "preview" && process.env.PREVIEW_AUTO_MIGRATE !== "1") {
+  console.warn(
+    "[migrate] Preview build: NOT applying these migrations (they could fail against a database production also uses, and a failed\n" +
+      "[migrate] migration blocks every later deploy). The preview's pages that need them will error until the database is migrated.\n" +
+      "[migrate] Give previews their own database and set PREVIEW_AUTO_MIGRATE=1 on the preview environment to apply them automatically.",
+  );
+  process.exit(0);
+}
 
 if (env === "preview") {
   const blocked = pending
@@ -103,4 +144,4 @@ if (env === "preview") {
   }
 }
 
-deploy(migrationUrl);
+await deploy(migrationUrl);
